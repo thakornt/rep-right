@@ -16,6 +16,8 @@ type Config struct {
 	AllowedOrigins  []string
 	LogLevel        string
 	ShutdownTimeout time.Duration
+	// Version identifies the running build (commit SHA); "dev" locally.
+	Version string
 }
 
 // Load reads configuration from the environment and fails fast when a
@@ -28,6 +30,8 @@ func Load() (Config, error) {
 		AllowedOrigins:  splitList(getenv("ALLOWED_ORIGINS", "http://localhost:3000")),
 		LogLevel:        getenv("LOG_LEVEL", "info"),
 		ShutdownTimeout: 10 * time.Second,
+		// Render sets RENDER_GIT_COMMIT; APP_VERSION works on any other host.
+		Version: getenv("APP_VERSION", getenv("RENDER_GIT_COMMIT", "dev")),
 	}
 
 	var errs []error

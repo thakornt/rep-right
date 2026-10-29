@@ -36,3 +36,17 @@ func TestLoadRejectsUnknownEnv(t *testing.T) {
 		t.Fatal("expected error for unknown APP_ENV")
 	}
 }
+
+func TestVersionPrefersAppVersion(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("RENDER_GIT_COMMIT", "render-sha")
+
+	t.Setenv("APP_VERSION", "")
+	if cfg, _ := Load(); cfg.Version != "render-sha" {
+		t.Errorf("Version = %q, want render-sha", cfg.Version)
+	}
+	t.Setenv("APP_VERSION", "app-sha")
+	if cfg, _ := Load(); cfg.Version != "app-sha" {
+		t.Errorf("Version = %q, want app-sha", cfg.Version)
+	}
+}

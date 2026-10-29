@@ -56,7 +56,7 @@ func run(args []string) error {
 	}
 	switch cmd {
 	case "serve":
-		return serve(ctx, cfg, log, apihttp.Deps{Log: log, DB: pool, AllowedOrigins: cfg.AllowedOrigins})
+		return serve(ctx, cfg, log, apihttp.Deps{Log: log, DB: pool, AllowedOrigins: cfg.AllowedOrigins, Version: cfg.Version})
 	case "migrate":
 		if len(args) < 2 {
 			return errors.New("usage: api migrate <up|down|status|version>")

@@ -23,6 +23,7 @@ func newTestRouter(db Pinger) *gin.Engine {
 		Log:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DB:             db,
 		AllowedOrigins: []string{"http://localhost:3000"},
+		Version:        "abc123",
 	})
 }
 
@@ -52,6 +53,10 @@ func TestHealthzOK(t *testing.T) {
 	}
 	if w.Header().Get(requestIDHeader) == "" {
 		t.Error("missing X-Request-ID header")
+	}
+	var body struct{ Status, Version string }
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Version != "abc123" {
+		t.Errorf("body = %s, want version abc123", w.Body.String())
 	}
 }
 
