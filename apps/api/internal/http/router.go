@@ -19,6 +19,7 @@ type Deps struct {
 	Log            *slog.Logger
 	DB             Pinger
 	AllowedOrigins []string
+	Version        string
 }
 
 func NewRouter(d Deps) *gin.Engine {
@@ -33,11 +34,11 @@ func NewRouter(d Deps) *gin.Engine {
 		writeError(c, http.StatusMethodNotAllowed, CodeMethodNotAllowed, "method not allowed")
 	})
 
-	r.GET("/healthz", healthz(d.DB))
+	r.GET("/healthz", healthz(d.DB, d.Version))
 	return r
 }
 
-func healthz(db Pinger) gin.HandlerFunc {
+func healthz(db Pinger, version string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
@@ -45,6 +46,6 @@ func healthz(db Pinger) gin.HandlerFunc {
 			writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "database unreachable")
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": version})
 	}
 }
