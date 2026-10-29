@@ -1,4 +1,7 @@
-# Deploy & CI/CD
+# ทางเลือก: ย้าย API ไป Cloud Run
+
+> ตอนนี้ deploy ด้วย Render ตาม [../DEPLOY.md](../DEPLOY.md) ไฟล์นี้เก็บไว้เผื่อย้ายภายหลัง
+> ถ้าจะใช้ ให้ย้าย `deploy-api.yml` ในโฟลเดอร์นี้ไปแทนตัวที่อยู่ใน `.github/workflows/`
 
 ภาพรวม production:
 
