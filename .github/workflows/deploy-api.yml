@@ -1,0 +1,74 @@
+name: deploy-api
+
+# Deploys only after ci passed on main. Setup steps: docs/DEPLOY.md
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation
+
+jobs:
+  deploy:
+    # Skip quietly until GCP is configured (docs/DEPLOY.md step 3.8).
+    if: >-
+      vars.GCP_PROJECT_ID != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/repright/api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: build and push image
+        working-directory: apps/api
+        run: |
+          gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+          docker build -t "$IMAGE:$SHA" .
+          docker push "$IMAGE:$SHA"
+
+      - name: migrate (stops the deploy if it fails)
+        run: |
+          gcloud run jobs deploy repright-migrate \
+            --image="$IMAGE:$SHA" --region=${{ vars.GCP_REGION }} \
+            --service-account=${{ vars.GCP_RUNTIME_SA }} \
+            --args=migrate,up \
+            --set-env-vars=APP_ENV=production \
+            --set-secrets=DATABASE_URL=database-url-direct:latest \
+            --max-retries=0 --task-timeout=120s \
+            --execute-now --wait
+
+      - name: deploy service
+        run: |
+          # ^@^ switches the list delimiter so ALLOWED_ORIGINS may contain commas.
+          gcloud run deploy repright-api \
+            --image="$IMAGE:$SHA" --region=${{ vars.GCP_REGION }} \
+            --service-account=${{ vars.GCP_RUNTIME_SA }} \
+            --allow-unauthenticated \
+            --set-env-vars="^@^APP_ENV=production@ALLOWED_ORIGINS=${{ vars.API_ALLOWED_ORIGINS }}@GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}" \
+            --set-secrets=DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest \
+            --cpu=1 --memory=256Mi --min-instances=0 --max-instances=3 --concurrency=80
+
+      - name: smoke test
+        run: |
+          url=$(gcloud run services describe repright-api --region=${{ vars.GCP_REGION }} --format='value(status.url)')
+          curl --fail --retry 5 --retry-delay 3 --retry-all-errors "$url/healthz"

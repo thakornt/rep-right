@@ -37,3 +37,7 @@ apps/web          Next.js (Phase 4)
 - **Cloud Run (asia-southeast1) + Neon (Singapore):** scale to zero และมี free tier ถาวร ส่วน Fly.io ไม่มี free tier สำหรับบัญชีใหม่แล้ว
 - **Same-origin ผ่าน Next.js rewrite `/api/*`:** refresh cookie จะเป็น first-party จึงไม่โดน Safari/iOS บล็อก
 - **ลบบัญชีแบบ hard delete:** ข้อมูลทุกตารางผูก `ON DELETE CASCADE` กับ `users` ตามหลัก PDPA
+
+## Deploy
+
+ขั้นตอน deploy และ CI/CD ทุก platform (GitHub, Neon, Google Cloud, Google OAuth, Vercel, Sentry): [docs/DEPLOY.md](docs/DEPLOY.md)
