@@ -1,0 +1,22 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# go
+/apps/api/bin/
+*.test
+*.out
+
+# node / next (Phase 4)
+node_modules/
+.next/
+out/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+
+# claude code local settings
+.claude/settings.local.json
