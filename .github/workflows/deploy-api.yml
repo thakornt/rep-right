@@ -1,0 +1,63 @@
+name: deploy-api
+
+# Runs after ci passed on main: migrate Neon, then deploy to Render.
+# Setup steps: docs/DEPLOY.md
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Skip quietly until Render is configured (docs/DEPLOY.md step 4).
+    if: >-
+      vars.API_URL != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: migrate (stops the deploy if it fails)
+        working-directory: apps/api
+        env:
+          APP_ENV: production
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: go run ./cmd/api migrate up
+
+      - name: trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error -X POST "$HOOK" > /dev/null
+
+      - name: wait until the new commit is live
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          # Free-tier builds are slow; allow up to 15 minutes.
+          for i in $(seq 1 90); do
+            live=$(curl --silent --max-time 60 "$API_URL/healthz" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+            echo "attempt $i: live version=${live:-none}"
+            if [ "$live" = "$SHA" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::$SHA did not go live within 15 minutes; check the Render dashboard"
+          exit 1
