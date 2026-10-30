@@ -46,6 +46,9 @@ func TestWorkoutStore(t *testing.T) {
 	if err != nil || len(exercises) < 5 {
 		t.Fatalf("seeded exercises: %v, %v", exercises, err)
 	}
+	if lr, err := s.ExerciseBySlug(ctx, "leg-raise"); err != nil || lr.Category != "core" || lr.IsLowerBody {
+		t.Errorf("leg-raise from migration 00003: %+v, %v", lr, err)
+	}
 	squat, err := s.ExerciseBySlug(ctx, "back-squat")
 	if err != nil || !squat.IsLowerBody {
 		t.Fatalf("back-squat: %+v, %v", squat, err)
