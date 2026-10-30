@@ -97,3 +97,63 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 export const getMe = () => apiFetch<User>("/v1/me");
+
+export type Exercise = {
+  id: number;
+  slug: string;
+  name_th: string;
+  name_en: string;
+  category: string;
+  is_lower_body: boolean;
+};
+
+export type SetEntry = { exercise_id: number; weight_kg: number; reps: number; rpe: number | null };
+
+export type SessionInput = {
+  performed_at: string; // YYYY-MM-DD
+  notes: string;
+  pain_flag: boolean;
+  sets: SetEntry[];
+};
+
+export type Session = SessionInput & { id: string; created_at: string; updated_at: string };
+
+const json = (body: unknown): RequestInit => ({
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export async function getExercises(): Promise<Exercise[]> {
+  const res = await fetch(`${apiUrl}/v1/exercises`);
+  if (!res.ok) throw await parseError(res);
+  return ((await res.json()) as { exercises: Exercise[] }).exercises;
+}
+
+export const createSession = (s: SessionInput) =>
+  apiFetch<Session>("/v1/sessions", { method: "POST", ...json(s) });
+
+export const listSessions = async (from?: string, to?: string) => {
+  const q = new URLSearchParams();
+  if (from) q.set("from", from);
+  if (to) q.set("to", to);
+  const qs = q.size ? `?${q}` : "";
+  return (await apiFetch<{ sessions: Session[] }>(`/v1/sessions${qs}`)).sessions;
+};
+
+export const deleteSession = (id: string) => apiFetch<void>(`/v1/sessions/${id}`, { method: "DELETE" });
+
+/** Latest session with this exercise (its sets only), or null if never done. */
+export async function getLastSession(slug: string): Promise<Session | null> {
+  try {
+    return await apiFetch<Session>(`/v1/sessions/last?exercise=${encodeURIComponent(slug)}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/** Current wording version of the health-data consent shown in the app. */
+export const HEALTH_CONSENT_VERSION = "2026-10";
+
+export const grantConsent = (kind: "terms" | "health_data", version: string) =>
+  apiFetch<unknown>("/v1/me/consents", { method: "POST", ...json({ kind, version }) });
