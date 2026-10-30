@@ -20,8 +20,8 @@ export function LibraryView() {
       .catch(() => setError(true));
   }, []);
 
-  if (error) return <p className="text-sm text-red-600">โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า</p>;
-  if (!exercises) return <p className="text-sm text-zinc-500">กำลังโหลด…</p>;
+  if (error) return <p className="text-sm text-danger">โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า</p>;
+  if (!exercises) return <p className="text-sm text-muted">กำลังโหลด…</p>;
 
   return (
     <ExercisePicker

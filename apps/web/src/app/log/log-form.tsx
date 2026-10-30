@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, CircleAlert, Minus, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -16,6 +17,7 @@ import {
 import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
 
 import { ExercisePicker } from "../exercise-picker";
+import { btnPrimary, btnQuiet, btnText, iconBtn } from "../ui";
 import { SavedWarnings } from "./saved-warnings";
 
 // Inputs stay strings while typing; they are parsed on save.
@@ -202,17 +204,24 @@ export function LogForm() {
 
   if (status.kind === "saved") {
     return (
-      <div className="flex flex-col gap-4 rounded-xl border border-emerald-600/40 p-4">
-        <p className="text-lg font-medium">บันทึกแล้ว ✓</p>
-        <p className="text-sm text-zinc-500">
-          {thDate(status.session.performed_at)} · {status.session.sets.length} เซ็ต
-        </p>
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-health text-health-fg">
+            <Check aria-hidden size={22} strokeWidth={2.5} />
+          </span>
+          <div>
+            <p className="text-lg font-semibold">บันทึกแล้ว</p>
+            <p className="num text-sm text-muted">
+              {thDate(status.session.performed_at)} · {status.session.sets.length} เซ็ต
+            </p>
+          </div>
+        </div>
         <SavedWarnings session={status.session} />
-        <div className="flex gap-3">
-          <button type="button" className={primaryBtn} onClick={() => setStatus({ kind: "editing" })}>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className={btnPrimary} onClick={() => setStatus({ kind: "editing" })}>
             บันทึกครั้งใหม่
           </button>
-          <Link href="/history" className={secondaryBtn}>
+          <Link href="/history" className={btnQuiet}>
             ดูประวัติ
           </Link>
         </div>
@@ -222,20 +231,20 @@ export function LogForm() {
 
   return (
     <form
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
         void save();
       }}
     >
       <label className="flex items-center justify-between gap-4">
-        <span className="whitespace-nowrap text-base font-medium">วันที่ซ้อม</span>
+        <span className="text-sm whitespace-nowrap text-muted">วันที่ซ้อม</span>
         <input
           type="date"
           value={draft.date}
           max={localToday()}
           onChange={(e) => update((d) => ({ ...d, date: e.target.value }))}
-          className={`${inputCls} w-44`}
+          className="field num w-44 text-base"
           required
         />
       </label>
@@ -243,89 +252,100 @@ export function LogForm() {
       {draft.blocks.map((b, i) => {
         const ex = byId.get(b.exerciseId);
         return (
-          <section key={b.exerciseId} className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-semibold">{ex?.name_th ?? "…"}</h2>
+          <section key={b.exerciseId} className="flex flex-col gap-4 rounded-3xl bg-surface p-4">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-[1.1rem] font-semibold">{ex?.name_th ?? "…"}</h2>
                 {b.last && (
-                  <p className="text-sm text-zinc-500">
-                    ครั้งก่อน ({thDate(b.last.performed_at)}): {summarizeSets(b.last)}
+                  <p className="num mt-0.5 text-xs text-faint">
+                    ครั้งก่อน {thDate(b.last.performed_at)} · {summarizeSets(b.last)}
                   </p>
                 )}
               </div>
               <button
                 type="button"
                 aria-label={`ลบท่า ${ex?.name_th ?? ""}`}
-                className="h-11 w-11 shrink-0 rounded-full text-xl text-zinc-500"
+                className={iconBtn}
                 onClick={() => update((d) => ({ ...d, blocks: d.blocks.filter((_, j) => j !== i) }))}
               >
-                ×
+                <Trash2 aria-hidden size={18} />
               </button>
             </div>
 
             {b.last && (
-              <button type="button" className={secondaryBtn} onClick={() => sameAsLast(i)}>
-                เหมือนครั้งก่อน
+              <button
+                type="button"
+                className="inline-flex h-10 w-fit items-center gap-2 rounded-full bg-primary/12 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/20 cursor-pointer"
+                onClick={() => sameAsLast(i)}
+              >
+                <RotateCcw aria-hidden size={16} /> เหมือนครั้งก่อน
               </button>
             )}
 
-            <div className="grid grid-cols-[2rem_1fr_1fr_1fr_2.75rem] items-center gap-2 text-sm text-zinc-500">
-              <span>เซ็ต</span>
-              <span>กก.</span>
-              <span>ครั้ง</span>
-              <span>RPE</span>
-              <span />
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-[1.75rem_1fr_1fr_1fr_2.75rem] items-center gap-2 px-0.5 text-xs text-faint">
+                <span className="text-center">#</span>
+                <span className="text-center">กก.</span>
+                <span className="text-center">ครั้ง</span>
+                <span className="text-center">RPE</span>
+                <span />
+              </div>
+              {b.sets.map((s, k) => {
+                const setField = (field: keyof SetRow) => (e: { target: { value: string } }) =>
+                  updateBlock(i, (bb) => ({
+                    ...bb,
+                    sets: bb.sets.map((x, j) => (j === k ? { ...x, [field]: e.target.value } : x)),
+                  }));
+                return (
+                  <div key={k} className="grid grid-cols-[1.75rem_1fr_1fr_1fr_2.75rem] items-center gap-2">
+                    <span className="num text-center text-sm font-semibold text-faint">{k + 1}</span>
+                    <input
+                      inputMode="decimal"
+                      aria-label={`น้ำหนักเซ็ต ${k + 1}`}
+                      placeholder="0"
+                      value={s.weight}
+                      onChange={setField("weight")}
+                      className="field num px-2 text-center text-lg font-medium"
+                    />
+                    <input
+                      inputMode="numeric"
+                      aria-label={`จำนวนครั้งเซ็ต ${k + 1}`}
+                      placeholder="0"
+                      value={s.reps}
+                      onChange={setField("reps")}
+                      className="field num px-2 text-center text-lg font-medium"
+                    />
+                    <select
+                      aria-label={`RPE เซ็ต ${k + 1}`}
+                      value={s.rpe}
+                      onChange={setField("rpe")}
+                      className="field num px-2 text-center"
+                    >
+                      {RPE_OPTIONS.map((o) => (
+                        <option key={o} value={o}>
+                          {o === "" ? "–" : o}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      aria-label={`ลบเซ็ต ${k + 1}`}
+                      className={iconBtn}
+                      disabled={b.sets.length === 1}
+                      onClick={() => updateBlock(i, (bb) => ({ ...bb, sets: bb.sets.filter((_, j) => j !== k) }))}
+                    >
+                      <Minus aria-hidden size={18} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-            {b.sets.map((s, k) => {
-              const setField = (field: keyof SetRow) => (e: { target: { value: string } }) =>
-                updateBlock(i, (bb) => ({
-                  ...bb,
-                  sets: bb.sets.map((x, j) => (j === k ? { ...x, [field]: e.target.value } : x)),
-                }));
-              return (
-                <div key={k} className="grid grid-cols-[2rem_1fr_1fr_1fr_2.75rem] items-center gap-2">
-                  <span className="text-center text-zinc-500">{k + 1}</span>
-                  <input
-                    inputMode="decimal"
-                    aria-label={`น้ำหนักเซ็ต ${k + 1}`}
-                    placeholder="0"
-                    value={s.weight}
-                    onChange={setField("weight")}
-                    className={inputCls}
-                  />
-                  <input
-                    inputMode="numeric"
-                    aria-label={`จำนวนครั้งเซ็ต ${k + 1}`}
-                    placeholder="0"
-                    value={s.reps}
-                    onChange={setField("reps")}
-                    className={inputCls}
-                  />
-                  <select aria-label={`RPE เซ็ต ${k + 1}`} value={s.rpe} onChange={setField("rpe")} className={inputCls}>
-                    {RPE_OPTIONS.map((o) => (
-                      <option key={o} value={o}>
-                        {o === "" ? "–" : o}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    aria-label={`ลบเซ็ต ${k + 1}`}
-                    className="h-11 w-11 rounded-full text-lg text-zinc-500 disabled:opacity-30"
-                    disabled={b.sets.length === 1}
-                    onClick={() => updateBlock(i, (bb) => ({ ...bb, sets: bb.sets.filter((_, j) => j !== k) }))}
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
             <button
               type="button"
-              className={secondaryBtn}
+              className={btnText}
               onClick={() => updateBlock(i, (bb) => ({ ...bb, sets: [...bb.sets, { ...(bb.sets.at(-1) ?? emptySet) }] }))}
             >
-              + เพิ่มเซ็ต
+              <Plus aria-hidden size={16} /> เพิ่มเซ็ต
             </button>
           </section>
         );
@@ -333,8 +353,8 @@ export function LogForm() {
 
       {unused.length > 0 &&
         (draft.blocks.length > 0 && !picking ? (
-          <button type="button" className={secondaryBtn} onClick={() => setPicking(true)}>
-            + เพิ่มท่า
+          <button type="button" className={btnQuiet} onClick={() => setPicking(true)}>
+            <Plus aria-hidden size={18} /> เพิ่มท่า
           </button>
         ) : (
           <ExercisePicker
@@ -347,70 +367,72 @@ export function LogForm() {
       {draft.blocks.length > 0 && (
         <>
           <label className="flex flex-col gap-2">
-            <span className="text-base font-medium">โน้ต (ไม่บังคับ)</span>
+            <span className="text-sm text-muted">โน้ต (ไม่บังคับ)</span>
             <textarea
               value={draft.notes}
               maxLength={1000}
               rows={2}
               onChange={(e) => update((d) => ({ ...d, notes: e.target.value }))}
-              className={`${inputCls} h-auto py-2`}
+              className="field h-auto py-2.5 text-base"
             />
           </label>
 
-          <label className="flex items-start gap-3">
+          <label className="flex cursor-pointer items-center gap-4 rounded-2xl bg-surface p-4">
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-medium">วันนี้มีอาการเจ็บ</span>
+              <span className="mt-0.5 block text-sm text-muted">
+                แอปจะหยุดแนะนำการเพิ่มน้ำหนักชั่วคราว ถ้าเจ็บต่อเนื่องควรปรึกษาแพทย์หรือนักกายภาพบำบัด
+              </span>
+            </span>
+            {/* Switch: the real checkbox stays focusable for keyboards and screen readers. */}
             <input
               type="checkbox"
               checked={draft.pain}
               onChange={(e) => update((d) => ({ ...d, pain: e.target.checked }))}
-              className="mt-1 h-6 w-6 shrink-0"
+              className="peer sr-only"
             />
-            <span>
-              <span className="text-base font-medium">วันนี้มีอาการเจ็บ</span>
-              <span className="block text-sm text-zinc-500">
-                แอปจะหยุดแนะนำการเพิ่มน้ำหนักชั่วคราว ถ้าเจ็บต่อเนื่องควรปรึกษาแพทย์หรือนักกายภาพบำบัด
-              </span>
-            </span>
+            <span
+              aria-hidden
+              className="relative h-7 w-12 shrink-0 rounded-full bg-raised transition-colors after:absolute after:top-1 after:left-1 after:h-5 after:w-5 after:rounded-full after:bg-fg after:transition-transform peer-checked:bg-warn peer-checked:after:translate-x-5 peer-checked:after:bg-warn-fg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary"
+            />
           </label>
 
           {status.kind === "needs-consent" && (
-            <div className="flex flex-col gap-3 rounded-xl border border-amber-500/50 p-4">
-              <p className="text-sm">{HEALTH_CONSENT_TEXT}</p>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" className={primaryBtn} onClick={() => void save(true)}>
+            <div className="flex flex-col gap-4 rounded-2xl bg-raised p-4">
+              <p className="flex items-center gap-2 font-semibold text-warn">
+                <ShieldCheck aria-hidden size={20} /> ขอความยินยอมเก็บข้อมูลสุขภาพ
+              </p>
+              <p className="text-sm leading-relaxed text-fg/85">{HEALTH_CONSENT_TEXT}</p>
+              <div className="flex flex-col gap-1">
+                <button type="button" className={btnPrimary} onClick={() => void save(true)}>
                   ยินยอมและบันทึก
                 </button>
                 <button
                   type="button"
-                  className={secondaryBtn}
+                  className={`${btnText} justify-center text-muted`}
                   onClick={() => {
                     update((d) => ({ ...d, pain: false }));
                     setStatus({ kind: "editing" });
                   }}
                 >
-                  ไม่ยินยอม (ไม่บันทึกอาการเจ็บ)
+                  ไม่ยินยอม (บันทึกโดยไม่มีอาการเจ็บ)
                 </button>
               </div>
             </div>
           )}
 
           {status.kind === "error" && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="flex items-start gap-2 text-sm text-danger">
+              <CircleAlert aria-hidden size={18} className="mt-0.5 shrink-0" />
               {status.message}
             </p>
           )}
 
-          <button type="submit" className={`${primaryBtn} h-14 text-lg`} disabled={status.kind === "saving"}>
-            {status.kind === "saving" ? "กำลังบันทึก…" : "บันทึก"}
+          <button type="submit" className={`${btnPrimary} h-14 text-lg`} disabled={status.kind === "saving"}>
+            {status.kind === "saving" ? "กำลังบันทึก…" : "บันทึกการซ้อม"}
           </button>
         </>
       )}
     </form>
   );
 }
-
-const inputCls =
-  "h-12 w-full min-w-0 rounded-lg border border-zinc-300 bg-transparent px-3 text-lg dark:border-zinc-700";
-const primaryBtn =
-  "flex h-12 items-center justify-center rounded-full bg-foreground px-6 font-medium text-background disabled:opacity-50";
-const secondaryBtn =
-  "flex h-12 items-center justify-center rounded-full border border-zinc-300 px-5 font-medium dark:border-zinc-700";

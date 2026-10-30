@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -22,8 +23,8 @@ export function SavedWarnings({ session }: { session: Session }) {
   return (
     <div className="flex flex-col gap-3">
       <LoadWarnings report={report} onlyIds={ids} />
-      <Link href="/insights" className="text-sm font-medium underline">
-        ดูคำเตือนทุกท่าและแผนกลับมาซ้อม
+      <Link href="/insights" className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary">
+        ดูคำเตือนทุกท่าและแผนกลับมาซ้อม <ArrowRight aria-hidden size={16} />
       </Link>
     </div>
   );

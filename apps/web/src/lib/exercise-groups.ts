@@ -29,3 +29,10 @@ export const MUSCLES: [string, string][] = [
 ];
 
 export const muscleLabel = (m: string) => MUSCLES.find(([k]) => k === m)?.[1] ?? m;
+
+// Muscle groups by body region, for the home page.
+export const REGIONS: [string, string[]][] = [
+  ["ช่วงบน", ["chest", "back", "traps", "shoulders", "biceps", "triceps"]],
+  ["แกนกลาง", ["abs", "lower_back"]],
+  ["ช่วงล่าง", ["glutes", "quads", "hamstrings", "calves"]],
+];

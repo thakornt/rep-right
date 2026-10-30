@@ -32,34 +32,46 @@ export function AuthPanel() {
     // A fixed width keeps the generic and the personalised ("ลงชื่อเข้าใช้เป็น …")
     // buttons the same size; GIS caps width at 400px.
     const width = Math.min(400, buttonRef.current.clientWidth);
-    gid.renderButton(buttonRef.current, { theme: "outline", size: "large", text: "signin_with", locale: "th", width });
+    gid.renderButton(buttonRef.current, {
+      theme: "filled_black",
+      size: "large",
+      shape: "pill",
+      text: "signin_with",
+      locale: "th",
+      width,
+    });
   }, [gisReady, state.kind]);
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="flex flex-col gap-2">
       <Script src="https://accounts.google.com/gsi/client" onReady={() => setGisReady(true)} />
-      {state.kind === "checking" && <p className="text-sm text-zinc-500">กำลังตรวจสอบการเข้าสู่ระบบ…</p>}
+      {state.kind === "checking" && <p className="text-sm text-faint">กำลังตรวจสอบการเข้าสู่ระบบ…</p>}
       {state.kind === "signed-out" && (
         <>
+          <p className="text-sm text-muted">เข้าสู่ระบบเพื่อเก็บประวัติและรับคำเตือน (ดูท่าและวิธีทำได้โดยไม่ต้องเข้าสู่ระบบ)</p>
           {/* GIS buttons are at most 400px wide, so center it instead of leaving a gap. */}
           <div ref={buttonRef} className="flex min-h-11 w-full justify-center" />
-          {!clientId && <p className="text-sm text-red-600">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>}
-          {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {!clientId && <p className="text-sm text-danger">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>}
+          {state.error && <p className="text-sm text-danger">{state.error}</p>}
         </>
       )}
       {state.kind === "signed-in" && (
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-sm">
-            <p>
-              เข้าสู่ระบบแล้ว: <span className="font-medium">{state.user.display_name || state.user.email}</span>
-            </p>
-            <Link href="/account" className="text-zinc-500 underline">
+        <div className="flex items-center gap-3 pt-1">
+          <span
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-raised text-sm font-semibold text-primary"
+          >
+            {(state.user.display_name || state.user.email).slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="truncate font-medium">{state.user.display_name || state.user.email}</p>
+            <Link href="/account" className="text-muted hover:text-fg">
               บัญชีและความเป็นส่วนตัว
             </Link>
           </div>
           <button
             type="button"
-            className="h-11 rounded-full border border-zinc-300 px-5 text-sm font-medium dark:border-zinc-700"
+            className="h-10 shrink-0 rounded-full px-3 text-sm text-muted transition-colors hover:bg-raised hover:text-fg cursor-pointer"
             onClick={async () => {
               window.google?.accounts.id.disableAutoSelect();
               await signOut();
@@ -69,6 +81,6 @@ export function AuthPanel() {
           </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }
