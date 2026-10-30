@@ -54,7 +54,10 @@ export function AuthPanel() {
     const gid = window.google?.accounts.id;
     if (!gisReady || !gid || !clientId || state.kind !== "signed-out" || !buttonRef.current) return;
     gid.initialize({ client_id: clientId, callback: onCredential });
-    gid.renderButton(buttonRef.current, { theme: "outline", size: "large", text: "signin_with", locale: "th" });
+    // A fixed width keeps the generic and the personalised ("ลงชื่อเข้าใช้เป็น …")
+    // buttons the same size; GIS caps width at 400px.
+    const width = Math.min(400, buttonRef.current.clientWidth);
+    gid.renderButton(buttonRef.current, { theme: "outline", size: "large", text: "signin_with", locale: "th", width });
   }, [gisReady, state.kind, onCredential]);
 
   return (
@@ -63,7 +66,7 @@ export function AuthPanel() {
       {state.kind === "checking" && <p className="text-sm text-zinc-500">กำลังตรวจสอบการเข้าสู่ระบบ…</p>}
       {state.kind === "signed-out" && (
         <>
-          <div ref={buttonRef} className="min-h-11" />
+          <div ref={buttonRef} className="min-h-11 w-full" />
           {!clientId && <p className="text-sm text-red-600">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>}
           {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         </>
