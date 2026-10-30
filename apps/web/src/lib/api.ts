@@ -157,3 +157,39 @@ export const HEALTH_CONSENT_VERSION = "2026-10";
 
 export const grantConsent = (kind: "terms" | "health_data", version: string) =>
   apiFetch<unknown>("/v1/me/consents", { method: "POST", ...json({ kind, version }) });
+
+export type Finding = {
+  rule: "weight_jump" | "volume_spike" | "high_rpe_streak" | "pain";
+  level: "caution" | "risk";
+  value: number;
+  message: string;
+};
+
+export type LoadExercise = {
+  exercise_id: number;
+  slug: string;
+  name_th: string;
+  advice: "progress_ok" | "hold" | "no_increase";
+  findings: Finding[];
+};
+
+export type LoadReport = { disclaimer: string; pain: boolean; exercises: LoadExercise[] };
+
+export type ReturnPlan = {
+  exercise_id: number;
+  slug: string;
+  name_th: string;
+  last_performed_at: string;
+  days_off: number;
+  top_set_kg: number;
+  start_percent_min: number;
+  start_percent_max: number;
+  start_weight_kg: number;
+  ramp_weeks: number;
+  steps: { week: number; percent: number; weight_kg: number }[];
+};
+
+export const getLoadInsights = () => apiFetch<LoadReport>("/v1/insights/load");
+
+export const getReturnPlan = async () =>
+  (await apiFetch<{ disclaimer: string; exercises: ReturnPlan[] }>("/v1/insights/return-plan")).exercises;

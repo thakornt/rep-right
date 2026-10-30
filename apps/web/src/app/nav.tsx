@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "หน้าแรก" },
   { href: "/log", label: "บันทึก" },
   { href: "/history", label: "ประวัติ" },
+  { href: "/insights", label: "คำเตือน" },
 ];
 
 export function Nav() {
