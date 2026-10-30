@@ -66,7 +66,8 @@ export function AuthPanel() {
       {state.kind === "checking" && <p className="text-sm text-zinc-500">กำลังตรวจสอบการเข้าสู่ระบบ…</p>}
       {state.kind === "signed-out" && (
         <>
-          <div ref={buttonRef} className="min-h-11 w-full" />
+          {/* GIS buttons are at most 400px wide, so center it instead of leaving a gap. */}
+          <div ref={buttonRef} className="flex min-h-11 w-full justify-center" />
           {!clientId && <p className="text-sm text-red-600">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>}
           {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         </>
