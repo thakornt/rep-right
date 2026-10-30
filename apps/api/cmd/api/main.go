@@ -79,6 +79,7 @@ func run(args []string) error {
 			Version:        cfg.Version,
 			Auth:           authSvc,
 			Cookie:         apihttp.CookieConfig{Domain: cfg.CookieDomain, Secure: cfg.IsProduction()},
+			Workouts:       store.NewWorkoutStore(pool),
 		})
 	case "migrate":
 		if len(args) < 2 {

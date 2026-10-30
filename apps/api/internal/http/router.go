@@ -23,6 +23,9 @@ type Deps struct {
 	// Auth enables the /v1 routes; nil leaves only /healthz (used in tests).
 	Auth   Authenticator
 	Cookie CookieConfig
+	// Workouts enables exercises, sessions and consents (needs Auth).
+	Workouts Workouts
+	Now      func() time.Time // defaults to time.Now
 }
 
 func NewRouter(d Deps) *gin.Engine {
@@ -49,6 +52,27 @@ func NewRouter(d Deps) *gin.Engine {
 		me := v1.Group("/me", h.requireUser)
 		me.GET("", h.me)
 		me.DELETE("", h.deleteMe)
+
+		if d.Workouts != nil {
+			now := d.Now
+			if now == nil {
+				now = time.Now
+			}
+			w := workoutHandlers{store: d.Workouts, log: d.Log, now: now}
+			v1.GET("/exercises", w.listExercises)
+
+			me.GET("/consents", w.listConsents)
+			me.POST("/consents", w.grantConsent)
+			me.DELETE("/consents/:kind", w.withdrawConsent)
+
+			s := v1.Group("/sessions", h.requireUser)
+			s.GET("", w.listSessions)
+			s.POST("", w.createSession)
+			s.GET("/last", w.lastSession)
+			s.GET("/:id", w.getSession)
+			s.PUT("/:id", w.updateSession)
+			s.DELETE("/:id", w.deleteSession)
+		}
 	}
 	return r
 }
