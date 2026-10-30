@@ -15,6 +15,9 @@ const (
 	CodeUnauthorized        = "unauthorized"
 	CodeInvalidGoogleToken  = "invalid_google_token"
 	CodeInvalidRefreshToken = "invalid_refresh_token"
+
+	CodeValidationFailed = "validation_failed"
+	CodeConsentRequired  = "consent_required"
 )
 
 type errorBody struct {
