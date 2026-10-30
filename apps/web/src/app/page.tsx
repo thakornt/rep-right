@@ -1,4 +1,5 @@
 import { ApiStatus } from "./api-status";
+import { AuthPanel } from "./auth-panel";
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
         </p>
         <p className="text-sm text-zinc-500">กำลังพัฒนา เร็วๆ นี้</p>
       </header>
+      <AuthPanel />
       <ApiStatus />
     </main>
   );
