@@ -42,3 +42,12 @@ VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: DeleteSetsForSession :exec
 DELETE FROM sets WHERE session_id = $1;
+
+-- For each exercise: the date of its latest session and that session's top set.
+-- name: LatestTopSets :many
+SELECT DISTINCT ON (st.exercise_id)
+       st.exercise_id, s.performed_at, st.weight_kg AS top_weight_kg
+FROM sets st
+JOIN sessions s ON s.id = st.session_id
+WHERE s.user_id = $1
+ORDER BY st.exercise_id, s.performed_at DESC, s.created_at DESC, st.weight_kg DESC;

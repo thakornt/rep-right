@@ -23,6 +23,7 @@ type Workouts interface {
 	DeleteSession(ctx context.Context, userID, id uuid.UUID) error
 	ListSessions(ctx context.Context, userID uuid.UUID, from, to time.Time, limit int32) ([]workout.Logged, error)
 	LastWithExercise(ctx context.Context, userID uuid.UUID, exerciseID int32) (workout.Logged, error)
+	LatestTopSets(ctx context.Context, userID uuid.UUID) ([]workout.TopSet, error)
 	ListConsents(ctx context.Context, userID uuid.UUID) ([]workout.Consent, error)
 	GrantConsent(ctx context.Context, userID uuid.UUID, kind, version string) (workout.Consent, error)
 	WithdrawConsent(ctx context.Context, userID uuid.UUID, kind string) error
