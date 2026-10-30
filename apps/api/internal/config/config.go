@@ -18,6 +18,10 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	// Version identifies the running build (commit SHA); "dev" locally.
 	Version string
+
+	GoogleClientID string
+	JWTSecret      string
+	CookieDomain   string // empty = host-only cookie (recommended)
 }
 
 // Load reads configuration from the environment and fails fast when a
@@ -32,6 +36,10 @@ func Load() (Config, error) {
 		ShutdownTimeout: 10 * time.Second,
 		// Render sets RENDER_GIT_COMMIT; APP_VERSION works on any other host.
 		Version: getenv("APP_VERSION", getenv("RENDER_GIT_COMMIT", "dev")),
+
+		GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		CookieDomain:   os.Getenv("COOKIE_DOMAIN"),
 	}
 
 	var errs []error
@@ -48,6 +56,22 @@ func Load() (Config, error) {
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
+
+// ValidateServe checks what only the HTTP server needs, so `api migrate`
+// can run in CI with just DATABASE_URL.
+func (c Config) ValidateServe() error {
+	var errs []error
+	if c.GoogleClientID == "" {
+		errs = append(errs, errors.New("GOOGLE_CLIENT_ID is required"))
+	}
+	if len(c.JWTSecret) < 32 {
+		errs = append(errs, errors.New("JWT_SECRET must be at least 32 characters (openssl rand -base64 48)"))
+	}
+	if err := errors.Join(errs...); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	return nil
+}
 
 func getenv(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {

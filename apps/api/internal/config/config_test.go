@@ -50,3 +50,23 @@ func TestVersionPrefersAppVersion(t *testing.T) {
 		t.Errorf("Version = %q, want app-sha", cfg.Version)
 	}
 }
+
+func TestValidateServe(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("GOOGLE_CLIENT_ID", "")
+	t.Setenv("JWT_SECRET", "too-short")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load must not need auth settings (migrate runs without them): %v", err)
+	}
+	if err := cfg.ValidateServe(); err == nil {
+		t.Fatal("expected error for missing client ID and short secret")
+	}
+
+	t.Setenv("GOOGLE_CLIENT_ID", "id.apps.googleusercontent.com")
+	t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
+	cfg, _ = Load()
+	if err := cfg.ValidateServe(); err != nil {
+		t.Fatalf("ValidateServe: %v", err)
+	}
+}

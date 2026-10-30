@@ -24,6 +24,7 @@ apps/api          Go (Gin) API
   cmd/api         main: `api serve` | `api migrate up|down|status`
   internal/config env config
   internal/http   router, middleware, handlers
+  internal/auth   Google ID token verify, access JWT, refresh token rotation
   internal/store  pgx pool, migrations runner, dbgen/ (sqlc output)
   db/migrations   goose SQL migrations (ฝังใน binary)
   db/queries      SQL สำหรับ sqlc
@@ -37,6 +38,7 @@ apps/web          Next.js (App Router) + Tailwind, rewrite /api/* → API_ORIGIN
 - **Postgres ใน compose ใช้พอร์ต 55432:** กันชนกับ Postgres อื่นบนเครื่อง (5432/5433 มักมีคนใช้) เปลี่ยนได้ด้วย `POSTGRES_PORT`
 - **Render (Singapore) + Neon (Singapore):** เริ่มได้ฟรีโดยไม่ต้องผูกบัตร และใช้ Dockerfile เดิม เมื่อจะ scale ให้เปลี่ยน instance type ในหน้า Render ได้เลยโดยไม่ต้องแก้โค้ด ส่วน Cloud Run ต้องผูกบัตรและจ่ายล่วงหน้า แต่มีคู่มือเผื่อย้ายไว้ที่ `docs/cloudrun/`
 - **Same-origin ผ่าน Next.js rewrite `/api/*`:** refresh cookie จะเป็น first-party จึงไม่โดน Safari/iOS บล็อก
+- **Session:** access token เป็น JWT HS256 อายุ 15 นาที เก็บใน memory ของเว็บเท่านั้น ส่วน refresh token เป็นค่าสุ่ม 256 bit อยู่ใน cookie `rr_refresh` (httpOnly, Secure, SameSite=Strict) ใน DB เก็บแค่ SHA-256 ทุกครั้งที่ refresh จะออก token ใหม่ (rotation) ถ้ามีคนเอา token ที่ถูกหมุนไปแล้วมาใช้ซ้ำหลังพ้น 30 วินาที จะถือว่า token หลุด แล้ว revoke ทุก session ของ user นั้น ส่วนช่วง 30 วินาทีแรกเผื่อไว้ให้ 2 แท็บที่ refresh พร้อมกัน
 - **ลบบัญชีแบบ hard delete:** ข้อมูลทุกตารางผูก `ON DELETE CASCADE` กับ `users` ตามหลัก PDPA
 
 ## Deploy

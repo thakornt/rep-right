@@ -19,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/thakornt/rep-right/apps/api/internal/auth"
 	"github.com/thakornt/rep-right/apps/api/internal/config"
 	apihttp "github.com/thakornt/rep-right/apps/api/internal/http"
 	"github.com/thakornt/rep-right/apps/api/internal/store"
@@ -56,7 +57,29 @@ func run(args []string) error {
 	}
 	switch cmd {
 	case "serve":
-		return serve(ctx, cfg, log, apihttp.Deps{Log: log, DB: pool, AllowedOrigins: cfg.AllowedOrigins, Version: cfg.Version})
+		if err := cfg.ValidateServe(); err != nil {
+			return err
+		}
+		verifier, err := auth.NewGoogleVerifier(cfg.GoogleClientID)
+		if err != nil {
+			return err
+		}
+		authSvc, err := auth.NewService(auth.Options{
+			Store:    store.NewAuthStore(pool),
+			Verifier: verifier,
+			Secret:   []byte(cfg.JWTSecret),
+		})
+		if err != nil {
+			return err
+		}
+		return serve(ctx, cfg, log, apihttp.Deps{
+			Log:            log,
+			DB:             pool,
+			AllowedOrigins: cfg.AllowedOrigins,
+			Version:        cfg.Version,
+			Auth:           authSvc,
+			Cookie:         apihttp.CookieConfig{Domain: cfg.CookieDomain, Secure: cfg.IsProduction()},
+		})
 	case "migrate":
 		if len(args) < 2 {
 			return errors.New("usage: api migrate <up|down|status|version>")

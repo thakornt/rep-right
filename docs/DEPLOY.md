@@ -121,10 +121,12 @@ https://github.com/thakornt/rep-right/settings/environments
 | `DATABASE_URL` | Neon **pooled** URL จาก Step 2 | ความลับ |
 | `JWT_SECRET` | ผลจาก `openssl rand -base64 48` | ความลับ ห้ามใช้ซ้ำกับ dev |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | เปลี่ยนเป็น domain ของ Vercel ใน Step 6 |
-| `GOOGLE_CLIENT_ID` | จาก Step 3 | ใช้ตั้งแต่ Phase 1 |
+| `GOOGLE_CLIENT_ID` | จาก Step 3 | ถ้าไม่มี API จะไม่ start |
 | `LOG_LEVEL` | `info` | |
 
 > **ไม่ต้องตั้ง `PORT`** Render กำหนดให้เอง และโค้ดอ่านค่าจาก `PORT` อยู่แล้ว
+>
+> **ไม่ต้องตั้ง `COOKIE_DOMAIN`** ให้ refresh cookie เป็น host-only ของ domain เว็บ (ผ่าน `/api` proxy) ถ้าตั้งเป็น `onrender.com` เบราว์เซอร์จะไม่ส่ง cookie
 
 5. **Advanced**:
    - Health Check Path: `/healthz`

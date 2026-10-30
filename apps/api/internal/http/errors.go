@@ -10,6 +10,11 @@ const (
 	CodeMethodNotAllowed = "method_not_allowed"
 	CodeInternal         = "internal"
 	CodeUnavailable      = "unavailable"
+
+	CodeInvalidRequest      = "invalid_request"
+	CodeUnauthorized        = "unauthorized"
+	CodeInvalidGoogleToken  = "invalid_google_token"
+	CodeInvalidRefreshToken = "invalid_refresh_token"
 )
 
 type errorBody struct {
