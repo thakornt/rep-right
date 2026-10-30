@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
@@ -48,9 +49,14 @@ export function AuthPanel() {
       )}
       {state.kind === "signed-in" && (
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm">
-            เข้าสู่ระบบแล้ว: <span className="font-medium">{state.user.display_name || state.user.email}</span>
-          </p>
+          <div className="text-sm">
+            <p>
+              เข้าสู่ระบบแล้ว: <span className="font-medium">{state.user.display_name || state.user.email}</span>
+            </p>
+            <Link href="/account" className="text-zinc-500 underline">
+              บัญชีและความเป็นส่วนตัว
+            </Link>
+          </div>
           <button
             type="button"
             className="h-11 rounded-full border border-zinc-300 px-5 text-sm font-medium dark:border-zinc-700"

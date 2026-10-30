@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ApiStatus } from "./api-status";
 import { AuthPanel } from "./auth-panel";
+import { DeletedNotice } from "./deleted-notice";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
         </p>
         <p className="text-sm text-zinc-500">กำลังพัฒนา เร็วๆ นี้</p>
       </header>
+      <DeletedNotice />
       <AuthPanel />
       <Link href="/log" className="flex h-14 items-center justify-center rounded-full bg-foreground text-lg font-medium text-background">
         บันทึกการซ้อม

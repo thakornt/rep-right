@@ -5,7 +5,14 @@
 
 import { useSyncExternalStore } from "react";
 
-import { getMe, refreshSession, signInWithGoogle, signOut as apiSignOut, type User } from "./api";
+import {
+  deleteAccount as apiDeleteAccount,
+  getMe,
+  refreshSession,
+  signInWithGoogle,
+  signOut as apiSignOut,
+  type User,
+} from "./api";
 
 export type AuthState =
   | { kind: "checking" }
@@ -52,5 +59,10 @@ export async function signIn(credential: string) {
 
 export async function signOut() {
   await apiSignOut();
+  set({ kind: "signed-out" });
+}
+
+export async function deleteAccount() {
+  await apiDeleteAccount();
   set({ kind: "signed-out" });
 }

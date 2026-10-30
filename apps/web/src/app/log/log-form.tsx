@@ -13,6 +13,7 @@ import {
   type Exercise,
   type Session,
 } from "@/lib/api";
+import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
 
 import { ExercisePicker } from "./exercise-picker";
 import { SavedWarnings } from "./saved-warnings";
@@ -366,10 +367,7 @@ export function LogForm() {
 
           {status.kind === "needs-consent" && (
             <div className="flex flex-col gap-3 rounded-xl border border-amber-500/50 p-4">
-              <p className="text-sm">
-                การบันทึกว่ามีอาการเจ็บถือเป็นข้อมูลสุขภาพ เราจะเก็บไว้เพียงว่า “มี/ไม่มี” ต่อการซ้อมหนึ่งครั้ง
-                เพื่อใช้หยุดแนะนำการเพิ่มน้ำหนัก และคุณถอนความยินยอมได้ทุกเมื่อ (ข้อมูลอาการเจ็บจะถูกลบ)
-              </p>
+              <p className="text-sm">{HEALTH_CONSENT_TEXT}</p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className={primaryBtn} onClick={() => void save(true)}>
                   ยินยอมและบันทึก
