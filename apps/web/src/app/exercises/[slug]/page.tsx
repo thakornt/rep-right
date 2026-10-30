@@ -32,7 +32,7 @@ export default async function ExercisePage({ params }: PageProps<"/exercises/[sl
   if (!form) notFound();
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
-      <Link href="/exercises" className="text-sm text-zinc-500">
+      <Link href="/exercises" className="w-fit text-sm text-muted hover:text-fg">
         ← ท่าทั้งหมด
       </Link>
       <ExerciseDetail slug={slug} form={form} />

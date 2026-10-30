@@ -9,6 +9,8 @@ type Status =
   | { state: "ok"; version: string }
   | { state: "error" };
 
+const dot = { loading: "bg-warn animate-pulse", ok: "bg-health", error: "bg-danger" };
+
 // Checks the web → /api rewrite → Go API path end to end. Runs in the browser
 // so the page stays static; the free API host can take ~60s to wake up.
 export function ApiStatus() {
@@ -28,12 +30,12 @@ export function ApiStatus() {
   }, []);
 
   return (
-    <p className="text-sm text-zinc-500" aria-live="polite">
+    <p className="flex items-center gap-2 text-xs text-faint" aria-live="polite">
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot[status.state]}`} />
       {status.state === "loading" && "กำลังเชื่อมต่อ server (ครั้งแรกอาจใช้เวลาถึง 1 นาที)…"}
       {status.state === "ok" && (
         <>
-          server พร้อมใช้งาน{" "}
-          <code className="font-mono text-xs">{status.version.slice(0, 7)}</code>
+          server พร้อมใช้งาน <code className="font-mono">{status.version.slice(0, 7)}</code>
         </>
       )}
       {status.state === "error" && "เชื่อมต่อ server ไม่ได้"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /** Confirms an account deletion after /account redirects to "/?deleted=1". */
@@ -15,7 +16,8 @@ export function DeletedNotice() {
   }, []);
   if (!show) return null;
   return (
-    <p role="status" className="rounded-xl border border-emerald-600/40 p-4 text-sm">
+    <p role="status" className="flex items-center gap-2 text-sm text-health">
+      <CircleCheck aria-hidden size={18} />
       ลบบัญชีและข้อมูลทั้งหมดเรียบร้อยแล้ว
     </p>
   );

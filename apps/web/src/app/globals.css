@@ -1,25 +1,108 @@
 @import "tailwindcss";
 
+/*
+ * Health-tech dark theme: calm cyan + health green on deep teal-black.
+ * Depth comes from surface tones (bg < surface < raised) and inset fields,
+ * not from borders. Status colours are used as solid fills or text, never as
+ * tinted boxes with coloured outlines.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --bg: #0a1114;
+  --surface: #111b1f;
+  --raised: #182529;
+  --inset: #0c1518;
+  --line: #1f2f34; /* hairline dividers only */
+
+  --fg: #e4eef0;
+  --muted: #8ba2a8;
+  --faint: #5d7378;
+
+  --primary: #22d3ee;
+  --primary-fg: #04252c;
+  --health: #34d399;
+  --health-fg: #042a1d;
+  --warn: #fbbf24;
+  --warn-fg: #2d1f00;
+  --danger: #f87171;
+  --danger-fg: #2b0707;
+  --danger-solid: #b91c1c;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-noto-sans-thai), system-ui, sans-serif;
-}
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-inset: var(--inset);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-health: var(--health);
+  --color-health-fg: var(--health-fg);
+  --color-warn: var(--warn);
+  --color-warn-fg: var(--warn-fg);
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-solid: var(--danger-solid);
+  /* Kept for components that still say background/foreground. */
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-figtree), var(--font-noto-sans-thai), system-ui, sans-serif;
+
+  --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--font-sans);
+  font-feature-settings: "tnum" 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Numbers that line up in sets, plans and stats. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* In the components layer so utilities (pl-10, text-center, ...) can override it. */
+@layer components {
+  /* Inputs sit "into" the surface; no outlines until focused. */
+  .field {
+    height: 3rem;
+    width: 100%;
+    min-width: 0;
+    border-radius: 0.75rem;
+    background: var(--inset);
+    box-shadow: var(--shadow-inset);
+    padding-inline: 0.875rem;
+    font-size: 1.0625rem;
+    color: var(--fg);
+  }
+  .field::placeholder {
+    color: var(--faint);
+  }
+  .field:focus-visible {
+    outline-offset: 0;
+  }
 }

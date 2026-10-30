@@ -1,31 +1,39 @@
 "use client";
 
+import { Activity, ClipboardPen, Dumbbell, History, House } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/", label: "หน้าแรก" },
-  { href: "/exercises", label: "ท่า" },
-  { href: "/log", label: "บันทึก" },
-  { href: "/history", label: "ประวัติ" },
-  { href: "/insights", label: "คำเตือน" },
+  { href: "/", label: "หน้าแรก", Icon: House },
+  { href: "/exercises", label: "ท่า", Icon: Dumbbell },
+  { href: "/log", label: "บันทึก", Icon: ClipboardPen },
+  { href: "/history", label: "ประวัติ", Icon: History },
+  { href: "/insights", label: "คำเตือน", Icon: Activity },
 ];
 
+/** Bottom tab bar: within thumb reach on a phone in the gym. */
 export function Nav() {
   const path = usePathname();
   return (
-    <nav className="border-b border-zinc-200 dark:border-zinc-800">
-      <ul className="mx-auto flex max-w-xl gap-1 px-2">
-        {links.map((l) => {
-          const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
+    <nav
+      aria-label="เมนูหลัก"
+      className="fixed inset-x-0 bottom-0 z-20 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] backdrop-blur"
+    >
+      <ul className="mx-auto grid max-w-xl grid-cols-5">
+        {links.map(({ href, label, Icon }) => {
+          const active = href === "/" ? path === "/" : path.startsWith(href);
           return (
-            <li key={l.href}>
+            <li key={href}>
               <Link
-                href={l.href}
+                href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-12 items-center px-2.5 text-base ${active ? "font-semibold" : "text-zinc-500"}`}
+                className={`flex h-16 flex-col items-center justify-center gap-1 text-[0.72rem] transition-colors ${
+                  active ? "text-primary" : "text-muted hover:text-fg"
+                }`}
               >
-                {l.label}
+                <Icon aria-hidden size={22} strokeWidth={active ? 2.25 : 1.75} />
+                {label}
               </Link>
             </li>
           );
