@@ -18,6 +18,15 @@ type Consent struct {
 	AcceptedAt time.Time
 }
 
+type Exercise struct {
+	ID          int32
+	Slug        string
+	NameTh      string
+	NameEn      string
+	Category    string
+	IsLowerBody bool
+}
+
 type RefreshToken struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
@@ -26,6 +35,26 @@ type RefreshToken struct {
 	ExpiresAt  time.Time
 	RevokedAt  pgtype.Timestamptz
 	ReplacedBy uuid.NullUUID
+}
+
+type Session struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	PerformedAt time.Time
+	Notes       string
+	PainFlag    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Set struct {
+	ID         uuid.UUID
+	SessionID  uuid.UUID
+	ExerciseID int32
+	SetIndex   int16
+	WeightKg   float64
+	Reps       int16
+	Rpe        *float64
 }
 
 type User struct {
