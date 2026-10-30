@@ -15,7 +15,8 @@
 Flow ของ CI/CD:
 
 ```
-push / PR ──> ci.yml   (lint, sqlc diff, test + postgres, docker build)
+push / PR ──> ci.yml   api: lint, sqlc diff, test + postgres, docker build
+                       web: lint, next build
 merge main ─> ci.yml ผ่าน ──> deploy-api.yml
                                 1. go run ./cmd/api migrate up  → Neon (direct)
                                    ถ้าพัง หยุด ไม่ deploy
@@ -41,7 +42,7 @@ https://github.com/thakornt/rep-right/settings/branches
    - ไม่ต้องติ๊ก Require approvals เพราะทำคนเดียว
 3. ✅ **Require status checks to pass before merging**
    - ✅ Require branches to be up to date
-   - ค้นหาแล้วเลือก `api`
+   - ค้นหาแล้วเลือก `api` และ `web`
 4. ✅ **Do not allow bypassing the above settings** (ถ้าอยากให้ admin ก็ต้องผ่าน CI)
 5. **Create**
 
@@ -160,7 +161,7 @@ https://github.com/thakornt/rep-right/settings/variables/actions → **New repos
 2. ต้องเห็น 3 ขั้นผ่านครบ: migrate → trigger Render deploy → wait until the new commit is live
 3. หลังจากนี้ ทุกครั้งที่ merge PR เข้า `main` จะ deploy อัตโนมัติ
 
-## Step 6. Vercel (Phase 4 เมื่อมี `apps/web`)
+## Step 6. Vercel (เว็บ `apps/web`)
 
 1. https://vercel.com/signup ด้วย GitHub → https://vercel.com/new → Import `thakornt/rep-right`
 2. **Root Directory:** `apps/web`

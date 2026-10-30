@@ -5,13 +5,14 @@
 
 ## Quick start (local)
 
-ต้องมี Go 1.26+, Docker
+ต้องมี Go 1.26+, Node 22+, Docker
 
 ```bash
 make up                      # postgres + migrate + api ที่ :8080
 curl localhost:8080/healthz  # {"status":"ok"}
 make test                    # unit tests
 make test-db                 # รวม integration test กับ Postgres (ต้อง make up ก่อน)
+make web                     # Next.js ที่ :3000 (/api/* proxy ไป API ที่ :8080)
 ```
 
 คำสั่งอื่น: `make sqlc` (generate query), `make migrate`, `make lint` (รัน golangci-lint ผ่าน Docker), `make down`
@@ -26,7 +27,7 @@ apps/api          Go (Gin) API
   internal/store  pgx pool, migrations runner, dbgen/ (sqlc output)
   db/migrations   goose SQL migrations (ฝังใน binary)
   db/queries      SQL สำหรับ sqlc
-apps/web          Next.js (Phase 4)
+apps/web          Next.js (App Router) + Tailwind, rewrite /api/* → API_ORIGIN
 ```
 
 ## การตัดสินใจทางเทคนิค
