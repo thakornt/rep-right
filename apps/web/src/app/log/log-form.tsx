@@ -14,6 +14,8 @@ import {
   type Session,
 } from "@/lib/api";
 
+import { ExercisePicker } from "./exercise-picker";
+
 // Inputs stay strings while typing; they are parsed on save.
 type SetRow = { weight: string; reps: string; rpe: string };
 type Block = { exerciseId: number; sets: SetRow[]; last?: Session | null };
@@ -21,17 +23,6 @@ type Draft = { date: string; blocks: Block[]; notes: string; pain: boolean };
 
 const DRAFT_KEY = "rr_log_draft"; // workout draft only; never tokens
 const RPE_OPTIONS = ["", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
-// Display order and Thai headings for exercise categories.
-const CATEGORIES: [string, string][] = [
-  ["squat", "สควอท"],
-  ["hinge", "เดดลิฟต์ / สะโพก"],
-  ["push", "ดัน (อก / ไหล่)"],
-  ["pull", "ดึง (หลัง)"],
-  ["shoulders", "ไหล่"],
-  ["arms", "แขน"],
-  ["legs", "ขา"],
-  ["core", "หน้าท้อง"],
-];
 const emptySet: SetRow = { weight: "", reps: "", rpe: "" };
 
 function localToday(): string {
@@ -336,25 +327,11 @@ export function LogForm() {
             + เพิ่มท่า
           </button>
         ) : (
-          <div className="flex flex-col gap-4">
-            <p className="text-base font-medium">{draft.blocks.length ? "เพิ่มท่า" : "เลือกท่าที่ซ้อม"}</p>
-            {CATEGORIES.map(([cat, label]) => {
-              const list = unused.filter((e) => e.category === cat);
-              if (list.length === 0) return null;
-              return (
-                <div key={cat} className="flex flex-col gap-2">
-                  <p className="text-sm text-zinc-500">{label}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {list.map((e) => (
-                      <button key={e.id} type="button" className={chipBtn} onClick={() => addExercise(e)}>
-                        {e.name_th}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ExercisePicker
+            exercises={unused}
+            title={draft.blocks.length ? "เพิ่มท่า" : "เลือกท่าที่ซ้อม"}
+            onPick={addExercise}
+          />
         ))}
 
       {draft.blocks.length > 0 && (
@@ -430,4 +407,3 @@ const primaryBtn =
   "flex h-12 items-center justify-center rounded-full bg-foreground px-6 font-medium text-background disabled:opacity-50";
 const secondaryBtn =
   "flex h-12 items-center justify-center rounded-full border border-zinc-300 px-5 font-medium dark:border-zinc-700";
-const chipBtn = "h-11 rounded-full border border-zinc-300 px-4 text-base dark:border-zinc-700";

@@ -105,6 +105,7 @@ export type Exercise = {
   name_en: string;
   category: string;
   is_lower_body: boolean;
+  muscles: string[];
 };
 
 export type SetEntry = { exercise_id: number; weight_kg: number; reps: number; rpe: number | null };
