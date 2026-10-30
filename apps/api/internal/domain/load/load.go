@@ -45,6 +45,9 @@ const Disclaimer = "ข้อมูลนี้เป็นแนวทางท
 type Config struct {
 	LowerBodyJumpPct float64 // warn when the top set rises by more than this
 	UpperBodyJumpPct float64
+	// MinJumpKg ignores increases this small or smaller: the next dumbbell or
+	// machine step is often 2-2.5 kg, which on light weights is 20%+.
+	MinJumpKg        float64
 	VolumeCaution    float64 // acute:chronic ratio above which to warn
 	VolumeRisk       float64
 	AcuteDays        int // "this week"
@@ -58,6 +61,7 @@ func DefaultConfig() Config {
 	return Config{
 		LowerBodyJumpPct: 10,
 		UpperBodyJumpPct: 5,
+		MinJumpKg:        2.5,
 		VolumeCaution:    1.3,
 		VolumeRisk:       1.5,
 		AcuteDays:        7,
@@ -161,7 +165,7 @@ func summarize(s workout.Logged) map[int32]exerciseSession {
 
 // weightJump compares the top set of the last two sessions of the exercise.
 func weightJump(hist []exerciseSession, lowerBody bool, cfg Config) (Finding, bool) {
-	if len(hist) < 2 || hist[1].topKg <= 0 {
+	if len(hist) < 2 || hist[1].topKg <= 0 || hist[0].topKg-hist[1].topKg <= cfg.MinJumpKg {
 		return Finding{}, false
 	}
 	limit := cfg.UpperBodyJumpPct

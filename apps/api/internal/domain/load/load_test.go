@@ -77,6 +77,26 @@ func TestWeightJumpUpperBodyUsesTopSet(t *testing.T) {
 	}
 }
 
+func TestWeightJumpIgnoresSmallestIncrement(t *testing.T) {
+	cfg := DefaultConfig()
+	// 10 -> 12.5 kg dumbbells is +25% but only one 2.5 kg step.
+	r := Analyze([]workout.Logged{sess(4, set(bench, 10, 10, nil)), sess(1, set(bench, 12.5, 10, nil))}, lower, today, cfg)
+	if has(findings(t, r, bench), RuleWeightJump, LevelCaution) {
+		t.Error("a single 2.5 kg step should not warn")
+	}
+	// 10 -> 15 kg is two steps (+50%): warn.
+	r = Analyze([]workout.Logged{sess(4, set(bench, 10, 10, nil)), sess(1, set(bench, 15, 10, nil))}, lower, today, cfg)
+	if !has(findings(t, r, bench), RuleWeightJump, LevelCaution) {
+		t.Error("+5 kg on a 10 kg dumbbell should warn")
+	}
+	// Setting MinJumpKg to 0 restores the pure percentage rule.
+	cfg.MinJumpKg = 0
+	r = Analyze([]workout.Logged{sess(4, set(bench, 10, 10, nil)), sess(1, set(bench, 12.5, 10, nil))}, lower, today, cfg)
+	if !has(findings(t, r, bench), RuleWeightJump, LevelCaution) {
+		t.Error("with MinJumpKg 0, +25% should warn")
+	}
+}
+
 func TestWeightJumpSkipsBodyweightBaseline(t *testing.T) {
 	r := Analyze([]workout.Logged{sess(4, set(bench, 0, 8, nil)), sess(1, set(bench, 10, 5, nil))}, lower, today, DefaultConfig())
 	if has(findings(t, r, bench), RuleWeightJump, LevelCaution) {

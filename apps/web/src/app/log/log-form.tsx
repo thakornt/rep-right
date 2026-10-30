@@ -14,6 +14,8 @@ import {
   type Session,
 } from "@/lib/api";
 
+import { SavedWarnings } from "./saved-warnings";
+
 // Inputs stay strings while typing; they are parsed on save.
 type SetRow = { weight: string; reps: string; rpe: string };
 type Block = { exerciseId: number; sets: SetRow[]; last?: Session | null };
@@ -193,6 +195,7 @@ export function LogForm() {
         <p className="text-sm text-zinc-500">
           {thDate(status.session.performed_at)} · {status.session.sets.length} เซ็ต
         </p>
+        <SavedWarnings session={status.session} />
         <div className="flex gap-3">
           <button type="button" className={primaryBtn} onClick={() => setStatus({ kind: "editing" })}>
             บันทึกครั้งใหม่
