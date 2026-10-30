@@ -3,34 +3,7 @@
 import { useRef, useState } from "react";
 
 import type { Exercise } from "@/lib/api";
-
-// Display order and Thai headings for exercise categories.
-const CATEGORIES: [string, string][] = [
-  ["squat", "สควอท"],
-  ["hinge", "เดดลิฟต์ / สะโพก"],
-  ["push", "ดัน (อก / ไหล่)"],
-  ["pull", "ดึง (หลัง)"],
-  ["shoulders", "ไหล่"],
-  ["arms", "แขน"],
-  ["legs", "ขา"],
-  ["core", "หน้าท้อง"],
-];
-
-// Primary muscle groups, in body order, with Thai labels.
-const MUSCLES: [string, string][] = [
-  ["chest", "อก"],
-  ["back", "หลัง"],
-  ["traps", "บ่า (ทราปีเซียส)"],
-  ["shoulders", "ไหล่"],
-  ["biceps", "หน้าแขน"],
-  ["triceps", "หลังแขน"],
-  ["abs", "หน้าท้อง"],
-  ["lower_back", "หลังล่าง"],
-  ["glutes", "ก้น"],
-  ["quads", "ต้นขาหน้า"],
-  ["hamstrings", "ต้นขาหลัง"],
-  ["calves", "น่อง"],
-];
+import { CATEGORIES, MUSCLES } from "@/lib/exercise-groups";
 
 const normalize = (s: string) => s.toLowerCase().replace(/[\s-]+/g, "");
 
@@ -44,13 +17,15 @@ export function ExercisePicker({
   exercises,
   title,
   onPick,
+  initialMuscles = [],
 }: {
   exercises: Exercise[];
-  title: string;
+  title?: string;
   onPick: (e: Exercise) => void;
+  initialMuscles?: string[];
 }) {
   const [query, setQuery] = useState("");
-  const [muscles, setMuscles] = useState<Set<string>>(new Set());
+  const [muscles, setMuscles] = useState<Set<string>>(() => new Set(initialMuscles));
   const dialog = useRef<HTMLDialogElement>(null);
 
   const shown = exercises.filter((e) => matches(e, query, muscles));
@@ -63,7 +38,7 @@ export function ExercisePicker({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-base font-medium">{title}</p>
+      {title && <p className="text-base font-medium">{title}</p>}
       <div className="flex gap-2">
         <input
           type="search"

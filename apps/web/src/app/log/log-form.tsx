@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
 
-import { ExercisePicker } from "./exercise-picker";
+import { ExercisePicker } from "../exercise-picker";
 import { SavedWarnings } from "./saved-warnings";
 
 // Inputs stay strings while typing; they are parsed on save.
@@ -110,6 +110,13 @@ export function LogForm() {
           const e = list.find((x) => x.id === b.exerciseId);
           if (e) void loadLast(e);
         }
+        // /log?add=<slug> (from an exercise page) adds that exercise once.
+        const add = list.find((x) => x.slug === new URLSearchParams(window.location.search).get("add"));
+        if (add && !restored.blocks.some((b) => b.exerciseId === add.id)) {
+          setDraft((d) => ({ ...d, blocks: [...d.blocks, { exerciseId: add.id, sets: [{ ...emptySet }] }] }));
+          void loadLast(add);
+        }
+        if (add) window.history.replaceState(null, "", "/log");
       })
       .catch(() => setStatus({ kind: "error", message: "โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า" }));
   }, []);
