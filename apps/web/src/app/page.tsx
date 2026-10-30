@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ApiStatus } from "./api-status";
 import { AuthPanel } from "./auth-panel";
 
@@ -12,6 +14,9 @@ export default function Home() {
         <p className="text-sm text-zinc-500">กำลังพัฒนา เร็วๆ นี้</p>
       </header>
       <AuthPanel />
+      <Link href="/log" className="flex h-14 items-center justify-center rounded-full bg-foreground text-lg font-medium text-background">
+        บันทึกการซ้อม
+      </Link>
       <ApiStatus />
     </main>
   );

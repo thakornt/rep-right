@@ -1,9 +1,9 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { getMe, refreshSession, signInWithGoogle, signOut, type User } from "@/lib/api";
+import { signIn, signOut, useAuth } from "@/lib/auth";
 
 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
@@ -19,46 +19,20 @@ declare global {
   }
 }
 
-type State = { kind: "checking" } | { kind: "signed-out"; error?: string } | { kind: "signed-in"; user: User };
-
 export function AuthPanel() {
-  const [state, setState] = useState<State>({ kind: "checking" });
+  const state = useAuth();
   const [gisReady, setGisReady] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
-
-  // Restore the session from the refresh cookie on load.
-  useEffect(() => {
-    let cancelled = false;
-    refreshSession()
-      .then(async (ok) => (ok ? getMe() : null))
-      .then((user) => {
-        if (!cancelled) setState(user ? { kind: "signed-in", user } : { kind: "signed-out" });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ kind: "signed-out" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const onCredential = useCallback(async ({ credential }: { credential: string }) => {
-    try {
-      setState({ kind: "signed-in", user: await signInWithGoogle(credential) });
-    } catch {
-      setState({ kind: "signed-out", error: "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง" });
-    }
-  }, []);
 
   useEffect(() => {
     const gid = window.google?.accounts.id;
     if (!gisReady || !gid || !clientId || state.kind !== "signed-out" || !buttonRef.current) return;
-    gid.initialize({ client_id: clientId, callback: onCredential });
+    gid.initialize({ client_id: clientId, callback: ({ credential }) => signIn(credential) });
     // A fixed width keeps the generic and the personalised ("ลงชื่อเข้าใช้เป็น …")
     // buttons the same size; GIS caps width at 400px.
     const width = Math.min(400, buttonRef.current.clientWidth);
     gid.renderButton(buttonRef.current, { theme: "outline", size: "large", text: "signin_with", locale: "th", width });
-  }, [gisReady, state.kind, onCredential]);
+  }, [gisReady, state.kind]);
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
@@ -81,9 +55,8 @@ export function AuthPanel() {
             type="button"
             className="h-11 rounded-full border border-zinc-300 px-5 text-sm font-medium dark:border-zinc-700"
             onClick={async () => {
-              await signOut();
               window.google?.accounts.id.disableAutoSelect();
-              setState({ kind: "signed-out" });
+              await signOut();
             }}
           >
             ออกจากระบบ
