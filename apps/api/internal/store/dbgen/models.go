@@ -25,6 +25,7 @@ type Exercise struct {
 	NameEn      string
 	Category    string
 	IsLowerBody bool
+	Muscles     []string
 }
 
 type RefreshToken struct {

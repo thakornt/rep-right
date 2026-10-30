@@ -10,7 +10,7 @@ import (
 )
 
 const getExerciseBySlug = `-- name: GetExerciseBySlug :one
-SELECT id, slug, name_th, name_en, category, is_lower_body FROM exercises WHERE slug = $1
+SELECT id, slug, name_th, name_en, category, is_lower_body, muscles FROM exercises WHERE slug = $1
 `
 
 func (q *Queries) GetExerciseBySlug(ctx context.Context, slug string) (Exercise, error) {
@@ -23,12 +23,13 @@ func (q *Queries) GetExerciseBySlug(ctx context.Context, slug string) (Exercise,
 		&i.NameEn,
 		&i.Category,
 		&i.IsLowerBody,
+		&i.Muscles,
 	)
 	return i, err
 }
 
 const listExercises = `-- name: ListExercises :many
-SELECT id, slug, name_th, name_en, category, is_lower_body FROM exercises ORDER BY id
+SELECT id, slug, name_th, name_en, category, is_lower_body, muscles FROM exercises ORDER BY id
 `
 
 func (q *Queries) ListExercises(ctx context.Context) ([]Exercise, error) {
@@ -47,6 +48,7 @@ func (q *Queries) ListExercises(ctx context.Context) ([]Exercise, error) {
 			&i.NameEn,
 			&i.Category,
 			&i.IsLowerBody,
+			&i.Muscles,
 		); err != nil {
 			return nil, err
 		}

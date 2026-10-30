@@ -14,6 +14,7 @@ import {
   type Session,
 } from "@/lib/api";
 
+import { ExercisePicker } from "./exercise-picker";
 import { SavedWarnings } from "./saved-warnings";
 
 // Inputs stay strings while typing; they are parsed on save.
@@ -82,6 +83,8 @@ export function LogForm() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "editing" });
+  // The exercise picker is open on an empty log and behind "+ เพิ่มท่า" after that.
+  const [picking, setPicking] = useState(false);
 
   async function loadLast(e: Exercise) {
     try {
@@ -125,6 +128,7 @@ export function LogForm() {
     update((d) => ({ ...d, blocks: d.blocks.map((b, j) => (j === i ? fn(b) : b)) }));
 
   function addExercise(e: Exercise) {
+    setPicking(false);
     update((d) => ({ ...d, blocks: [...d.blocks, { exerciseId: e.id, sets: [{ ...emptySet }] }] }));
     void loadLast(e);
   }
@@ -319,18 +323,18 @@ export function LogForm() {
         );
       })}
 
-      {unused.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-base font-medium">{draft.blocks.length ? "เพิ่มท่า" : "เลือกท่าที่ซ้อม"}</p>
-          <div className="flex flex-wrap gap-2">
-            {unused.map((e) => (
-              <button key={e.id} type="button" className={chipBtn} onClick={() => addExercise(e)}>
-                {e.name_th}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {unused.length > 0 &&
+        (draft.blocks.length > 0 && !picking ? (
+          <button type="button" className={secondaryBtn} onClick={() => setPicking(true)}>
+            + เพิ่มท่า
+          </button>
+        ) : (
+          <ExercisePicker
+            exercises={unused}
+            title={draft.blocks.length ? "เพิ่มท่า" : "เลือกท่าที่ซ้อม"}
+            onPick={addExercise}
+          />
+        ))}
 
       {draft.blocks.length > 0 && (
         <>
@@ -405,4 +409,3 @@ const primaryBtn =
   "flex h-12 items-center justify-center rounded-full bg-foreground px-6 font-medium text-background disabled:opacity-50";
 const secondaryBtn =
   "flex h-12 items-center justify-center rounded-full border border-zinc-300 px-5 font-medium dark:border-zinc-700";
-const chipBtn = "h-11 rounded-full border border-zinc-300 px-4 text-base dark:border-zinc-700";

@@ -45,12 +45,13 @@ type workoutHandlers struct {
 }
 
 type exerciseJSON struct {
-	ID          int32  `json:"id"`
-	Slug        string `json:"slug"`
-	NameTH      string `json:"name_th"`
-	NameEN      string `json:"name_en"`
-	Category    string `json:"category"`
-	IsLowerBody bool   `json:"is_lower_body"`
+	ID          int32    `json:"id"`
+	Slug        string   `json:"slug"`
+	NameTH      string   `json:"name_th"`
+	NameEN      string   `json:"name_en"`
+	Category    string   `json:"category"`
+	IsLowerBody bool     `json:"is_lower_body"`
+	Muscles     []string `json:"muscles"`
 }
 
 type setJSON struct {

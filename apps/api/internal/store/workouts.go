@@ -268,5 +268,5 @@ func toLogged(r dbgen.Session, sets []workout.Set) workout.Logged {
 }
 
 func toExercise(e dbgen.Exercise) workout.Exercise {
-	return workout.Exercise{ID: e.ID, Slug: e.Slug, NameTH: e.NameTh, NameEN: e.NameEn, Category: e.Category, IsLowerBody: e.IsLowerBody}
+	return workout.Exercise{ID: e.ID, Slug: e.Slug, NameTH: e.NameTh, NameEN: e.NameEn, Category: e.Category, IsLowerBody: e.IsLowerBody, Muscles: e.Muscles}
 }
