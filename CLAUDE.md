@@ -95,6 +95,9 @@ POST   /v1/auth/refresh
 POST   /v1/auth/logout
 GET    /v1/me
 DELETE /v1/me                         ลบบัญชี + ข้อมูลทั้งหมด
+GET    /v1/me/consents
+POST   /v1/me/consents                {kind: terms|health_data, version}
+DELETE /v1/me/consents/:kind          ถอน consent (health_data → ล้าง pain_flag ทั้งหมด)
 
 GET    /v1/exercises
 GET    /v1/sessions?from=&to=
