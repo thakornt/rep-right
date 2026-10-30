@@ -28,6 +28,7 @@ type fakeWorkouts struct {
 	consent  bool
 	from, to time.Time
 	withdrew string
+	tops     []workout.TopSet
 }
 
 type ownedSession struct {
@@ -107,6 +108,10 @@ func (f *fakeWorkouts) LastWithExercise(_ context.Context, user uuid.UUID, _ int
 		}
 	}
 	return workout.Logged{}, workout.ErrNotFound
+}
+
+func (f *fakeWorkouts) LatestTopSets(context.Context, uuid.UUID) ([]workout.TopSet, error) {
+	return f.tops, nil
 }
 
 func (f *fakeWorkouts) ListConsents(context.Context, uuid.UUID) ([]workout.Consent, error) {

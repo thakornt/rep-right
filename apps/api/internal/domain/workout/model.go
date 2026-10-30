@@ -34,6 +34,13 @@ type Logged struct {
 	UpdatedAt   time.Time
 }
 
+// TopSet is the heaviest set of an exercise's most recent session.
+type TopSet struct {
+	ExerciseID  int32
+	PerformedAt time.Time
+	WeightKg    float64
+}
+
 const (
 	ConsentTerms      = "terms"
 	ConsentHealthData = "health_data"

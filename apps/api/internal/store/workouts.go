@@ -154,6 +154,19 @@ func (s *WorkoutStore) LastWithExercise(ctx context.Context, userID uuid.UUID, e
 	return l, nil
 }
 
+// LatestTopSets returns, per exercise, the last session date and its top set.
+func (s *WorkoutStore) LatestTopSets(ctx context.Context, userID uuid.UUID) ([]workout.TopSet, error) {
+	rows, err := s.q.LatestTopSets(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]workout.TopSet, len(rows))
+	for i, r := range rows {
+		out[i] = workout.TopSet{ExerciseID: r.ExerciseID, PerformedAt: r.PerformedAt, WeightKg: r.TopWeightKg}
+	}
+	return out, nil
+}
+
 func (s *WorkoutStore) ListConsents(ctx context.Context, userID uuid.UUID) ([]workout.Consent, error) {
 	rows, err := s.q.ListConsents(ctx, userID)
 	if err != nil {

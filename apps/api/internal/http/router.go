@@ -72,6 +72,10 @@ func NewRouter(d Deps) *gin.Engine {
 			s.GET("/:id", w.getSession)
 			s.PUT("/:id", w.updateSession)
 			s.DELETE("/:id", w.deleteSession)
+
+			ins := v1.Group("/insights", h.requireUser)
+			ins.GET("/load", w.loadInsights)
+			ins.GET("/return-plan", w.returnPlan)
 		}
 	}
 	return r

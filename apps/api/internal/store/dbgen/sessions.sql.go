@@ -134,6 +134,42 @@ func (q *Queries) LastSessionWithExercise(ctx context.Context, arg LastSessionWi
 	return i, err
 }
 
+const latestTopSets = `-- name: LatestTopSets :many
+SELECT DISTINCT ON (st.exercise_id)
+       st.exercise_id, s.performed_at, st.weight_kg AS top_weight_kg
+FROM sets st
+JOIN sessions s ON s.id = st.session_id
+WHERE s.user_id = $1
+ORDER BY st.exercise_id, s.performed_at DESC, s.created_at DESC, st.weight_kg DESC
+`
+
+type LatestTopSetsRow struct {
+	ExerciseID  int32
+	PerformedAt time.Time
+	TopWeightKg float64
+}
+
+// For each exercise: the date of its latest session and that session's top set.
+func (q *Queries) LatestTopSets(ctx context.Context, userID uuid.UUID) ([]LatestTopSetsRow, error) {
+	rows, err := q.db.Query(ctx, latestTopSets, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LatestTopSetsRow{}
+	for rows.Next() {
+		var i LatestTopSetsRow
+		if err := rows.Scan(&i.ExerciseID, &i.PerformedAt, &i.TopWeightKg); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessions = `-- name: ListSessions :many
 SELECT id, user_id, performed_at, notes, pain_flag, created_at, updated_at FROM sessions
 WHERE user_id = $1

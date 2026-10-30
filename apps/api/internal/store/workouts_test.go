@@ -137,6 +137,27 @@ func TestWorkoutStore(t *testing.T) {
 		t.Errorf("date filter: got %d", len(list))
 	}
 
+	// Latest top set per exercise: squat from day 3 (105), bench from day 5 (65).
+	tops, err := s.LatestTopSets(ctx, alice)
+	if err != nil || len(tops) != 2 {
+		t.Fatalf("LatestTopSets = %+v, %v", tops, err)
+	}
+	for _, top := range tops {
+		switch top.ExerciseID {
+		case squat.ID:
+			if top.WeightKg != 105 || !top.PerformedAt.Equal(day(3)) {
+				t.Errorf("squat top = %+v", top)
+			}
+		case bench.ID:
+			if top.WeightKg != 65 || !top.PerformedAt.Equal(day(5)) {
+				t.Errorf("bench top = %+v", top)
+			}
+		}
+	}
+	if tops, _ := s.LatestTopSets(ctx, bob); len(tops) != 0 {
+		t.Errorf("bob sees alice's top sets: %+v", tops)
+	}
+
 	// pain_flag needs health_data consent; withdrawing it clears the flags.
 	pain := in
 	pain.PainFlag = true
