@@ -21,6 +21,7 @@ type Exercise struct {
 	NameEN      string
 	Category    string
 	IsLowerBody bool
+	Muscles     []string // primary muscles, e.g. "chest", "quads"
 }
 
 // Logged is a stored session with its sets in set order.
