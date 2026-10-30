@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/", label: "หน้าแรก" },
+  { href: "/exercises", label: "ท่า" },
   { href: "/log", label: "บันทึก" },
   { href: "/history", label: "ประวัติ" },
   { href: "/insights", label: "คำเตือน" },
@@ -22,7 +23,7 @@ export function Nav() {
               <Link
                 href={l.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-12 items-center px-3 text-base ${active ? "font-semibold" : "text-zinc-500"}`}
+                className={`flex h-12 items-center px-2.5 text-base ${active ? "font-semibold" : "text-zinc-500"}`}
               >
                 {l.label}
               </Link>
