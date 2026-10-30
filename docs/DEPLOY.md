@@ -175,7 +175,7 @@ https://github.com/thakornt/rep-right/settings/variables/actions → **New repos
 | `NEXT_PUBLIC_API_URL` | `/api` |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | จาก Step 3 |
 
-4. Settings → Build → **Ignored Build Step:** `git diff --quiet HEAD^ HEAD -- apps/web`
+4. Settings → Build → **Ignored Build Step:** `git diff --quiet HEAD^ HEAD -- .` (Vercel รันคำสั่งนี้ใน Root Directory `apps/web` อยู่แล้ว ถ้าใส่ `-- apps/web` จะไม่เจอไฟล์ แล้วข้ามการ build ทุกครั้ง)
 5. ได้ domain มาแล้ว (เช่น `https://rep-right.vercel.app`) ให้กลับไปอัปเดต 2 ที่:
    - Render env `ALLOWED_ORIGINS`
    - Google OAuth → Clients → Authorized JavaScript origins
