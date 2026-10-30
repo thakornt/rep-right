@@ -156,8 +156,23 @@ export async function getLastSession(slug: string): Promise<Session | null> {
 /** Current wording version of the health-data consent shown in the app. */
 export const HEALTH_CONSENT_VERSION = "2026-10";
 
-export const grantConsent = (kind: "terms" | "health_data", version: string) =>
-  apiFetch<unknown>("/v1/me/consents", { method: "POST", ...json({ kind, version }) });
+export type ConsentKind = "terms" | "health_data";
+export type Consent = { kind: ConsentKind; version: string; accepted_at: string };
+
+export const grantConsent = (kind: ConsentKind, version: string) =>
+  apiFetch<Consent>("/v1/me/consents", { method: "POST", ...json({ kind, version }) });
+
+export const listConsents = async () => (await apiFetch<{ consents: Consent[] }>("/v1/me/consents")).consents;
+
+/** Removes every version of the consent; withdrawing health_data also clears all pain flags. */
+export const withdrawConsent = (kind: ConsentKind) =>
+  apiFetch<void>(`/v1/me/consents/${kind}`, { method: "DELETE" });
+
+/** Hard-deletes the account and all its data; the server also clears the refresh cookie. */
+export async function deleteAccount(): Promise<void> {
+  await apiFetch<void>("/v1/me", { method: "DELETE" });
+  accessToken = null;
+}
 
 export type Finding = {
   rule: "weight_jump" | "volume_spike" | "high_rpe_streak" | "pain";
