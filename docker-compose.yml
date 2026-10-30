@@ -30,7 +30,12 @@ services:
 
   api:
     build: ./apps/api
-    environment: *api-env
+    environment:
+      <<: *api-env
+      # Dev-only secret; production uses a random one (docs/DEPLOY.md).
+      JWT_SECRET: dev-only-jwt-secret-change-me-0123456789
+      # From the repo-root .env; sign-in fails without it.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
       - "8080:8080"
     depends_on:

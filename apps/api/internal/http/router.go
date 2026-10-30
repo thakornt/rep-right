@@ -20,6 +20,9 @@ type Deps struct {
 	DB             Pinger
 	AllowedOrigins []string
 	Version        string
+	// Auth enables the /v1 routes; nil leaves only /healthz (used in tests).
+	Auth   Authenticator
+	Cookie CookieConfig
 }
 
 func NewRouter(d Deps) *gin.Engine {
@@ -35,6 +38,18 @@ func NewRouter(d Deps) *gin.Engine {
 	})
 
 	r.GET("/healthz", healthz(d.DB, d.Version))
+
+	if d.Auth != nil {
+		h := authHandlers{auth: d.Auth, cookie: d.Cookie, log: d.Log}
+		v1 := r.Group("/v1")
+		v1.POST("/auth/google", h.google)
+		v1.POST("/auth/refresh", h.refresh)
+		v1.POST("/auth/logout", h.logout)
+
+		me := v1.Group("/me", h.requireUser)
+		me.GET("", h.me)
+		me.DELETE("", h.deleteMe)
+	}
 	return r
 }
 
