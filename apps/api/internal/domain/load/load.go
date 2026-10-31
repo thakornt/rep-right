@@ -178,7 +178,7 @@ func weightJump(hist []exerciseSession, lowerBody bool, cfg Config) (Finding, bo
 	}
 	return Finding{
 		Rule: RuleWeightJump, Level: LevelCaution, Value: pct,
-		Message: fmt.Sprintf("น้ำหนัก top set เพิ่มขึ้น %.0f%% จากครั้งก่อน (แนะนำไม่เกิน %.0f%%) ลองคงน้ำหนักนี้ไว้ก่อนจนฟอร์มนิ่ง", pct, limit),
+		Message: fmt.Sprintf("เซ็ตที่หนักที่สุดเพิ่มขึ้น %.0f%% จากครั้งก่อน (แนะนำไม่เกิน %.0f%%) ลองคงน้ำหนักนี้ไว้ก่อนจนฟอร์มนิ่ง", pct, limit),
 	}, true
 }
 
@@ -228,6 +228,7 @@ func highRPEStreak(hist []exerciseSession, cfg Config) (Finding, bool) {
 	}
 	return Finding{
 		Rule: RuleHighRPEStreak, Level: LevelCaution, Value: float64(cfg.HighRPESessions),
-		Message: fmt.Sprintf("%d ครั้งล่าสุดใกล้สุดแรง (RPE %.0f ขึ้นไป) แนะนำคงน้ำหนักเดิมไว้ก่อน", cfg.HighRPESessions, cfg.HighRPE),
+		// Users enter "reps left" (RPE = 10 - reps left), so say it that way.
+		Message: fmt.Sprintf("%d ครั้งล่าสุดเล่นจนเกือบหมดแรง (เหลือแรงไม่เกิน %.0f ครั้ง) แนะนำคงน้ำหนักเดิมไว้ก่อน", cfg.HighRPESessions, 10-cfg.HighRPE),
 	}, true
 }

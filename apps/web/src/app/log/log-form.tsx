@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleAlert, Minus, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { Check, CircleAlert, Info, Minus, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -27,7 +27,18 @@ type Block = { exerciseId: number; sets: SetRow[]; last?: Session | null };
 type Draft = { date: string; blocks: Block[]; notes: string; pain: boolean };
 
 const DRAFT_KEY = "rr_log_draft"; // workout draft only; never tokens
-const RPE_OPTIONS = ["", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+// Effort is stored as RPE (Rate of Perceived Exertion, 1-10) but asked as
+// "how many more good reps could you have done": RPE = 10 - reps left.
+const EFFORT_OPTIONS: [string, string][] = [
+  ["", "–"],
+  ["10", "หมดแรง"],
+  ["9", "เหลือ 1"],
+  ["8", "เหลือ 2"],
+  ["7", "เหลือ 3"],
+  ["6", "เหลือ 4+"],
+];
+// Older entries may have half steps (8.5); round up so near-failure stays near-failure.
+const toEffortOption = (rpe: number) => String(Math.min(10, Math.max(6, Math.ceil(rpe))));
 const emptySet: SetRow = { weight: "", reps: "", rpe: "" };
 
 function localToday(): string {
@@ -91,6 +102,8 @@ export function LogForm() {
   const [status, setStatus] = useState<Status>({ kind: "editing" });
   // The exercise picker is open on an empty log and behind "+ เพิ่มท่า" after that.
   const [picking, setPicking] = useState(false);
+  // Index of the exercise block whose "เหลือแรง" explanation is open.
+  const [effortHelp, setEffortHelp] = useState<number | null>(null);
 
   async function loadLast(e: Exercise) {
     try {
@@ -169,7 +182,7 @@ export function LogForm() {
             sets: b.last.sets.map((s) => ({
               weight: String(s.weight_kg),
               reps: String(s.reps),
-              rpe: s.rpe == null ? "" : String(s.rpe),
+              rpe: s.rpe == null ? "" : toEffortOption(s.rpe),
             })),
           }
         : b,
@@ -305,9 +318,32 @@ export function LogForm() {
                 <span className="text-center">#</span>
                 <span className="text-center">กก.</span>
                 <span className="text-center">ครั้ง</span>
-                <span className="text-center">RPE</span>
+                <button
+                  type="button"
+                  aria-expanded={effortHelp === i}
+                  aria-controls={`effort-help-${i}`}
+                  onClick={() => setEffortHelp(effortHelp === i ? null : i)}
+                  className="inline-flex items-center justify-center gap-1 text-faint hover:text-fg cursor-pointer"
+                >
+                  เหลือแรง <Info aria-hidden size={13} />
+                </button>
                 <span />
               </div>
+              {effortHelp === i && (
+                <div id={`effort-help-${i}`} className="flex flex-col gap-2 rounded-2xl bg-raised p-3.5 text-sm leading-relaxed">
+                  <p>
+                    <span className="font-semibold">เหลือแรง</span> คือ หลังจบเซ็ต ถามตัวเองว่า “ถ้าฝืนต่อโดยฟอร์มยังดีอยู่
+                    จะทำได้อีกกี่ครั้ง” <span className="text-muted">ไม่ต้องกรอกก็ได้</span>
+                  </p>
+                  <p className="text-muted">
+                    ถ้ากรอก แอปจะเตือนเมื่อคุณเล่นจนเหลือแรงไม่เกิน 1 ครั้ง 2 ครั้งติดกันในท่าเดียว
+                    เพื่อแนะนำให้คงน้ำหนักไว้ก่อนเพิ่ม
+                  </p>
+                  <p className="text-xs text-faint">
+                    ในโปรแกรมฝึกทั่วไปเรียกว่า RPE (คะแนนความหนัก 1-10): หมดแรง = 10, เหลือ 1 = 9, เหลือ 2 = 8, เหลือ 3 = 7
+                  </p>
+                </div>
+              )}
               {b.sets.map((s, k) => {
                 const setField = (field: keyof SetRow) => (e: { target: { value: string } }) =>
                   updateBlock(i, (bb) => ({
@@ -334,14 +370,14 @@ export function LogForm() {
                       className="field num px-2 text-center text-lg font-medium"
                     />
                     <select
-                      aria-label={`RPE เซ็ต ${k + 1}`}
+                      aria-label={`เหลือแรงเซ็ต ${k + 1}`}
                       value={s.rpe}
                       onChange={setField("rpe")}
-                      className="field num px-2 text-center"
+                      className="field px-1 text-center text-[0.95rem]"
                     >
-                      {RPE_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o === "" ? "–" : o}
+                      {EFFORT_OPTIONS.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
                         </option>
                       ))}
                     </select>
