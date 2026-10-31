@@ -23,10 +23,14 @@ export function LibraryView() {
   if (error) return <p className="text-sm text-danger">โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า</p>;
   if (!exercises) return <p className="text-sm text-muted">กำลังโหลด…</p>;
 
+  const muscles = params.getAll("muscle");
   return (
+    // Next keeps this page's state between visits, so remount the picker when
+    // ?muscle= changes; otherwise a second visit keeps the old filter.
     <ExercisePicker
+      key={muscles.join(",")}
       exercises={exercises}
-      initialMuscles={params.getAll("muscle")}
+      initialMuscles={muscles}
       onPick={(e) => router.push(`/exercises/${e.slug}`)}
     />
   );
