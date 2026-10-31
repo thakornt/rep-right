@@ -33,6 +33,12 @@ func main() {
 }
 
 func run(args []string) error {
+	// Local development: pick up the repo-root .env (real env vars still win).
+	if wd, err := os.Getwd(); err == nil {
+		if _, err := config.LoadDotEnv(wd); err != nil {
+			return fmt.Errorf("load .env: %w", err)
+		}
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return err
