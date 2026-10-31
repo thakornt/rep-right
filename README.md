@@ -5,14 +5,36 @@
 
 ## Quick start (local)
 
-ต้องมี Go 1.26+, Node 22+, Docker
+ต้องมี Go 1.26+, Node 22+ และ Postgres อย่างใดอย่างหนึ่ง: Docker (ข้อ A) หรือ Neon branch (ข้อ B ไม่ต้องติดตั้งอะไรเพิ่ม)
+
+**1. ตั้งค่า env ไฟล์เดียวที่ root** ทั้ง API และเว็บอ่านไฟล์นี้
 
 ```bash
-make up                      # postgres + migrate + api ที่ :8080
-curl localhost:8080/healthz  # {"status":"ok"}
-make test                    # unit tests
-make test-db                 # รวม integration test กับ Postgres (ต้อง make up ก่อน)
-make web                     # Next.js ที่ :3000 (/api/* proxy ไป API ที่ :8080)
+cp .env.example .env
+```
+
+กรอก `GOOGLE_CLIENT_ID` กับ `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (ค่าเดียวกัน) และ `JWT_SECRET` (สุ่มอย่างน้อย 32 ตัวอักษร) ให้ comment อยู่บรรทัดของตัวเองเสมอ ถ้าเขียน `KEY=   # note` ค่าของ KEY จะกลายเป็น `# note`
+
+**2. ฐานข้อมูล**
+
+- **A. Docker:** `make up` (Postgres ที่ :55432 + migrate + API ที่ :8080) ใช้ `DATABASE_URL` ตาม `.env.example` ได้เลย
+- **B. ไม่มี Docker:** สร้าง branch ใน Neon (Console → Branches → Create branch ชื่อ `dev` แตกจาก `production`) แล้วเอา connection string ของ branch นั้นใส่ `DATABASE_URL` ใน `.env` branch แยกจาก production ทำอะไรก็ไม่กระทบข้อมูลจริง
+
+**3. รัน**
+
+```bash
+cd apps/api && go run ./cmd/api migrate up   # ครั้งแรก หรือเมื่อมี migration ใหม่ (ข้อ A ทำให้แล้ว)
+cd apps/api && go run ./cmd/api              # API ที่ :8080
+cd apps/web && npm install && npm run dev    # เว็บที่ http://localhost:3000 (/api/* proxy ไป :8080)
+```
+
+Login ด้วย Google ในเครื่องใช้ได้ที่ `http://localhost:3000` (อยู่ใน Authorized JavaScript origins แล้ว)
+
+**ทดสอบ**
+
+```bash
+make test       # unit tests ไม่ต้องมี DB
+make test-db    # รวม integration test กับ Postgres (ต้อง make up ก่อน)
 ```
 
 คำสั่งอื่น: `make sqlc` (generate query), `make migrate`, `make lint` (รัน golangci-lint ผ่าน Docker), `make down`
