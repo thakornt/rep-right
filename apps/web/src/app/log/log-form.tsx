@@ -2,6 +2,7 @@
 
 import { Check, CircleAlert, Minus, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -82,6 +83,8 @@ type Status =
   | { kind: "saved"; session: Session };
 
 export function LogForm() {
+  const params = useSearchParams();
+  const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
@@ -112,13 +115,6 @@ export function LogForm() {
           const e = list.find((x) => x.id === b.exerciseId);
           if (e) void loadLast(e);
         }
-        // /log?add=<slug> (from an exercise page) adds that exercise once.
-        const add = list.find((x) => x.slug === new URLSearchParams(window.location.search).get("add"));
-        if (add && !restored.blocks.some((b) => b.exerciseId === add.id)) {
-          setDraft((d) => ({ ...d, blocks: [...d.blocks, { exerciseId: add.id, sets: [{ ...emptySet }] }] }));
-          void loadLast(add);
-        }
-        if (add) window.history.replaceState(null, "", "/log");
       })
       .catch(() => setStatus({ kind: "error", message: "โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า" }));
   }, []);
@@ -126,6 +122,28 @@ export function LogForm() {
   useEffect(() => {
     if (loaded) saveDraft(draft);
   }, [draft, loaded]);
+
+  // /log?add=<slug> (from an exercise page) adds that exercise. This reacts to
+  // the URL rather than running once on mount, because Next keeps this page's
+  // state between visits.
+  const addSlug = params.get("add");
+  useEffect(() => {
+    if (!addSlug || exercises.length === 0) return;
+    router.replace("/log", { scroll: false });
+    const add = exercises.find((x) => x.slug === addSlug);
+    if (!add) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStatus({ kind: "editing" });
+    setPicking(false);
+    setDraft((d) =>
+      d.blocks.some((b) => b.exerciseId === add.id)
+        ? d
+        : { ...d, blocks: [...d.blocks, { exerciseId: add.id, sets: [{ ...emptySet }] }] },
+    );
+    void loadLast(add);
+    // loadLast only uses setters; re-running on its identity would re-add.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addSlug, exercises]);
 
   const byId = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises]);
   const unused = exercises.filter((e) => !draft.blocks.some((b) => b.exerciseId === e.id));
