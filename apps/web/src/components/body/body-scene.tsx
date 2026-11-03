@@ -282,10 +282,26 @@ function readRig(root: THREE.Object3D) {
   // Where the bar should sit: on the upper back, just below the base of the neck.
   const neck = worldPos(bone("neck_01"));
   const barOnBack = new THREE.Vector3(0, neck.y - 0.07, neck.z - 0.09);
+  // Skin on top of the traps, either side of the neck, that the bar rests on.
+  let skin: THREE.SkinnedMesh | undefined;
+  root.traverse((o) => {
+    if (!skin && (o as THREE.SkinnedMesh).isSkinnedMesh) skin = o as THREE.SkinnedMesh;
+  });
+  if (!skin) throw new Error("body.glb has no skinned mesh");
+  const traps: number[] = [];
+  const p = new THREE.Vector3();
+  for (let i = 0; i < skin.geometry.attributes.position.count; i++) {
+    skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld);
+    const x = Math.abs(p.x);
+    if (x > 0.06 && x < 0.16 && p.y > neck.y - 0.12 && p.y < neck.y + 0.02 && p.z < neck.z) traps.push(i);
+  }
   return {
+    skin,
+    traps,
     rest,
     clipBones,
     barLocal: spine3.worldToLocal(barOnBack),
+    spine3Rest: worldQuat(spine3),
     bottom,
     l: side("l"),
     r: side("r"),
@@ -315,6 +331,8 @@ function playClip(rig: Rig, frame: number) {
   setWorldPos(rig.pelvis, rig.pelvisRest.clone().add(hips));
 }
 
+const BAR_RADIUS = 0.014;
+const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
 
@@ -343,12 +361,9 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
   const barNow = () => fist(rig.l).add(fist(rig.r)).multiplyScalar(0.5);
 
-  // The clip's hands carry the bar up on the neck. Lower it onto the upper
-  // back by swinging each whole arm at the shoulder, after opening or closing
-  // the elbow just enough for the new reach, so the arm keeps the clip's shape.
-  const onBack = rig.spine3.localToWorld(rig.barLocal.clone());
-  for (const s of sides) {
-    const target = fist(s).lerp(onBack.clone().setX(fist(s).x), BAR_DROP);
+  // Move a fist by swinging the whole arm at the shoulder, after opening or
+  // closing the elbow just enough for the new reach, so the arm keeps its shape.
+  const moveFist = (s: Rig["l"], target: THREE.Vector3) => {
     const shoulder = worldPos(s.upperarm);
     const elbow = worldPos(s.lowerarm);
     const f = fist(s);
@@ -361,7 +376,46 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
       rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(axis, inner(reach) - inner(f.distanceTo(shoulder))));
     }
     const from = fist(s).sub(shoulder).normalize();
-    rotateWorld(s.upperarm, new THREE.Quaternion().setFromUnitVectors(from, target.sub(shoulder).normalize()));
+    rotateWorld(s.upperarm, new THREE.Quaternion().setFromUnitVectors(from, target.clone().sub(shoulder).normalize()));
+  };
+
+  // The clip's hands carry the bar up on the neck. Lower it toward the upper back.
+  const onBack = rig.spine3.localToWorld(rig.barLocal.clone());
+  for (const s of sides) moveFist(s, fist(s).lerp(onBack.clone().setX(fist(s).x), BAR_DROP));
+
+  // Elbows a little out from the sides: raise each upper arm outward about
+  // the chest's forward axis, then turn only the forearm at the elbow so the
+  // fist goes back to the bar. The forearm ends up more upright.
+  const chestFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(
+    worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
+  );
+  for (const s of sides) {
+    const grip = fist(s);
+    rotateWorld(s.upperarm, new THREE.Quaternion().setFromAxisAngle(chestFwd, s.sign * deg(ELBOWS_OUT)));
+    aim(s.lowerarm, s.middle1, worldPos(s.middle1).add(grip.clone().sub(fist(s))));
+  }
+
+  // Let the bar settle onto the traps: move it toward the nearest skin on top
+  // of the shoulders until it touches, and the fists go with it. The skin
+  // moves a little with the arms, so settle twice.
+  const barDir = () => worldPos(rig.l.upperarm).sub(worldPos(rig.r.upperarm)).setY(0).normalize();
+  for (let pass = 0; pass < 2; pass++) {
+    const dir = barDir();
+    const skinPts = rig.traps.map((i) => rig.skin.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(rig.skin.matrixWorld));
+    const start = barNow();
+    const b = start.clone();
+    for (let step = 0; step < 4; step++) {
+      let near: THREE.Vector3 | undefined;
+      for (const p of skinPts) {
+        const w = p.clone().sub(b);
+        w.addScaledVector(dir, -w.dot(dir));
+        if (!near || w.lengthSq() < near.lengthSq()) near = w;
+      }
+      if (!near) break;
+      b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS);
+    }
+    const shift = b.sub(start);
+    for (const s of sides) moveFist(s, fist(s).add(shift));
   }
 
   // A loaded lifter keeps the bar over the middle of the foot; the clip drifts
@@ -405,7 +459,7 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
     hip: mid(rig.l.thigh, rig.r.thigh),
     bar,
     // Level, across the shoulders.
-    barDir: worldPos(rig.l.upperarm).sub(worldPos(rig.r.upperarm)).setY(0).normalize(),
+    barDir: barDir(),
     midfoot,
   };
 }
@@ -519,7 +573,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       <primitive object={scene} />
       <group ref={bar}>
         <mesh rotation-z={Math.PI / 2}>
-          <cylinderGeometry args={[0.014, 0.014, 2.0, 16]} />
+          <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, 2.0, 16]} />
           <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
         </mesh>
         {[-1, 1].map((side) => (
