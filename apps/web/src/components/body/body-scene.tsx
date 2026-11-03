@@ -279,9 +279,13 @@ function readRig(root: THREE.Object3D) {
   });
   const pelvis = bone("pelvis");
   const spine3 = bone("spine_03");
+  // Where the bar should sit: on the upper back, just below the base of the neck.
+  const neck = worldPos(bone("neck_01"));
+  const barOnBack = new THREE.Vector3(0, neck.y - 0.07, neck.z - 0.09);
   return {
     rest,
     clipBones,
+    barLocal: spine3.worldToLocal(barOnBack),
     bottom,
     l: side("l"),
     r: side("r"),
@@ -311,6 +315,7 @@ function playClip(rig: Rig, frame: number) {
   setWorldPos(rig.pelvis, rig.pelvisRest.clone().add(hips));
 }
 
+const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
 
 function pose(rig: Rig, depth: number, faults: SquatFaults) {
@@ -337,6 +342,27 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   }
   const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
   const barNow = () => fist(rig.l).add(fist(rig.r)).multiplyScalar(0.5);
+
+  // The clip's hands carry the bar up on the neck. Lower it onto the upper
+  // back by swinging each whole arm at the shoulder, after opening or closing
+  // the elbow just enough for the new reach, so the arm keeps the clip's shape.
+  const onBack = rig.spine3.localToWorld(rig.barLocal.clone());
+  for (const s of sides) {
+    const target = fist(s).lerp(onBack.clone().setX(fist(s).x), BAR_DROP);
+    const shoulder = worldPos(s.upperarm);
+    const elbow = worldPos(s.lowerarm);
+    const f = fist(s);
+    const a = shoulder.distanceTo(elbow);
+    const b = f.distanceTo(elbow);
+    const reach = THREE.MathUtils.clamp(target.distanceTo(shoulder), Math.abs(a - b) + 1e-3, a + b - 1e-3);
+    const inner = (d: number) => Math.acos(THREE.MathUtils.clamp((a * a + b * b - d * d) / (2 * a * b), -1, 1));
+    const axis = shoulder.clone().sub(elbow).cross(f.clone().sub(elbow)).normalize();
+    if (Number.isFinite(axis.x)) {
+      rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(axis, inner(reach) - inner(f.distanceTo(shoulder))));
+    }
+    const from = fist(s).sub(shoulder).normalize();
+    rotateWorld(s.upperarm, new THREE.Quaternion().setFromUnitVectors(from, target.sub(shoulder).normalize()));
+  }
 
   // A loaded lifter keeps the bar over the middle of the foot; the clip drifts
   // a few centimetres either way. Tip the upper body about the hips to put the
