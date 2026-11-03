@@ -255,8 +255,6 @@ function readRig(root: THREE.Object3D) {
       hand,
       upperLen: worldPos(upperarm).distanceTo(worldPos(lowerarm)),
       foreLen: worldPos(lowerarm).distanceTo(worldPos(hand)),
-      lowerarmRest: worldQuat(lowerarm),
-      handRest: worldQuat(hand),
       sign: s === "l" ? 1 : -1,
       thigh,
       calf,
@@ -317,9 +315,6 @@ function playClip(rig: Rig, frame: number) {
   setWorldPos(rig.pelvis, rig.pelvisRest.clone().add(hips));
 }
 
-const ELBOWS_BACK = 0.8; // how far the elbow hint leans backward
-const WRIST_STRAIGHTEN = 0.7; // 0 = clip's wrist angle, 1 = in line with the forearm
-
 function pose(rig: Rig, depth: number, faults: SquatFaults) {
   for (const [b, r] of rig.rest) {
     b.quaternion.copy(r.q);
@@ -372,24 +367,19 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   }
 
   // The bar rests on the upper back. The clip's hands hold it a little higher
-  // than our shoulders carry it, so move each fist onto the bar. The clip's
-  // wrists bend back a lot; drive the elbows further back and bring the hands
-  // most of the way in line with the forearms so the wrists stay near straight.
+  // than our shoulders carry it, so move each fist onto the bar, keeping the
+  // elbow pointing where the clip has it.
   const bar = rig.spine3.localToWorld(rig.barLocal.clone());
   const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
   for (const s of sides) {
     const f0 = fist(s);
     const grip = bar.clone().setX(f0.x);
-    const wrist = worldPos(s.hand).add(grip.clone().sub(f0));
+    const wrist = worldPos(s.hand).add(grip.sub(f0));
     const handQ = worldQuat(s.hand);
-    const hint = worldPos(s.lowerarm).sub(worldPos(s.upperarm).add(wrist).multiplyScalar(0.5));
-    hint.add(new THREE.Vector3(0, 0, -ELBOWS_BACK * hint.length()));
-    for (let i = 0; i < 3; i++) {
-      twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, hint);
-      const straight = worldQuat(s.lowerarm).multiply(s.lowerarmRest.clone().invert()).multiply(s.handRest);
-      setWorldQuat(s.hand, handQ.clone().slerp(straight, WRIST_STRAIGHTEN));
-      wrist.add(grip.clone().sub(fist(s)));
-    }
+    const elbow = worldPos(s.lowerarm);
+    const hint = elbow.sub(worldPos(s.upperarm).add(wrist).multiplyScalar(0.5));
+    twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, hint);
+    setWorldQuat(s.hand, handQ);
   }
   return {
     hip: mid(rig.l.thigh, rig.r.thigh),
