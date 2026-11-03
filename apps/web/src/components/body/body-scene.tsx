@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
+import grips from "./grips.json";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS } from "./muscles";
 import {
   balancedLean,
@@ -99,7 +100,7 @@ function CameraRig({ view }: { view: View }) {
       ref={controls}
       target={TARGET}
       enablePan={false}
-      minDistance={1.6}
+      minDistance={0.9}
       maxDistance={6}
       maxPolarAngle={Math.PI * 0.62}
       onStart={() => (goal.current = null)}
@@ -260,8 +261,15 @@ function readRig(root: THREE.Object3D) {
       index1: bone(`index_01_${s}`),
       middle1: bone(`middle_01_${s}`),
       pinky1: bone(`pinky_01_${s}`),
-      fingers: ["index", "middle", "ring", "pinky"].map((f) => [1, 2, 3].map((i) => bone(`${f}_0${i}_${s}`))),
-      thumb: [1, 2, 3].map((i) => bone(`thumb_0${i}_${s}`)),
+      middle3: bone(`middle_03_${s}`),
+      handRest: worldQuat(hand),
+      // Proximal to distal, so each parent is posed before its child.
+      fingers: ["thumb", "index", "middle", "ring", "pinky"].flatMap((f) =>
+        [1, 2, 3].map((i) => {
+          const b = bone(`${f}_0${i}_${s}`);
+          return { key: `${f}_0${i}`, bone: b, rest: worldQuat(b) };
+        }),
+      ),
       ankle: worldPos(foot),
       ball: worldPos(ball),
       footQ: worldQuat(foot),
@@ -330,11 +338,15 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
 
   const bar = rig.spine3.localToWorld(rig.barLocal.clone());
   for (const s of [rig.l, rig.r]) {
-    // Wrist just below and behind the bar so the palm can wrap it.
-    const wrist = bar.clone().add(new THREE.Vector3(s.sign * 0.33, -0.07, -0.03));
+    const target = bar.clone().add(new THREE.Vector3(s.sign * 0.33, 0, 0));
+    const wrist = target.clone().add(new THREE.Vector3(0, -0.07, -0.03));
     const elbowsDownBack = new THREE.Vector3(s.sign * 0.4, -1, -0.7);
-    twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);
-    grip(s);
+    // Close the fist, then move the wrist so the fist sits on the bar.
+    for (let i = 0; i < 2; i++) {
+      twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);
+      grip(s, GRIPS.palmForward);
+      wrist.add(target.clone().sub(fistCenter(s)));
+    }
   }
 
   const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
@@ -345,12 +357,15 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   };
 }
 
-const CURL = [deg(70), deg(80), deg(50)];
-const THUMB_CURL = [deg(15), deg(30), deg(25)];
+type GripPose = Record<"l" | "r", Record<string, number[]>>;
+
+// Finger poses taken from Mixamo clips by tools/body/extract_grips.py.
+// palmForward: back squat; overhand: hands on a bar with straight wrists.
+const GRIPS = grips as Record<"palmForward" | "overhand", GripPose>;
 
 // Palm faces forward, knuckles run along the bar (thumb toward the middle),
-// and the fingers wrap over it.
-function grip(s: Rig["l"]) {
+// then the fingers close into the stored grip.
+function grip(s: Rig["l"], pose: GripPose) {
   const wrist = worldPos(s.hand);
   aim(s.hand, s.middle1, wrist.clone().add(new THREE.Vector3(0, 1, 0.2)));
   const dir = worldPos(s.middle1).sub(wrist).normalize();
@@ -359,10 +374,18 @@ function grip(s: Rig["l"]) {
   const want = perp(new THREE.Vector3(s.sign, 0, 0));
   const twist = Math.atan2(knuckles.clone().cross(want).dot(dir), knuckles.dot(want));
   rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(dir, twist));
-  // Curling about the bar's axis turns fingertips forward, then down.
-  for (const chain of s.fingers) chain.forEach((b, i) => rotateWorld(b, qx(CURL[i])));
-  s.thumb.forEach((b, i) => rotateWorld(b, qx(THUMB_CURL[i])));
+
+  // finger = handDelta * G * fingerRest (see extract_grips.py)
+  const handDelta = worldQuat(s.hand).multiply(s.handRest.clone().invert());
+  const g = pose[s.sign === 1 ? "l" : "r"];
+  for (const f of s.fingers) {
+    const [x, y, z, w] = g[f.key];
+    setWorldQuat(f.bone, handDelta.clone().multiply(new THREE.Quaternion(x, y, z, w)).multiply(f.rest));
+  }
 }
+
+// Middle of the closed fist, where the bar should sit.
+const fistCenter = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
 
 // ---------- the lifter ----------
 

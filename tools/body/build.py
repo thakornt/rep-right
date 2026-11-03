@@ -272,4 +272,5 @@ def main():
     print("REGIONS", counts, "none", muscle.count(0), "verts", len(muscle))
 
 
-main()
+if __name__ == "__main__":
+    main()
