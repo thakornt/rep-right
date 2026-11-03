@@ -263,6 +263,12 @@ function readRig(root: THREE.Object3D) {
       pinky1: bone(`pinky_01_${s}`),
       middle3: bone(`middle_03_${s}`),
       handRest: worldQuat(hand),
+      upperRest: worldQuat(upperarm),
+      // The elbow bends about this axis (the rest arm is slightly bent).
+      elbowAxis: worldPos(lowerarm)
+        .sub(worldPos(upperarm))
+        .cross(worldPos(hand).sub(worldPos(lowerarm)))
+        .normalize(),
       // Proximal to distal, so each parent is posed before its child.
       fingers: ["thumb", "index", "middle", "ring", "pinky"].flatMap((f) =>
         [1, 2, 3].map((i) => {
@@ -340,10 +346,11 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   for (const s of [rig.l, rig.r]) {
     const target = bar.clone().add(new THREE.Vector3(s.sign * 0.33, 0, 0));
     const wrist = target.clone().add(new THREE.Vector3(0, -0.07, -0.03));
-    const elbowsDownBack = new THREE.Vector3(s.sign * 0.4, -1, -0.7);
+    const elbowsDownBack = new THREE.Vector3(s.sign * 0.7, -1, -0.35);
     // Close the fist, then move the wrist so the fist sits on the bar.
     for (let i = 0; i < 2; i++) {
       twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);
+      hingeElbow(s);
       grip(s, GRIPS.palmForward);
       wrist.add(target.clone().sub(fistCenter(s)));
     }
@@ -363,17 +370,36 @@ type GripPose = Record<"l" | "r", Record<string, number[]>>;
 // palmForward: back squat; overhand: hands on a bar with straight wrists.
 const GRIPS = grips as Record<"palmForward" | "overhand", GripPose>;
 
-// Palm faces forward, knuckles run along the bar (thumb toward the middle),
-// then the fingers close into the stored grip.
-function grip(s: Rig["l"], pose: GripPose) {
+// IK leaves the upper arm's roll arbitrary. Turn it about its own axis so the
+// elbow bends like a hinge, then put the forearm back on the wrist.
+function hingeElbow(s: Rig["l"]) {
+  const shoulder = worldPos(s.upperarm);
+  const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);
-  aim(s.hand, s.middle1, wrist.clone().add(new THREE.Vector3(0, 1, 0.2)));
-  const dir = worldPos(s.middle1).sub(wrist).normalize();
-  const perp = (v: THREE.Vector3) => v.sub(dir.clone().multiplyScalar(v.dot(dir))).normalize();
+  const upper = elbow.clone().sub(shoulder).normalize();
+  const bend = upper.clone().cross(wrist.clone().sub(elbow)).normalize();
+  if (!Number.isFinite(bend.x)) return; // straight arm: any roll is fine
+  const delta = worldQuat(s.upperarm).multiply(s.upperRest.clone().invert());
+  const axis = s.elbowAxis.clone().applyQuaternion(delta);
+  axis.sub(upper.clone().multiplyScalar(axis.dot(upper))).normalize();
+  const roll = Math.atan2(axis.clone().cross(bend).dot(upper), axis.dot(bend));
+  rotateWorld(s.upperarm, new THREE.Quaternion().setFromAxisAngle(upper, roll));
+  aim(s.lowerarm, s.hand, wrist);
+}
+
+// The wrist stays straight (the rest hand is in line with the forearm). The
+// forearm turns so the knuckles run along the bar with the thumb toward the
+// middle, then the fingers close into the stored grip.
+function grip(s: Rig["l"], pose: GripPose) {
+  const fore = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
+  const perp = (v: THREE.Vector3) => v.sub(fore.clone().multiplyScalar(v.dot(fore))).normalize();
   const knuckles = perp(worldPos(s.pinky1).sub(worldPos(s.index1)));
   const want = perp(new THREE.Vector3(s.sign, 0, 0));
-  const twist = Math.atan2(knuckles.clone().cross(want).dot(dir), knuckles.dot(want));
-  rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(dir, twist));
+  const twist = Math.atan2(knuckles.clone().cross(want).dot(fore), knuckles.dot(want));
+  // Real forearms turn along their length; splitting the turn between the
+  // forearm and the hand keeps the wrist skin from wringing.
+  rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(fore, twist / 2));
+  rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(fore, twist / 2));
 
   // finger = handDelta * G * fingerRest (see extract_grips.py)
   const handDelta = worldQuat(s.hand).multiply(s.handRest.clone().invert());
