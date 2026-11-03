@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { FORM_CUES } from "@/content/form-cues";
 
@@ -26,16 +27,24 @@ export async function generateMetadata({ params }: PageProps<"/exercises/[slug]"
   };
 }
 
-export default async function ExercisePage({ params }: PageProps<"/exercises/[slug]">) {
-  const { slug } = await params;
-  const form = FORM_CUES[slug];
-  if (!form) notFound();
+// params is awaited inside Suspense so the shell (back link) shows instantly
+// on navigation; partialPrefetching serves it while an unlisted slug renders.
+export default function ExercisePage({ params }: PageProps<"/exercises/[slug]">) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8">
       <Link href="/exercises" className="w-fit text-sm text-muted hover:text-fg">
         ← ท่าทั้งหมด
       </Link>
-      <ExerciseDetail slug={slug} form={form} />
+      <Suspense>
+        <Exercise params={params} />
+      </Suspense>
     </main>
   );
+}
+
+async function Exercise({ params }: { params: PageProps<"/exercises/[slug]">["params"] }) {
+  const { slug } = await params;
+  const form = FORM_CUES[slug];
+  if (!form) notFound();
+  return <ExerciseDetail slug={slug} form={form} />;
 }
