@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { SquatState, View } from "./body-scene";
 import { REGION_LABELS, ROLE_COLORS, ROLE_LABELS, type Role } from "./muscles";
-import { NO_FAULTS, SQUAT_PINS, squatActivation, type Phase, type SquatFaults, type SquatMetrics } from "./squat";
+import { NO_FAULTS, SQUAT_PINS, squatActivation, type Phase, type SquatFaults } from "./squat";
 
 // three.js only runs in the browser; the text around it is server-rendered.
 const BodyScene = dynamic(() => import("./body-scene"), {
@@ -63,14 +63,12 @@ export function SquatViewer() {
   const [playing, setPlaying] = useState(true);
   const [depth, setDepth] = useState(0.55);
   const [phase, setPhase] = useState<Phase>("down");
-  const [metrics, setMetrics] = useState<SquatMetrics | null>(null);
   const [activePin, setActivePin] = useState<string | null>(null);
   const pinEls = useRef<Record<string, HTMLElement | null>>({});
 
-  const onFrame = useCallback((d: number, p: Phase, m: SquatMetrics) => {
+  const onFrame = useCallback((d: number, p: Phase) => {
     setDepth(d);
     setPhase(p);
-    setMetrics(m);
   }, []);
 
   const onPin = useCallback((id: string) => setActivePin((cur) => (cur === id ? null : id)), []);
@@ -163,7 +161,7 @@ export function SquatViewer() {
           {playing ? <Pause size={20} /> : <Play size={20} />}
         </button>
         <label className="flex flex-1 flex-col gap-1">
-          <span className="text-xs text-faint">ความลึก</span>
+          <span className="sr-only">ความลึก</span>
           <input
             type="range"
             min={0}
@@ -179,10 +177,12 @@ export function SquatViewer() {
             }}
             className="w-full accent-[var(--primary)]"
           />
+          <span aria-hidden className="flex justify-between text-xs text-faint">
+            <span>ยืน</span>
+            <span>นั่งลึก</span>
+          </span>
         </label>
       </div>
-
-      {metrics && <Metrics m={metrics} />}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium tracking-wide text-faint">ลองดูฟอร์มที่ผิด</h2>
@@ -272,37 +272,17 @@ export function SquatViewer() {
         </ol>
       </section>
 
-      <p className="text-xs leading-relaxed text-faint">
-        ภาพและสีกล้ามเนื้อเป็นแนวทางทั่วไปเพื่อช่วยเข้าใจท่า ไม่ใช่ค่าที่วัดจากร่างกายจริง และไม่ใช่คำวินิจฉัย
-        สัดส่วนร่างกายแต่ละคนต่างกัน มุมที่เหมาะจึงต่างกันได้
-      </p>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xs font-medium tracking-wide text-faint">สังเกตร่างกายระหว่างเล่น</h2>
+        <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed text-fg/90">
+          <li>ร่างกายแต่ละคนไม่เหมือนกัน ความลึกและการเอียงตัวที่เหมาะจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ</li>
+          <li>ลงลึกเท่าที่หลังยังตรงและส้นเท้ายังติดพื้น ตรงนั้นคือความลึกที่เหมาะกับคุณตอนนี้</li>
+          <li>ถ้ารู้สึกเจ็บแปลบ ปวดผิดปกติที่เข่า หลัง หรือสะโพก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ</li>
+        </ul>
+        <p className="text-xs leading-relaxed text-faint">
+          ภาพและสีกล้ามเนื้อเป็นแนวทางทั่วไปเพื่อช่วยเข้าใจท่า ไม่ใช่คำวินิจฉัยหรือคำแนะนำทางการแพทย์
+        </p>
+      </section>
     </div>
-  );
-}
-
-function Metrics({ m }: { m: SquatMetrics }) {
-  const depthText =
-    m.depthCm >= 0 ? `สะโพกสูงกว่าเข่า ${m.depthCm.toFixed(0)} ซม.` : `ต่ำกว่าเข่า ${(-m.depthCm).toFixed(0)} ซม.`;
-  const barOk = Math.abs(m.barCm) <= 3;
-  const barText = barOk
-    ? "อยู่เหนือกลางเท้า"
-    : `${m.barCm > 0 ? "เลยไปข้างหน้า" : "อยู่ค่อนไปทางส้น"} ${Math.abs(m.barCm).toFixed(0)} ซม.`;
-  const items: [string, string, boolean?][] = [
-    ["ลำตัวเอียง", `${m.torso.toFixed(0)}°`],
-    ["หน้าแข้งเอียง", `${m.shin.toFixed(0)}°`],
-    ["เข่างอ", `${m.knee.toFixed(0)}°`],
-    ["สะโพกงอ", `${m.hip.toFixed(0)}°`],
-    ["ความลึก (เทียบต้นขาขนานพื้น)", depthText],
-    ["บาร์", barText, !barOk],
-  ];
-  return (
-    <dl className="grid grid-cols-2 gap-2">
-      {items.map(([k, v, bad]) => (
-        <div key={k} className="rounded-2xl bg-surface p-3">
-          <dt className="text-xs text-faint">{k}</dt>
-          <dd className={`num mt-0.5 text-[0.95rem] font-semibold ${bad ? "text-warn" : ""}`}>{v}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }

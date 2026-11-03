@@ -93,39 +93,3 @@ export function squatActivation(depth: number, phase: Phase, faults: SquatFaults
   if (faults.heelRise) warn("quads");
   return list;
 }
-
-// Display numbers taken from the posed skeleton (world positions, metres).
-type P = { x: number; y: number; z: number };
-
-const angleBetween = (a: P, b: P) => {
-  const dot = a.x * b.x + a.y * b.y + a.z * b.z;
-  const la = Math.hypot(a.x, a.y, a.z);
-  const lb = Math.hypot(b.x, b.y, b.z);
-  return (Math.acos(Math.max(-1, Math.min(1, dot / (la * lb)))) * 180) / Math.PI;
-};
-const sub = (a: P, b: P): P => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-// Angle from vertical in the side view (ignores sideways tilt).
-const fromVertical = (v: P) => (Math.atan2(Math.abs(v.z), v.y) * 180) / Math.PI;
-
-export type SquatMetrics = {
-  torso: number; // ลำตัวเอียงจากแนวดิ่ง
-  shin: number; // หน้าแข้งเอียงจากแนวดิ่ง
-  knee: number; // เข่างอ (0 = เหยียดตรง)
-  hip: number; // สะโพกงอ (0 = ยืนตรง)
-  depthCm: number; // สะโพกเหนือเข่า (+) หรือต่ำกว่า (-)
-  barCm: number; // บาร์หน้า (+) หรือหลัง (-) กลางเท้า
-};
-
-export function squatMetrics(j: { hip: P; knee: P; ankle: P; shoulder: P; bar: P; midfoot: P }): SquatMetrics {
-  const thigh = sub(j.knee, j.hip);
-  const shin = sub(j.ankle, j.knee);
-  const torso = sub(j.shoulder, j.hip);
-  return {
-    torso: fromVertical(torso),
-    shin: fromVertical(sub(j.knee, j.ankle)),
-    knee: angleBetween(thigh, shin),
-    hip: 180 - angleBetween(torso, thigh),
-    depthCm: (j.hip.y - j.knee.y) * 100,
-    barCm: (j.bar.z - j.midfoot.z) * 100,
-  };
-}

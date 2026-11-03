@@ -11,11 +11,9 @@ import {
   hipFromAnkle,
   legAngles,
   squatActivation,
-  squatMetrics,
   SQUAT_PINS,
   type Phase,
   type SquatFaults,
-  type SquatMetrics,
 } from "./squat";
 
 const MODEL = "/models/body.glb";
@@ -36,10 +34,10 @@ type Props = {
   // Pin buttons live in the DOM over the canvas; the scene reports where each
   // one should be, in CSS pixels from the canvas's top-left corner.
   onPinMove: (id: string, x: number, y: number, visible: boolean, front: boolean) => void;
-  onFrame: (depth: number, phase: Phase, metrics: SquatMetrics) => void;
+  onFrame: (depth: number, phase: Phase) => void;
 };
 
-// Memoised: the controls re-render ~10 times a second with new metrics.
+// Memoised: the controls re-render ~10 times a second while playing.
 export default memo(function BodyScene(props: Props) {
   return (
     <Canvas
@@ -259,6 +257,11 @@ function readRig(root: THREE.Object3D) {
       shinLen: worldPos(calf).distanceTo(worldPos(foot)),
       upperLen: worldPos(upperarm).distanceTo(worldPos(lowerarm)),
       foreLen: worldPos(lowerarm).distanceTo(worldPos(hand)),
+      index1: bone(`index_01_${s}`),
+      middle1: bone(`middle_01_${s}`),
+      pinky1: bone(`pinky_01_${s}`),
+      fingers: ["index", "middle", "ring", "pinky"].map((f) => [1, 2, 3].map((i) => bone(`${f}_0${i}_${s}`))),
+      thumb: [1, 2, 3].map((i) => bone(`thumb_0${i}_${s}`)),
       ankle: worldPos(foot),
       ball: worldPos(ball),
       footQ: worldQuat(foot),
@@ -327,21 +330,38 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
 
   const bar = rig.spine3.localToWorld(rig.barLocal.clone());
   for (const s of [rig.l, rig.r]) {
-    const grip = bar.clone().add(new THREE.Vector3(s.sign * 0.33, -0.02, -0.01));
+    // Wrist just below and behind the bar so the palm can wrap it.
+    const wrist = bar.clone().add(new THREE.Vector3(s.sign * 0.33, -0.07, -0.03));
     const elbowsDownBack = new THREE.Vector3(s.sign * 0.4, -1, -0.7);
-    twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, grip, elbowsDownBack);
+    twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);
+    grip(s);
   }
 
   const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
-  const joints = {
+  return {
     hip: mid(rig.l.thigh, rig.r.thigh),
-    knee: mid(rig.l.calf, rig.r.calf),
-    ankle: mid(rig.l.foot, rig.r.foot),
     shoulder: mid(rig.l.upperarm, rig.r.upperarm),
     bar,
-    midfoot: new THREE.Vector3(0, 0, rig.midfootZ),
   };
-  return { joints, metrics: squatMetrics(joints) };
+}
+
+const CURL = [deg(70), deg(80), deg(50)];
+const THUMB_CURL = [deg(15), deg(30), deg(25)];
+
+// Palm faces forward, knuckles run along the bar (thumb toward the middle),
+// and the fingers wrap over it.
+function grip(s: Rig["l"]) {
+  const wrist = worldPos(s.hand);
+  aim(s.hand, s.middle1, wrist.clone().add(new THREE.Vector3(0, 1, 0.2)));
+  const dir = worldPos(s.middle1).sub(wrist).normalize();
+  const perp = (v: THREE.Vector3) => v.sub(dir.clone().multiplyScalar(v.dot(dir))).normalize();
+  const knuckles = perp(worldPos(s.pinky1).sub(worldPos(s.index1)));
+  const want = perp(new THREE.Vector3(s.sign, 0, 0));
+  const twist = Math.atan2(knuckles.clone().cross(want).dot(dir), knuckles.dot(want));
+  rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(dir, twist));
+  // Curling about the bar's axis turns fingertips forward, then down.
+  for (const chain of s.fingers) chain.forEach((b, i) => rotateWorld(b, qx(CURL[i])));
+  s.thumb.forEach((b, i) => rotateWorld(b, qx(THUMB_CURL[i])));
 }
 
 // ---------- the lifter ----------
@@ -391,7 +411,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     else if (depth < c.depth - 1e-4) c.phase = "up";
     c.depth = depth;
 
-    const { joints, metrics } = pose(rig, depth, s.faults);
+    const joints = pose(rig, depth, s.faults);
 
     body.clear();
     const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 180);
@@ -408,7 +428,8 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       const h = joints.bar.y;
       plumb.current.position.set(joints.bar.x, h / 2, joints.bar.z);
       plumb.current.scale.set(1, h, 1);
-      plumbMat.current.color.set(Math.abs(metrics.barCm) <= 3 ? "#34d399" : "#fbbf24");
+      // Green while the bar stays over the middle of the foot.
+      plumbMat.current.color.set(Math.abs(joints.bar.z - rig.midfootZ) <= 0.03 ? "#34d399" : "#fbbf24");
     }
 
     const fwd = (o: THREE.Object3D, z: number) => new THREE.Vector3(0, 0, z).applyQuaternion(worldQuat(o));
@@ -425,7 +446,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       knee: worldPos(rig.l.calf).add(new THREE.Vector3(0.03, 0.02, 0.07)),
       core: joints.hip.clone().lerp(joints.shoulder, 0.45).add(new THREE.Vector3(0, 0, 0.16).applyQuaternion(worldQuat(rig.spine2))),
       back: worldPos(rig.spine1).add(new THREE.Vector3(0, 0, -0.14).applyQuaternion(worldQuat(rig.spine1))),
-      bar: joints.bar.clone().add(new THREE.Vector3(-0.32, 0.08, 0)),
+      bar: joints.bar.clone().add(new THREE.Vector3(0, 0.07, -0.05)),
     } as Record<string, THREE.Vector3>;
     for (const p of SQUAT_PINS) {
       const toCamera = camera.position.clone().sub(at[p.id]);
@@ -437,7 +458,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     const now = performance.now();
     if (now - c.lastReport > 90) {
       c.lastReport = now;
-      onFrame(depth, c.phase, metrics);
+      onFrame(depth, c.phase);
     }
   });
 
