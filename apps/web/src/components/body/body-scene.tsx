@@ -5,12 +5,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-import grips from "./grips.json";
+import backSquat from "./clips/back-squat.json";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS } from "./muscles";
 import {
-  balancedLean,
-  hipFromAnkle,
-  legAngles,
+  faultOffsets,
   squatActivation,
   SQUAT_PINS,
   type Phase,
@@ -71,12 +69,13 @@ function Floor() {
 }
 
 const CAMERA: Record<View, [number, number, number]> = {
-  side: [3, 0.9, 0],
-  front: [0, 0.9, 3],
-  back: [0, 0.9, -3],
-  angle: [2.1, 1.1, 2.1],
+  side: [3.3, 0.95, 0],
+  front: [0, 0.95, 3.3],
+  back: [0, 0.95, -3.3],
+  angle: [2.3, 1.15, 2.3],
 };
-const TARGET = new THREE.Vector3(0, 0.75, 0);
+// High enough that the head stays in frame when standing.
+const TARGET = new THREE.Vector3(0, 0.82, 0);
 
 function CameraRig({ view }: { view: View }) {
   const camera = useThree((s) => s.camera);
@@ -172,7 +171,6 @@ function bodyMaterial() {
 // ---------- posing ----------
 
 const X = new THREE.Vector3(1, 0, 0);
-const Y = new THREE.Vector3(0, 1, 0);
 const qx = (rad: number) => new THREE.Quaternion().setFromAxisAngle(X, rad);
 const deg = (d: number) => (d * Math.PI) / 180;
 
@@ -225,6 +223,11 @@ function twoBoneIK(
   aim(lower, end, a.add(n.multiplyScalar(d)));
 }
 
+// A Mixamo clip baked by tools/body/extract_clip.py: per frame, each bone's
+// world rotation change since rest, plus the hips' position change.
+type Clip = { fps: number; bones: string[]; frames: { hips: number[]; rot: number[][] }[] };
+const CLIP = backSquat as Clip;
+
 type Rig = ReturnType<typeof readRig>;
 
 function readRig(root: THREE.Object3D) {
@@ -243,73 +246,74 @@ function readRig(root: THREE.Object3D) {
     const thigh = bone(`thigh_${s}`);
     const calf = bone(`calf_${s}`);
     const foot = bone(`foot_${s}`);
-    const ball = bone(`ball_${s}`);
     const upperarm = bone(`upperarm_${s}`);
     const lowerarm = bone(`lowerarm_${s}`);
     const hand = bone(`hand_${s}`);
     return {
+      upperarm,
+      lowerarm,
+      hand,
+      upperLen: worldPos(upperarm).distanceTo(worldPos(lowerarm)),
+      foreLen: worldPos(lowerarm).distanceTo(worldPos(hand)),
       sign: s === "l" ? 1 : -1,
       thigh,
       calf,
       foot,
-      upperarm,
-      lowerarm,
-      hand,
+      ball: bone(`ball_${s}`),
+      middle1: bone(`middle_01_${s}`),
+      middle3: bone(`middle_03_${s}`),
       thighLen: worldPos(thigh).distanceTo(worldPos(calf)),
       shinLen: worldPos(calf).distanceTo(worldPos(foot)),
-      upperLen: worldPos(upperarm).distanceTo(worldPos(lowerarm)),
-      foreLen: worldPos(lowerarm).distanceTo(worldPos(hand)),
-      index1: bone(`index_01_${s}`),
-      middle1: bone(`middle_01_${s}`),
-      pinky1: bone(`pinky_01_${s}`),
-      middle3: bone(`middle_03_${s}`),
-      handRest: worldQuat(hand),
-      upperRest: worldQuat(upperarm),
-      // The elbow bends about this axis (the rest arm is slightly bent).
-      elbowAxis: worldPos(lowerarm)
-        .sub(worldPos(upperarm))
-        .cross(worldPos(hand).sub(worldPos(lowerarm)))
-        .normalize(),
-      // Proximal to distal, so each parent is posed before its child.
-      fingers: ["thumb", "index", "middle", "ring", "pinky"].flatMap((f) =>
-        [1, 2, 3].map((i) => {
-          const b = bone(`${f}_0${i}_${s}`);
-          return { key: `${f}_0${i}`, bone: b, rest: worldQuat(b) };
-        }),
-      ),
       ankle: worldPos(foot),
-      ball: worldPos(ball),
-      footQ: worldQuat(foot),
     };
   };
-  const l = side("l");
-  const r = side("r");
+  // Clip order is parent before child, so each bone is set after its parent.
+  const clipBones = CLIP.bones.map((name) => {
+    const b = bone(name);
+    return { bone: b, rest: worldQuat(b) };
+  });
+  // The deepest frame; depth 0..1 plays the clip from the first frame to it.
+  let bottom = 0;
+  CLIP.frames.forEach((f, i) => {
+    if (f.hips[1] < CLIP.frames[bottom].hips[1]) bottom = i;
+  });
   const pelvis = bone("pelvis");
   const spine3 = bone("spine_03");
-  const hipMid = worldPos(l.thigh).add(worldPos(r.thigh)).multiplyScalar(0.5);
   // The bar rests on the upper back, just below the base of the neck.
   const neck = worldPos(bone("neck_01"));
-  const barRest = new THREE.Vector3(0, neck.y - 0.07, neck.z - 0.09);
-  const ankleMid = l.ankle.clone().add(r.ankle).multiplyScalar(0.5);
-  const ballMid = l.ball.clone().add(r.ball).multiplyScalar(0.5);
+  const barOnBack = new THREE.Vector3(0, neck.y - 0.07, neck.z - 0.09);
   return {
     rest,
-    l,
-    r,
+    barLocal: spine3.worldToLocal(barOnBack),
+    clipBones,
+    bottom,
+    l: side("l"),
+    r: side("r"),
     pelvis,
+    pelvisRest: worldPos(pelvis),
     spine1: bone("spine_01"),
     spine2: bone("spine_02"),
     spine3,
     neck: bone("neck_01"),
-    pelvisOffset: worldPos(pelvis).sub(hipMid),
-    barFromHip: { y: barRest.y - hipMid.y, z: barRest.z - hipMid.z },
-    barLocal: spine3.worldToLocal(barRest.clone()),
-    midfootZ: ankleMid.z + (ballMid.z - ankleMid.z) * 0.45,
   };
 }
 
-const TOE_OUT = 22; // degrees
-const EXTRA_STANCE = 0.03; // metres per side beyond the rest stance
+const q0 = new THREE.Quaternion();
+const q1 = new THREE.Quaternion();
+
+function playClip(rig: Rig, frame: number) {
+  const i = Math.min(Math.floor(frame), CLIP.frames.length - 1);
+  const j = Math.min(i + 1, CLIP.frames.length - 1);
+  const k = frame - i;
+  const a = CLIP.frames[i];
+  const b = CLIP.frames[j];
+  rig.clipBones.forEach(({ bone, rest }, n) => {
+    q0.fromArray(a.rot[n]).slerp(q1.fromArray(b.rot[n]), k);
+    setWorldQuat(bone, q0.clone().multiply(rest));
+  });
+  const hips = new THREE.Vector3().fromArray(a.hips).lerp(new THREE.Vector3().fromArray(b.hips), k);
+  setWorldPos(rig.pelvis, rig.pelvisRest.clone().add(hips));
+}
 
 function pose(rig: Rig, depth: number, faults: SquatFaults) {
   for (const [b, r] of rig.rest) {
@@ -317,117 +321,74 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
     b.position.copy(r.p);
   }
   rig.pelvis.parent!.updateMatrixWorld(true);
+  playClip(rig, depth * rig.bottom);
 
-  const a = legAngles(depth, faults);
-  const heel = deg(a.heelLift);
-  // Feet a little wider than the hips, toes turned out. Heels lift by turning
-  // each foot about the ball of the foot.
-  const feet = (s: Rig["l"]) => {
-    const toes = new THREE.Quaternion().setFromAxisAngle(Y, s.sign * deg(TOE_OUT));
-    const ankle = s.ankle.clone().add(new THREE.Vector3(s.sign * EXTRA_STANCE, 0, 0));
-    const ball = s.ball.clone().sub(s.ankle).applyQuaternion(toes).add(ankle);
-    const lift = new THREE.Quaternion().setFromAxisAngle(X.clone().applyQuaternion(toes), heel);
-    return {
-      ankle: ankle.sub(ball).applyQuaternion(lift).add(ball),
-      footQ: lift.multiply(toes).multiply(s.footQ),
-      toeDir: new THREE.Vector3(0, 0, 1).applyQuaternion(toes),
-    };
-  };
-  const foot = { l: feet(rig.l), r: feet(rig.r) };
-  const ankles = { l: foot.l.ankle, r: foot.r.ankle };
-  const ankleMid = ankles.l.clone().add(ankles.r).multiplyScalar(0.5);
+  // Our leg lengths differ a little from the clip's, so plant the feet where
+  // they stand at rest: move the hips by the difference, then fit the legs.
+  const sides = [rig.l, rig.r];
+  const ankles = sides.map((s) => worldPos(s.foot));
+  const drift = rig.l.ankle.clone().add(rig.r.ankle).sub(ankles[0]).sub(ankles[1]).multiplyScalar(0.5);
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(drift));
 
-  const hip = hipFromAnkle(a.shin, a.thigh, rig.l.shinLen, rig.l.thighLen);
-  const hipCenter = new THREE.Vector3(0, ankleMid.y + hip.y, ankleMid.z + hip.z);
-  const lean = balancedLean(hipCenter.z, rig.midfootZ, rig.barFromHip) + deg(a.extraLean);
-  const tuck = deg(a.pelvisTuck);
+  // A loaded lifter keeps the bar over the middle of the foot; the clip drifts
+  // a few centimetres either way. Tip the upper body about the hips to put the
+  // bar back there (a few degrees), keeping the eyes where they were.
+  const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
+  const midfoot = mid(rig.l.foot, rig.r.foot).lerp(mid(rig.l.ball, rig.r.ball), 0.45).setY(0);
+  const hip = worldPos(rig.pelvis);
+  const v = rig.spine3.localToWorld(rig.barLocal.clone()).sub(hip);
+  const r = Math.hypot(v.y, v.z);
+  const balance = Math.asin(THREE.MathUtils.clamp((midfoot.z - hip.z) / r, -1, 1)) - Math.atan2(v.z, v.y);
+  rotateWorld(rig.pelvis, qx(balance));
+  rotateWorld(rig.neck, qx(-balance * 0.8));
 
-  setWorldPos(rig.pelvis, hipCenter.clone().add(rig.pelvisOffset));
+  // Form faults are small changes on top of the real movement.
+  const f = faultOffsets(depth, faults);
+  const lean = deg(f.lean);
+  const tuck = deg(f.tuck);
   rotateWorld(rig.pelvis, qx(lean - tuck));
   // Butt wink: pelvis tucks, the lower spine rounds, the chest keeps its angle.
   rotateWorld(rig.spine1, qx(tuck * 0.6));
   rotateWorld(rig.spine2, qx(tuck * 0.4));
-  // Neutral neck, eyes forward.
   rotateWorld(rig.neck, qx(-lean * 0.8));
 
-  for (const s of [rig.l, rig.r]) {
-    const f = s.sign === 1 ? foot.l : foot.r;
-    // Knees track out over the toes, or cave in with the valgus fault.
-    const hint = f.toeDir.clone().add(new THREE.Vector3(s.sign * (0.1 - 0.6 * a.kneeIn), 0, 0));
-    twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, f.ankle, hint);
-    setWorldQuat(s.foot, f.footQ);
+  const heel = deg(f.heelLift);
+  for (const s of sides) {
+    const footQ = worldQuat(s.foot);
+    const ball = worldPos(s.ball);
+    // Heels lift by turning the foot about the ball of the foot.
+    const target = s.ankle.clone().sub(ball).applyQuaternion(qx(heel)).add(ball);
+    const knee = worldPos(s.calf);
+    const middle = worldPos(s.thigh).add(target).multiplyScalar(0.5);
+    const hint = knee.sub(middle);
+    hint.x -= s.sign * f.kneeIn * hint.length() * 0.4;
+    twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, target, hint);
+    setWorldQuat(s.foot, qx(heel).multiply(footQ));
   }
 
+  // The bar rests on the upper back. The clip's hands hold it a little higher
+  // than our shoulders carry it, so move each fist onto the bar, keeping the
+  // elbow pointing where the clip has it.
   const bar = rig.spine3.localToWorld(rig.barLocal.clone());
-  for (const s of [rig.l, rig.r]) {
-    const target = bar.clone().add(new THREE.Vector3(s.sign * 0.29, 0, 0));
-    const wrist = target.clone().add(new THREE.Vector3(0, -0.07, -0.03));
-    const elbowsDownBack = new THREE.Vector3(s.sign * 0.45, -1, -0.55);
-    // Close the fist, then move the wrist so the fist sits on the bar.
-    for (let i = 0; i < 2; i++) {
-      twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);
-      hingeElbow(s);
-      grip(s, GRIPS.palmForward);
-      wrist.add(target.clone().sub(fistCenter(s)));
-    }
+  const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
+  for (const s of sides) {
+    const f0 = fist(s);
+    const grip = bar.clone().setX(f0.x);
+    const wrist = worldPos(s.hand).add(grip.sub(f0));
+    const handQ = worldQuat(s.hand);
+    const elbow = worldPos(s.lowerarm);
+    const hint = elbow.sub(worldPos(s.upperarm).add(wrist).multiplyScalar(0.5));
+    twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, hint);
+    setWorldQuat(s.hand, handQ);
   }
-
-  const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
   return {
     hip: mid(rig.l.thigh, rig.r.thigh),
-    shoulder: mid(rig.l.upperarm, rig.r.upperarm),
     bar,
+    // Level, across the shoulders.
+    barDir: worldPos(rig.l.upperarm).sub(worldPos(rig.r.upperarm)).setY(0).normalize(),
+    midfoot,
   };
 }
-
-type GripPose = Record<"l" | "r", Record<string, number[]>>;
-
-// Finger poses taken from Mixamo clips by tools/body/extract_grips.py.
-// palmForward: back squat; overhand: hands on a bar with straight wrists.
-const GRIPS = grips as Record<"palmForward" | "overhand", GripPose>;
-
-// IK leaves the upper arm's roll arbitrary. Turn it about its own axis so the
-// elbow bends like a hinge, then put the forearm back on the wrist.
-function hingeElbow(s: Rig["l"]) {
-  const shoulder = worldPos(s.upperarm);
-  const elbow = worldPos(s.lowerarm);
-  const wrist = worldPos(s.hand);
-  const upper = elbow.clone().sub(shoulder).normalize();
-  const bend = upper.clone().cross(wrist.clone().sub(elbow)).normalize();
-  if (!Number.isFinite(bend.x)) return; // straight arm: any roll is fine
-  const delta = worldQuat(s.upperarm).multiply(s.upperRest.clone().invert());
-  const axis = s.elbowAxis.clone().applyQuaternion(delta);
-  axis.sub(upper.clone().multiplyScalar(axis.dot(upper))).normalize();
-  const roll = Math.atan2(axis.clone().cross(bend).dot(upper), axis.dot(bend));
-  rotateWorld(s.upperarm, new THREE.Quaternion().setFromAxisAngle(upper, roll));
-  aim(s.lowerarm, s.hand, wrist);
-}
-
-// The wrist stays straight (the rest hand is in line with the forearm). The
-// forearm turns so the knuckles run along the bar with the thumb toward the
-// middle, then the fingers close into the stored grip.
-function grip(s: Rig["l"], pose: GripPose) {
-  const fore = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
-  const perp = (v: THREE.Vector3) => v.sub(fore.clone().multiplyScalar(v.dot(fore))).normalize();
-  const knuckles = perp(worldPos(s.pinky1).sub(worldPos(s.index1)));
-  const want = perp(new THREE.Vector3(s.sign, 0, 0));
-  const twist = Math.atan2(knuckles.clone().cross(want).dot(fore), knuckles.dot(want));
-  // Real forearms turn along their length; splitting the turn between the
-  // forearm and the hand keeps the wrist skin from wringing.
-  rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(fore, twist / 2));
-  rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(fore, twist / 2));
-
-  // finger = handDelta * G * fingerRest (see extract_grips.py)
-  const handDelta = worldQuat(s.hand).multiply(s.handRest.clone().invert());
-  const g = pose[s.sign === 1 ? "l" : "r"];
-  for (const f of s.fingers) {
-    const [x, y, z, w] = g[f.key];
-    setWorldQuat(f.bone, handDelta.clone().multiply(new THREE.Quaternion(x, y, z, w)).multiply(f.rest));
-  }
-}
-
-// Middle of the closed fist, where the bar should sit.
-const fistCenter = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
 
 // ---------- the lifter ----------
 
@@ -450,6 +411,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
   const bar = useRef<THREE.Group>(null);
   const plumb = useRef<THREE.Mesh>(null);
   const plumbMat = useRef<THREE.MeshBasicMaterial>(null);
+  const midfootRing = useRef<THREE.Mesh>(null);
   const clock = useRef({ t: 0, depth: 0, wasPlaying: false, lastReport: 0, phase: "down" as Phase });
   const colors = useMemo(
     () => ({
@@ -488,14 +450,19 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       );
     }
 
-    if (bar.current) bar.current.position.copy(joints.bar);
+    if (bar.current) {
+      bar.current.position.copy(joints.bar);
+      bar.current.quaternion.setFromUnitVectors(X, joints.barDir);
+    }
     if (plumb.current && plumbMat.current) {
       const h = joints.bar.y;
       plumb.current.position.set(joints.bar.x, h / 2, joints.bar.z);
       plumb.current.scale.set(1, h, 1);
-      // Green while the bar stays over the middle of the foot.
-      plumbMat.current.color.set(Math.abs(joints.bar.z - rig.midfootZ) <= 0.03 ? "#34d399" : "#fbbf24");
+      // Green while the bar stays over the middle of the foot (within ~5 cm).
+      plumbMat.current.color.set(Math.abs(joints.bar.z - joints.midfoot.z) <= 0.05 ? "#34d399" : "#fbbf24");
     }
+
+    midfootRing.current?.position.copy(joints.midfoot).setY(0.002);
 
     const fwd = (o: THREE.Object3D, z: number) => new THREE.Vector3(0, 0, z).applyQuaternion(worldQuat(o));
     // Which way each pin's spot on the body faces; pins on the far side dim.
@@ -507,9 +474,9 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       bar: fwd(rig.spine3, -1).add(new THREE.Vector3(0, 1, 0)),
     };
     const at = {
-      feet: new THREE.Vector3(rig.l.ankle.x + 0.02, 0.03, rig.midfootZ + 0.06),
+      feet: worldPos(rig.l.ball).setY(0.03),
       knee: worldPos(rig.l.calf).add(new THREE.Vector3(0.03, 0.02, 0.07)),
-      core: joints.hip.clone().lerp(joints.shoulder, 0.45).add(new THREE.Vector3(0, 0, 0.16).applyQuaternion(worldQuat(rig.spine2))),
+      core: worldPos(rig.spine2).add(fwd(rig.spine2, 0.15)),
       back: worldPos(rig.spine1).add(new THREE.Vector3(0, 0, -0.14).applyQuaternion(worldQuat(rig.spine1))),
       bar: joints.bar.clone().add(new THREE.Vector3(0, 0.07, -0.05)),
     } as Record<string, THREE.Vector3>;
@@ -547,7 +514,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
         <cylinderGeometry args={[0.004, 0.004, 1, 6]} />
         <meshBasicMaterial ref={plumbMat} transparent opacity={0.85} />
       </mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.002, rig.midfootZ]}>
+      <mesh ref={midfootRing} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[0.025, 0.035, 32]} />
         <meshBasicMaterial color="#34d399" />
       </mesh>

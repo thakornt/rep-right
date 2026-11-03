@@ -14,46 +14,18 @@ export const NO_FAULTS: SquatFaults = { forwardLean: false, buttWink: false, kne
 
 export type Phase = "down" | "up";
 
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const deg = (d: number) => (d * Math.PI) / 180;
 
-// Joint angles in degrees for depth 0 (standing) .. 1 (hips below the knees).
-// Thigh angle is from vertical, so 90 = thigh parallel to the floor. Knees
-// travel well past the toes at the bottom, which keeps the chest up.
-export function legAngles(depth: number, faults: SquatFaults) {
-  const shin = lerp(3, 40, depth) + (faults.heelRise ? 8 * depth : 0);
-  const thigh = lerp(4, 112, depth);
+// How far each fault bends the real movement, in degrees, at a given depth
+// (0 standing .. 1 bottom). Small on purpose: the clip is the correct form.
+export function faultOffsets(depth: number, faults: SquatFaults) {
   // Butt wink: the pelvis tucks under once the hips run out of flexion.
   const wink = faults.buttWink ? Math.max(0, depth - 0.6) / 0.4 : 0;
   return {
-    shin,
-    thigh,
-    heelLift: faults.heelRise ? 16 * depth : 0,
-    pelvisTuck: 22 * wink,
-    // Extra trunk lean on top of the balanced angle.
-    extraLean: faults.forwardLean ? 18 * depth : 0,
+    lean: faults.forwardLean ? 18 * depth : 0,
+    tuck: 22 * wink,
     kneeIn: faults.kneeValgus ? Math.min(1, depth * 1.3) : 0,
+    heelLift: faults.heelRise ? 16 * depth : 0,
   };
-}
-
-// Hip centre relative to the ankle, in the side view (z forward, y up),
-// for shin and thigh of the given lengths.
-export function hipFromAnkle(shinDeg: number, thighDeg: number, shinLen: number, thighLen: number) {
-  const s = deg(shinDeg);
-  const t = deg(thighDeg);
-  return {
-    z: shinLen * Math.sin(s) - thighLen * Math.sin(t),
-    y: shinLen * Math.cos(s) + thighLen * Math.cos(t),
-  };
-}
-
-// Trunk lean (radians, forward positive) that puts the bar straight over
-// targetZ. `bar` is the bar's offset from the hip when standing upright.
-export function balancedLean(hipZ: number, targetZ: number, bar: { y: number; z: number }) {
-  const r = Math.hypot(bar.y, bar.z);
-  const phi = Math.atan2(bar.z, bar.y);
-  const s = Math.max(-1, Math.min(1, (targetZ - hipZ) / r));
-  return Math.asin(s) - phi;
 }
 
 // Setup cue pins on the body, numbered in the order they are listed. A pin
