@@ -253,8 +253,6 @@ function readRig(root: THREE.Object3D) {
       upperarm,
       lowerarm,
       hand,
-      upperLen: worldPos(upperarm).distanceTo(worldPos(lowerarm)),
-      foreLen: worldPos(lowerarm).distanceTo(worldPos(hand)),
       lowerarmRest: worldQuat(lowerarm),
       handRest: worldQuat(hand),
       sign: s === "l" ? 1 : -1,
@@ -281,12 +279,8 @@ function readRig(root: THREE.Object3D) {
   });
   const pelvis = bone("pelvis");
   const spine3 = bone("spine_03");
-  // The bar rests on the upper back, just below the base of the neck.
-  const neck = worldPos(bone("neck_01"));
-  const barOnBack = new THREE.Vector3(0, neck.y - 0.07, neck.z - 0.09);
   return {
     rest,
-    barLocal: spine3.worldToLocal(barOnBack),
     clipBones,
     bottom,
     l: side("l"),
@@ -334,13 +328,23 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   const drift = rig.l.ankle.clone().add(rig.r.ankle).sub(ankles[0]).sub(ankles[1]).multiplyScalar(0.5);
   setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(drift));
 
+  // Arms stay exactly as the clip has them. Only the wrists change: the clip's
+  // bend back a lot, so turn each hand most of the way into line with its
+  // forearm. The bar sits in the fists.
+  for (const s of sides) {
+    const straight = worldQuat(s.lowerarm).multiply(s.lowerarmRest.clone().invert()).multiply(s.handRest);
+    setWorldQuat(s.hand, worldQuat(s.hand).slerp(straight, WRIST_STRAIGHTEN));
+  }
+  const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
+  const barNow = () => fist(rig.l).add(fist(rig.r)).multiplyScalar(0.5);
+
   // A loaded lifter keeps the bar over the middle of the foot; the clip drifts
   // a few centimetres either way. Tip the upper body about the hips to put the
   // bar back there (a few degrees), keeping the eyes where they were.
   const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
   const midfoot = mid(rig.l.foot, rig.r.foot).lerp(mid(rig.l.ball, rig.r.ball), 0.45).setY(0);
   const hip = worldPos(rig.pelvis);
-  const v = rig.spine3.localToWorld(rig.barLocal.clone()).sub(hip);
+  const v = barNow().sub(hip);
   const r = Math.hypot(v.y, v.z);
   const balance = Math.asin(THREE.MathUtils.clamp((midfoot.z - hip.z) / r, -1, 1)) - Math.atan2(v.z, v.y);
   rotateWorld(rig.pelvis, qx(balance));
@@ -370,25 +374,7 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
     setWorldQuat(s.foot, qx(heel).multiply(footQ));
   }
 
-  // The bar rests on the upper back. The clip's hands hold it a little higher
-  // than our shoulders carry it, so move each fist onto the bar, keeping the
-  // elbow pointing where the clip has it. The clip's wrists also bend back a
-  // lot; turn each hand into line with its forearm, then re-fit the fist.
-  const bar = rig.spine3.localToWorld(rig.barLocal.clone());
-  const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
-  for (const s of sides) {
-    const f0 = fist(s);
-    const grip = bar.clone().setX(f0.x);
-    const wrist = worldPos(s.hand).add(grip.clone().sub(f0));
-    const handQ = worldQuat(s.hand);
-    const hint = worldPos(s.lowerarm).sub(worldPos(s.upperarm).add(wrist).multiplyScalar(0.5));
-    for (let i = 0; i < 3; i++) {
-      twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, hint);
-      const straight = worldQuat(s.lowerarm).multiply(s.lowerarmRest.clone().invert()).multiply(s.handRest);
-      setWorldQuat(s.hand, handQ.clone().slerp(straight, WRIST_STRAIGHTEN));
-      wrist.add(grip.clone().sub(fist(s)));
-    }
-  }
+  const bar = barNow();
   return {
     hip: mid(rig.l.thigh, rig.r.thigh),
     bar,
