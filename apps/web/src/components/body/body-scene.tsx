@@ -172,6 +172,7 @@ function bodyMaterial() {
 // ---------- posing ----------
 
 const X = new THREE.Vector3(1, 0, 0);
+const Y = new THREE.Vector3(0, 1, 0);
 const qx = (rad: number) => new THREE.Quaternion().setFromAxisAngle(X, rad);
 const deg = (d: number) => (d * Math.PI) / 180;
 
@@ -307,6 +308,9 @@ function readRig(root: THREE.Object3D) {
   };
 }
 
+const TOE_OUT = 22; // degrees
+const EXTRA_STANCE = 0.03; // metres per side beyond the rest stance
+
 function pose(rig: Rig, depth: number, faults: SquatFaults) {
   for (const [b, r] of rig.rest) {
     b.quaternion.copy(r.q);
@@ -316,9 +320,21 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
 
   const a = legAngles(depth, faults);
   const heel = deg(a.heelLift);
-  // Heels lift by turning each foot about the ball of the foot.
-  const ankleTarget = (s: Rig["l"]) => s.ankle.clone().sub(s.ball).applyQuaternion(qx(heel)).add(s.ball);
-  const ankles = { l: ankleTarget(rig.l), r: ankleTarget(rig.r) };
+  // Feet a little wider than the hips, toes turned out. Heels lift by turning
+  // each foot about the ball of the foot.
+  const feet = (s: Rig["l"]) => {
+    const toes = new THREE.Quaternion().setFromAxisAngle(Y, s.sign * deg(TOE_OUT));
+    const ankle = s.ankle.clone().add(new THREE.Vector3(s.sign * EXTRA_STANCE, 0, 0));
+    const ball = s.ball.clone().sub(s.ankle).applyQuaternion(toes).add(ankle);
+    const lift = new THREE.Quaternion().setFromAxisAngle(X.clone().applyQuaternion(toes), heel);
+    return {
+      ankle: ankle.sub(ball).applyQuaternion(lift).add(ball),
+      footQ: lift.multiply(toes).multiply(s.footQ),
+      toeDir: new THREE.Vector3(0, 0, 1).applyQuaternion(toes),
+    };
+  };
+  const foot = { l: feet(rig.l), r: feet(rig.r) };
+  const ankles = { l: foot.l.ankle, r: foot.r.ankle };
   const ankleMid = ankles.l.clone().add(ankles.r).multiplyScalar(0.5);
 
   const hip = hipFromAnkle(a.shin, a.thigh, rig.l.shinLen, rig.l.thighLen);
@@ -331,22 +347,22 @@ function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // Butt wink: pelvis tucks, the lower spine rounds, the chest keeps its angle.
   rotateWorld(rig.spine1, qx(tuck * 0.6));
   rotateWorld(rig.spine2, qx(tuck * 0.4));
-  // Neutral neck, eyes a little down and ahead.
-  rotateWorld(rig.neck, qx(-lean * 0.6));
+  // Neutral neck, eyes forward.
+  rotateWorld(rig.neck, qx(-lean * 0.8));
 
   for (const s of [rig.l, rig.r]) {
-    const target = s.sign === 1 ? ankles.l : ankles.r;
+    const f = s.sign === 1 ? foot.l : foot.r;
     // Knees track out over the toes, or cave in with the valgus fault.
-    const hint = new THREE.Vector3(s.sign * (0.3 - 0.5 * a.kneeIn), 0, 1);
-    twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, target, hint);
-    setWorldQuat(s.foot, qx(heel).multiply(s.footQ));
+    const hint = f.toeDir.clone().add(new THREE.Vector3(s.sign * (0.1 - 0.6 * a.kneeIn), 0, 0));
+    twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, f.ankle, hint);
+    setWorldQuat(s.foot, f.footQ);
   }
 
   const bar = rig.spine3.localToWorld(rig.barLocal.clone());
   for (const s of [rig.l, rig.r]) {
-    const target = bar.clone().add(new THREE.Vector3(s.sign * 0.33, 0, 0));
+    const target = bar.clone().add(new THREE.Vector3(s.sign * 0.29, 0, 0));
     const wrist = target.clone().add(new THREE.Vector3(0, -0.07, -0.03));
-    const elbowsDownBack = new THREE.Vector3(s.sign * 0.7, -1, -0.35);
+    const elbowsDownBack = new THREE.Vector3(s.sign * 0.45, -1, -0.55);
     // Close the fist, then move the wrist so the fist sits on the bar.
     for (let i = 0; i < 2; i++) {
       twoBoneIK(s.upperarm, s.lowerarm, s.hand, s.upperLen, s.foreLen, wrist, elbowsDownBack);

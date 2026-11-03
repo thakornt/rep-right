@@ -126,7 +126,7 @@ export function SquatViewer() {
           );
         })}
         <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
-          {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู
+          {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
         </div>
         {activePin && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
@@ -248,28 +248,6 @@ export function SquatViewer() {
             <p className="text-sm leading-relaxed text-muted">กะพริบสีแดง = ส่วนที่รับภาระเพิ่มเมื่อฟอร์มผิด</p>
           </li>
         </ul>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-faint">จุดจัดท่า (กดตัวเลขบนโมเดลได้)</h2>
-        <ol className="flex flex-col gap-2">
-          {SQUAT_PINS.map(({ id }, i) => (
-            <li key={id}>
-              <button
-                type="button"
-                onClick={() => onPin(id)}
-                className={`flex w-full cursor-pointer gap-3 rounded-2xl p-2 text-left text-sm leading-relaxed transition-colors ${
-                  activePin === id ? "bg-raised" : "hover:bg-raised/60"
-                }`}
-              >
-                <span className="num grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-fg">
-                  {i + 1}
-                </span>
-                <span className="pt-0.5">{CUES[id]}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <section className="flex flex-col gap-3">

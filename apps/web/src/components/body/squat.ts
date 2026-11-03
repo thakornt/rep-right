@@ -17,11 +17,12 @@ export type Phase = "down" | "up";
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const deg = (d: number) => (d * Math.PI) / 180;
 
-// Joint angles in degrees for depth 0 (standing) .. 1 (just below parallel).
-// Thigh angle is from vertical, so 90 = thigh parallel to the floor.
+// Joint angles in degrees for depth 0 (standing) .. 1 (hips below the knees).
+// Thigh angle is from vertical, so 90 = thigh parallel to the floor. Knees
+// travel well past the toes at the bottom, which keeps the chest up.
 export function legAngles(depth: number, faults: SquatFaults) {
-  const shin = lerp(3, 32, depth) + (faults.heelRise ? 8 * depth : 0);
-  const thigh = lerp(4, 104, depth);
+  const shin = lerp(3, 40, depth) + (faults.heelRise ? 8 * depth : 0);
+  const thigh = lerp(4, 112, depth);
   // Butt wink: the pelvis tucks under once the hips run out of flexion.
   const wink = faults.buttWink ? Math.max(0, depth - 0.6) / 0.4 : 0;
   return {
