@@ -1,18 +1,19 @@
 // Dumbbell presses on a bench, built from anatomy rather than a recording: the
 // body is fixed on the bench with the feet planted, and only the arms move. Arm
 // targets come from coaching cues; the shoulder, elbow, forearm and wrist each
-// take only the motion that joint can make. Finger grip comes from the squat clip.
+// take only the motion that joint can make.
 
 import * as THREE from "three";
 
 import { readBody } from "./contact";
-import { aim, CLIP, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
+import { aim, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 
 const HIP_HEIGHT = 0.5; // metres of the pelvis above the floor, sitting
 const KNEE_AHEAD = 0.42; // metres the ankles sit in front of the hips
 const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
+const WRIST_LEVELS = 0.25; // share of the dumbbell's tilt the wrist takes out
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // What differs between presses. Angles in degrees, distances in metres.
@@ -96,19 +97,12 @@ export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: {
 
 function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
-  const restOf = new Map(rig.clipBones.map((c) => [c.bone, c.rest]));
-  const first = CLIP.frames[0];
-  const clipWorld = (name: string) =>
-    new THREE.Quaternion()
-      .fromArray(first.rot[CLIP.bones.indexOf(name)])
-      .multiply(restOf.get(root.getObjectByName(name)!)!);
   const shoulder = worldPos(s.upperarm);
   const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);
   const upper = elbow.clone().sub(shoulder);
   const fore = wrist.clone().sub(elbow);
   const thumbSide = worldPos(root.getObjectByName(`index_01_${tag}`)!).sub(worldPos(root.getObjectByName(`pinky_01_${tag}`)!));
-  const handClipInv = clipWorld(`hand_${tag}`).invert();
   return {
     s,
     // Where the fist is at the top and bottom of the lift, found once the bench is set up.
@@ -121,13 +115,10 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
     radial: reject(thumbSide, fore.clone().normalize()).applyQuaternion(worldQuat(s.lowerarm).invert()),
     // The hand at rest: its length and its thumb side.
     handRest: worldQuat(s.hand),
-    handFrame: frame(worldPos(s.middle1).sub(wrist), thumbSide),
+    // Across it is the way the handle lies in the palm, so the dumbbell comes out level.
+    handFrame: frame(worldPos(s.middle1).sub(wrist), s.grip.dir()),
     footRest: worldQuat(s.foot),
     toesRest: worldQuat(s.ball),
-    // The clip's closed fingers, relative to its hand.
-    fingers: rig.clipBones
-      .filter((c) => /^(thumb|index|middle|ring|pinky)_/.test(c.bone.name) && c.bone.name.endsWith(`_${tag}`))
-      .map((c) => ({ bone: c.bone, inHand: handClipInv.clone().multiply(clipWorld(c.bone.name)) })),
   };
 }
 
@@ -247,8 +238,11 @@ export function posePress(press: PressArms, depth: number) {
       turnTo(s.lowerarm, a.radial, foreNow, thumbs);
       const hand = frame(foreNow, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest);
       setWorldQuat(s.hand, hand);
-      for (const f of a.fingers) setWorldQuat(f.bone, hand.clone().multiply(f.inHand));
-      return worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
+      s.grip.close();
+      // The dumbbell stays near level; the wrist takes most of the forearm's lean.
+      const level = new THREE.Quaternion().setFromUnitVectors(s.grip.dir(), thumbs);
+      rotateWorld(s.hand, new THREE.Quaternion().slerp(level, WRIST_LEVELS));
+      return s.grip.at();
     };
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
 
@@ -259,7 +253,7 @@ export function posePress(press: PressArms, depth: number) {
       const target = a.line.high.clone().lerp(a.line.low, depth);
       for (let pass = 0; pass < 3; pass++) wrist.add(target.clone().sub(solve(wrist)));
     }
-    return { grip: solve(wrist), handle: thumbs };
+    return { grip: solve(wrist), handle: s.grip.dir() };
   });
   return { l: out[0], r: out[1] };
 }

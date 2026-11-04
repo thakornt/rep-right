@@ -23,6 +23,10 @@ upper arms buried in the chest, a bar floating over the shoulders, and saying
   each pixel's position, so a rule writes a line on the body, not a mesh edge.
   Muscle size changes the skin, so rerun the tests and look again after changing
   `MACRO` or `MUSCLE_TARGETS`.
+- `grip.ts` closes a hand around a bar or handle, worked out from this body's own
+  hand: the axis in the palm at the base of the fingers, fingers wrapped around it,
+  thumb bent over them. `grip.test.ts` checks it. A hand holds its object through
+  `grip.at()` and `grip.dir()`; never place an object from a finger joint.
 - `tools/body/prmd_clip.mjs` makes the back squat clip: trunk and legs from a
   UI-PRMD motion capture rep (public domain), arms from the Mixamo clip, the
   back straightened by `STRAIGHT_BACK`. `tools/body/extract_clip.py` bakes
