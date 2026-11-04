@@ -3,6 +3,9 @@
 //
 //   node tools/body/prmd_clip.mjs <positions.txt> <mixamo-clip.json> <out.json>
 //
+// <mixamo-clip.json> comes from extract_clip.py. Keep it in tools/body/out/: it is
+// a whole Mixamo clip's animation data, so it does not go in the repo.
+//
 // UI-PRMD (University of Idaho Physical Rehabilitation Movement Data) is
 // public domain (ODC PDDL 1.0). Vakanski et al., Data 2018, 3(1):2.
 //
