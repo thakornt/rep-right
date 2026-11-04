@@ -18,12 +18,12 @@ const NECK_UP = 2; // degrees the neck bends from the reclined chest; the head r
 const SHOULDER_BACK = 18; // degrees the clavicles pull back: shoulder blades squeezed together
 const SHOULDER_DOWN = 4; // degrees they pull down, away from the ears
 const CHEST_UP = 8; // degrees the upper back lifts the chest
-const ELBOW_FROM_TORSO = 42; // degrees the elbows open from the sides at the bottom
-const ELBOW_BEHIND = 26; // degrees the elbows drop behind the chest at the bottom
+const LOW_ALONG_CHEST = 0.14; // metres down the chest from the shoulder: the nipple line
+const HIGH_ALONG_CHEST = 0.04; // metres down the chest at the top: the upper chest
+const LOW_WIDTH = 0.15; // metres the hands sit outside the shoulders at the bottom
+const LOW_HEIGHT = 0.10; // metres the wrists sit above the shoulders at the bottom
+const INWARD = 0.06; // metres the hands come in on the way up: a slight line, never meeting
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
-const LOW_INWARD = 0.06; // metres the wrist sits inside the elbow at the bottom, over the chest
-const MID_WIDTH = 0.08; // metres the hands stay wider than the straight line, mid-press
-const INWARD = 0.03; // metres the hands travel inward on the way up: a slight line in, not meeting
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // Dumbbell shape, metres.
@@ -138,7 +138,7 @@ export function posePress(press: PressArms, depth: number) {
   rotateWorld(rig.pelvis, qx(-RECLINE));
   // Chest up, shoulder blades back and down into the pad, held for the whole lift.
   rotateWorld(rig.spine3, qx(-deg(CHEST_UP)));
-  const { x, t, n } = chestAxes();
+  const { t, n } = chestAxes();
   for (const a of [press.l, press.r]) {
     const clavicle = a.s.upperarm.parent!;
     rotateWorld(clavicle, new THREE.Quaternion().setFromAxisAngle(t, a.s.sign * deg(SHOULDER_BACK)));
@@ -163,49 +163,52 @@ export function posePress(press: PressArms, depth: number) {
   const out = sides.map((a) => {
     const s = a.s;
     const shoulder = worldPos(s.upperarm);
-    // Bottom: elbows open from the sides and a little behind the chest, forearm
-    // straight up so the weight stacks over the elbow.
-    const open = deg(ELBOW_FROM_TORSO);
-    const elbowDir = x.clone().multiplyScalar(s.sign * Math.sin(open))
-      .addScaledVector(t, -Math.cos(open))
-      .addScaledVector(n, -Math.tan(deg(ELBOW_BEHIND)))
-      .normalize();
-    const low = shoulder.clone().addScaledVector(elbowDir, a.upperLen).addScaledVector(UP, a.foreLen);
-    low.x -= s.sign * LOW_INWARD;
-    // Top: pressed nearly straight up with a slight line inward, elbow soft.
-    const high = new THREE.Vector3(low.x - s.sign * INWARD, 0, shoulder.z);
-    const across = high.x - shoulder.x;
-    high.y = shoulder.y + Math.sqrt(((a.upperLen + a.foreLen) * TOP_REACH) ** 2 - across ** 2);
-    const wrist = high.clone().lerp(low, depth);
-    // A straight line would bring the hands in over the chest mid-press with the
-    // elbows flared; hold them out over the elbows until near the top.
-    wrist.x += s.sign * MID_WIDTH * Math.sin(Math.PI * depth);
+    // The hands travel a straight line, as under a real weight: from over the
+    // nipple line, up and slightly back to over the upper chest. Seen from the
+    // front they rise nearly straight, coming in only a little.
+    const low = shoulder
+      .clone()
+      .addScaledVector(t, -LOW_ALONG_CHEST)
+      .setX(shoulder.x + s.sign * LOW_WIDTH);
+    low.y = shoulder.y + LOW_HEIGHT;
+    const high = shoulder.clone().addScaledVector(t, -HIGH_ALONG_CHEST);
+    high.x = low.x - s.sign * INWARD;
+    const reach = (a.upperLen + a.foreLen) * TOP_REACH;
+    high.y = shoulder.y + Math.sqrt(reach ** 2 - (high.x - shoulder.x) ** 2 - (high.z - shoulder.z) ** 2);
+    // Pose the arm with its wrist at a point; returns where the fist lands.
+    const solve = (wrist: THREE.Vector3) => {
+      // The elbow takes the spot closest to under the wrist, keeping the forearm
+      // as upright as this line allows.
+      const hint = wrist.clone().addScaledVector(UP, -a.foreLen).sub(shoulder);
+      twoBoneIK(s.upperarm, s.lowerarm, s.hand, a.upperLen, a.foreLen, wrist, hint);
+      // The elbow is a hinge: square the upper arm to the arm's plane, which swings
+      // the forearm, then aim the forearm back at the wrist.
+      const elbow = worldPos(s.lowerarm);
+      const upper = elbow.clone().sub(shoulder).normalize();
+      const fore = wrist.clone().sub(elbow).normalize();
+      const axis = fore.clone().cross(upper).normalize();
+      turnTo(s.upperarm, a.hinge, upper, axis);
+      aim(s.lowerarm, s.hand, wrist);
 
-    // The elbow stays under the wrist, so the weight stacks over it all the way up.
-    const underWrist = wrist.clone().addScaledVector(UP, -a.foreLen).sub(shoulder);
-    twoBoneIK(s.upperarm, s.lowerarm, s.hand, a.upperLen, a.foreLen, wrist, underWrist);
-    // The elbow is a hinge: square the upper arm to the arm's plane, which swings
-    // the forearm, then aim the forearm back at the wrist.
-    const elbow = worldPos(s.lowerarm);
-    const upper = elbow.clone().sub(shoulder).normalize();
-    const fore = wrist.clone().sub(elbow).normalize();
-    const axis = fore.clone().cross(upper).normalize();
-    turnTo(s.upperarm, a.hinge, upper, axis);
-    aim(s.lowerarm, s.hand, wrist);
-
-    // Palms toward the feet, turned in a little so thumbs point toward the head;
-    // the wrist stays straight, so the forearm does the turning.
-    const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
-    const foreNow = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
-    turnTo(s.lowerarm, a.radial, foreNow, thumbs);
-    const hand = frame(foreNow, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest);
-    setWorldQuat(s.hand, hand);
-    for (const f of a.fingers) setWorldQuat(f.bone, hand.clone().multiply(f.inHand));
-
-    return {
-      grip: worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5),
-      handle: thumbs,
+      // Palms toward the feet, turned in a little so thumbs point toward the head;
+      // the wrist stays straight, so the forearm does the turning.
+      const foreNow = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
+      turnTo(s.lowerarm, a.radial, foreNow, thumbs);
+      const hand = frame(foreNow, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest);
+      setWorldQuat(s.hand, hand);
+      for (const f of a.fingers) setWorldQuat(f.bone, hand.clone().multiply(f.inHand));
+      return worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
     };
+    const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
+
+    // The dumbbell, which sits past the wrist, is what runs the straight line: find
+    // the line's ends, then shift the wrist so the fist lands on it.
+    const fistHigh = solve(high);
+    const fistLow = solve(low);
+    const target = fistHigh.clone().lerp(fistLow, depth);
+    const wrist = high.clone().lerp(low, depth);
+    for (let pass = 0; pass < 2; pass++) wrist.add(target.clone().sub(solve(wrist)));
+    return { grip: solve(wrist), handle: thumbs };
   });
   return { l: out[0], r: out[1] };
 }

@@ -17,8 +17,9 @@ const ARMPIT_FOLD = 0.07;
 const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015; // skin may sink this far into the padding, or float this far off it
-const MAX_FOREARM_TILT = 25; // degrees from vertical, so the weight stays over the elbow
+const MAX_FOREARM_TILT = 17; // degrees from vertical; a straight hand path cannot keep it at 0 (most tilt is mid-rep)
 const RETRACTED = 0.03; // metres the shoulder joints stay behind the upper spine (4.6 cm in front at rest)
+const MAX_OFF_LINE = 0.005; // metres the dumbbell may stray from a straight line: too little to see
 const MAX_STEP = 0.015; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
@@ -84,24 +85,56 @@ describe("incline dumbbell press", () => {
     return gap;
   }
 
-  test("the dumbbells come down nearly to the chest without touching", () => {
-    const gap = dumbbellToSkin(posePress(press, 1));
-    expect(gap).toBeGreaterThan(0.01);
-    expect(gap).toBeLessThan(0.035);
-    for (const d of [0, 0.25, 0.5, 0.75]) expect(dumbbellToSkin(posePress(press, d))).toBeGreaterThan(gap);
+  test("at the bottom the elbows are out and the dumbbells beside the chest, not touching", () => {
+    const g = posePress(press, 1);
+    const { rig } = press;
+    expect(worldPos(rig.l.lowerarm).x - worldPos(rig.l.upperarm).x).toBeGreaterThan(0.14);
+    expect(worldPos(rig.r.upperarm).x - worldPos(rig.r.lowerarm).x).toBeGreaterThan(0.14);
+    expect(dumbbellToSkin(g)).toBeGreaterThan(0.02);
+
+    // Nearly level with the chest beside it.
+    const p = new THREE.Vector3();
+    let chest = -Infinity;
+    press.body.part.forEach((part, i) => {
+      if (part !== "core") return;
+      press.body.mesh.getVertexPosition(i, p).applyMatrix4(press.body.mesh.matrixWorld);
+      if (Math.abs(p.z - g.l.grip.z) < 0.06 && Math.abs(p.x) < 0.2) chest = Math.max(chest, p.y);
+    });
+    expect(g.l.grip.y - chest).toBeLessThan(0.08);
   });
 
-  test("the press goes nearly straight up, the dumbbells never close to meeting", () => {
-    const low = posePress(press, 1);
-    const lowX = low.l.grip.x;
-    const lowY = low.l.grip.y;
-    const high = posePress(press, 0);
-    expect(lowX - high.l.grip.x).toBeGreaterThan(0.02);
-    expect(lowX - high.l.grip.x).toBeLessThan(0.1);
-    expect(high.l.grip.y - lowY).toBeGreaterThan(0.3);
-    const m = measure(anatomy);
+  test("the hands travel a straight line, from the nipple line up over the upper chest", () => {
+    const start = posePress(press, 1).l.grip;
+    const end = posePress(press, 0).l.grip;
+    const line = end.clone().sub(start);
+    const length = line.length();
+    line.normalize();
+    for (let i = 0; i <= 20; i++) {
+      const w = posePress(press, i / 20).l.grip.sub(start);
+      expect(w.addScaledVector(line, -w.dot(line)).length()).toBeLessThan(MAX_OFF_LINE);
+    }
+    expect(length).toBeGreaterThan(0.3);
+    expect(end.y).toBeGreaterThan(start.y);
+    expect(end.z).toBeLessThan(start.z); // up and back toward the upper chest
+    expect(start.x - end.x).toBeGreaterThan(0); // in only a little
+    expect(start.x - end.x).toBeLessThan(0.1);
+
+    const m = (posePress(press, 0), measure(anatomy));
     expect(m.l["elbow.flexion"]).toBeGreaterThan(8); // not locked out
     expect(m.l["elbow.flexion"]).toBeLessThan(30);
+  });
+
+  test("the forearm is upright at both ends of the rep, seen from the front", () => {
+    for (const [d, most] of [[1, 3], [0, 4]] as const) {
+      posePress(press, d);
+      for (const a of [press.l, press.r]) {
+        const f = worldPos(a.s.hand).sub(worldPos(a.s.lowerarm));
+        expect(Math.abs(THREE.MathUtils.radToDeg(Math.atan2(f.x, f.y)))).toBeLessThan(most);
+      }
+    }
+  });
+
+  test("the dumbbells never come close to meeting", () => {
     for (let i = 0; i <= 10; i++) {
       const g = posePress(press, i / 10);
       const reach = (DUMBBELL.headAt + DUMBBELL.headWidth / 2) * Math.abs(g.l.handle.x);
