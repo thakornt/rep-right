@@ -89,8 +89,8 @@ weight-bearing value for a loaded lift), and tell the user.
    our use (UI-PRMD, Mixamo on our body via `tools/body/export_mixamo.py`), or
    a reference the user approves. Never invent a whole movement by hand. Check
    several subjects and pick one that moves symmetrically.
-2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish the raw
-   Mixamo files.
+2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish Mixamo
+   files or a whole baked Mixamo clip; keep them in `tools/body/out/`.
 3. Write the exercise's own form rules next to its code, for example where
    the bar or handle sits, where the elbows point, and how deep to go.
    Confirm them with the user, because form is their call.
