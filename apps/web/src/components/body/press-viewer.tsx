@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { View } from "./body-scene";
 import { REGION_LABELS, ROLE_COLORS, ROLE_LABELS, type Role } from "./muscles";
-import { PRESS_PINS, pressActivation, type PressPin } from "./press";
+import { PRESS_CONTENT, PRESS_PINS, pressActivation, type PressExercise, type PressPin } from "./press";
 import type { PressState } from "./press-scene";
 import type { Phase } from "./squat";
 
@@ -25,17 +25,10 @@ const VIEWS: [View, string][] = [
   ["angle", "เฉียง 45°"],
 ];
 
-const CUES: Record<PressPin, string> = {
-  feet: "เท้าทั้งฝ่าวางบนพื้นให้มั่นคง ลำตัวไม่ขยับระหว่างยก",
-  back: "หัวแนบเบาะ บีบสะบักเข้าหากันแล้วกดแนบพนัก ยกอกขึ้นเล็กน้อย ค้างไว้ตลอดทั้งเซ็ต",
-  elbow: "กางศอกออกจากลำตัว ตอนลงให้ดัมเบลอยู่ข้างอกแถวแนวราวนม เกือบถึงระดับอก เท่าที่ไหล่ยังสบาย",
-  dumbbell: "บิดฝ่ามือเข้าหาลำตัวเล็กน้อย ข้อมือตรง ดันขึ้นเป็นเส้นตรงเฉียงไปเหนืออกส่วนบน ไม่ต้องให้ดัมเบลชนกัน",
-  core: "เกร็งท้องเบา ๆ ไม่แอ่นหลังล่างเพื่อช่วยดัน",
-};
-
 const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
 
-export function PressViewer() {
+export function PressViewer({ exercise }: { exercise: PressExercise }) {
+  const content = PRESS_CONTENT[exercise];
   const state = useRef<PressState>({ depth: 0.5, playing: true });
   const [view, setView] = useState<View>("angle");
   const [playing, setPlaying] = useState(true);
@@ -66,12 +59,12 @@ export function PressViewer() {
   };
 
   // Roles do not change with depth, only how hard each muscle works.
-  const roles = pressActivation(1, "up");
+  const roles = pressActivation(exercise, 1, "up");
 
   return (
     <div className="flex flex-col gap-5">
       <div className="relative h-[min(68vh,560px)] overflow-hidden rounded-3xl bg-inset shadow-inset">
-        <PressScene state={state} view={view} onPinMove={onPinMove} onFrame={onFrame} />
+        <PressScene exercise={exercise} state={state} view={view} onPinMove={onPinMove} onFrame={onFrame} />
         {PRESS_PINS.map((id, i) => (
           <button
             key={id}
@@ -93,7 +86,7 @@ export function PressViewer() {
         {activePin && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
             <span className="font-semibold text-primary">{PRESS_PINS.indexOf(activePin) + 1}. </span>
-            {CUES[activePin]}
+            {content.cues[activePin]}
           </div>
         )}
       </div>
@@ -140,8 +133,8 @@ export function PressViewer() {
             className="w-full accent-[var(--primary)]"
           />
           <span aria-hidden className="flex justify-between text-xs text-faint">
-            <span>ดันขึ้นสุด</span>
-            <span>ลดลงสุด</span>
+            <span>{content.top}</span>
+            <span>{content.bottom}</span>
           </span>
         </label>
       </div>
@@ -174,9 +167,9 @@ export function PressViewer() {
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium tracking-wide text-faint">สังเกตร่างกายระหว่างเล่น</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed text-fg/90">
-          <li>ร่างกายแต่ละคนไม่เหมือนกัน มุมศอกและระยะที่ลดลงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ</li>
-          <li>ลดลงเท่าที่ไหล่ยังสบายและสะบักยังแนบพนัก ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้</li>
-          <li>ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ</li>
+          {content.notice.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
         <p className="text-xs leading-relaxed text-faint">
           ภาพและสีกล้ามเนื้อเป็นแนวทางทั่วไปเพื่อช่วยเข้าใจท่า ไม่ใช่คำวินิจฉัยหรือคำแนะนำทางการแพทย์
