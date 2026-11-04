@@ -20,3 +20,7 @@ out/
 
 # claude code local settings
 .claude/settings.local.json
+
+# Blender exports and Mixamo downloads (not redistributable)
+tools/body/out/
+__pycache__/

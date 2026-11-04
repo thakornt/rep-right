@@ -52,6 +52,7 @@ apps/api          Go (Gin) API
   db/migrations   goose SQL migrations (ฝังใน binary)
   db/queries      SQL สำหรับ sqlc
 apps/web          Next.js (App Router) + Tailwind, rewrite /api/* → API_ORIGIN
+tools/body        สคริปต์ Blender + MPFB สร้างโมเดลคน 3D (public/models/body.glb) พร้อมแบ่งกลุ่มกล้าม และแปลงท่าทางจาก UI-PRMD (public domain) เป็น clip
 ```
 
 ## การตัดสินใจทางเทคนิค

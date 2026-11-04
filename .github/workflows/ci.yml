@@ -62,5 +62,7 @@ jobs:
       - run: npm ci
       - name: lint
         run: npm run lint
+      - name: test (3D poses stay within human joint range)
+        run: npm test
       - name: build (also type-checks)
         run: npm run build
