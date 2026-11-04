@@ -4,6 +4,7 @@
 import * as THREE from "three";
 
 import backSquat from "./clips/back-squat-prmd.json";
+import { readGrip } from "./grip";
 import { faultOffsets, type SquatFaults } from "./squat";
 
 export const X = new THREE.Vector3(1, 0, 0);
@@ -170,6 +171,7 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
     const x = Math.abs(p.x);
     if (x > 0.06 && x < 0.16 && p.y > neck.y - 0.12 && p.y < neck.y + 0.02 && p.z < neck.z) traps.push(i);
   }
+  const grips = { l: readGrip(root, skin, "l", BAR_RADIUS, BAR_DIAGONAL), r: readGrip(root, skin, "r", BAR_RADIUS, BAR_DIAGONAL) };
   const rig = {
     clip,
     skin,
@@ -179,8 +181,8 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
     barLocal: spine3.worldToLocal(barOnBack),
     spine3Rest: worldQuat(spine3),
     bottom,
-    l: side("l"),
-    r: side("r"),
+    l: { ...side("l"), grip: grips.l },
+    r: { ...side("r"), grip: grips.r },
     pelvis,
     pelvisRest: worldPos(pelvis),
     spine1: bone("spine_01"),
@@ -219,7 +221,9 @@ export function playClip(rig: Rig, frame: number) {
 }
 
 export const BAR_RADIUS = 0.014;
+const BAR_DIAGONAL = -8; // degrees the bar turns in the palm, so the wrists stay in range with the forearms leaning out
 const LEAN_AT_CHEST = 0.65; // share of a forward lean taken at the upper back, at the bottom
+const BAR_CLEARANCE = 0.002; // metres the bar settles short of the traps, as other skin rises around it
 const BAR_LOWER = 0.03; // metres the bar slides down the upper back, away from the neck
 const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
@@ -253,8 +257,9 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   for (const s of sides) {
     const straight = worldQuat(s.lowerarm).multiply(s.lowerarmRest.clone().invert()).multiply(s.handRest);
     setWorldQuat(s.hand, worldQuat(s.hand).slerp(straight, WRIST_STRAIGHTEN));
+    s.grip.close();
   }
-  const fist = (s: Rig["l"]) => worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
+  const fist = (s: Rig["l"]) => s.grip.at();
   const barNow = () => fist(rig.l).add(fist(rig.r)).multiplyScalar(0.5);
 
   // Move a fist by swinging the whole arm at the shoulder, after opening or
@@ -313,7 +318,7 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
         if (!near || w.lengthSq() < near.lengthSq()) near = w;
       }
       if (!near) break;
-      b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS);
+      b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS - BAR_CLEARANCE);
     }
     const shift = b.sub(start);
     for (const s of sides) moveFist(s, fist(s).add(shift));
@@ -363,12 +368,28 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
     setWorldQuat(s.ball, planted[i].toes);
   });
 
+  // One straight bar through both hands. Each hand brings its own grip onto the
+  // bar: the forearm turns the palm to meet it, the wrist takes what is left, and
+  // the arm carries the hand there. Bodies aren't even, so neither hand decides.
   const bar = barNow();
+  const along = barDir();
+  for (let pass = 0; pass < 3; pass++) {
+    for (const s of sides) {
+      const want = s.grip.dir().dot(along) > 0 ? along.clone() : along.clone().negate();
+      const fore = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
+      const flat = (v: THREE.Vector3) => v.clone().addScaledVector(fore, -v.dot(fore)).normalize();
+      const now = flat(s.grip.dir());
+      const to = flat(want);
+      rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(fore, Math.atan2(now.clone().cross(to).dot(fore), now.dot(to))));
+      rotateWorld(s.hand, new THREE.Quaternion().setFromUnitVectors(s.grip.dir(), want));
+      moveFist(s, bar.clone().addScaledVector(along, fist(s).sub(bar).dot(along)));
+    }
+  }
   return {
     hip: mid(rig.l.thigh, rig.r.thigh),
     bar,
     // Level, across the shoulders.
-    barDir: barDir(),
+    barDir: along,
     midfoot,
   };
 }

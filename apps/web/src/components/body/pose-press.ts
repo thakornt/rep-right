@@ -1,18 +1,23 @@
 // Dumbbell presses on a bench, built from anatomy rather than a recording: the
 // body is fixed on the bench with the feet planted, and only the arms move. Arm
 // targets come from coaching cues; the shoulder, elbow, forearm and wrist each
-// take only the motion that joint can make. Finger grip comes from the squat clip.
+// take only the motion that joint can make.
 
 import * as THREE from "three";
 
 import { readBody } from "./contact";
-import { aim, CLIP, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
+import { readGrip } from "./grip";
+import { aim, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 
 const HIP_HEIGHT = 0.5; // metres of the pelvis above the floor, sitting
 const KNEE_AHEAD = 0.42; // metres the ankles sit in front of the hips
 const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
+const WRIST_BACK = 20; // degrees the wrist bends back under the weight
+const HANDLE_TURN = -7; // degrees the wrist holds the hand off the forearm's line, splitting what's left of the handle's tilt through the lift
+const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
+const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // What differs between presses. Angles in degrees, distances in metres.
@@ -96,21 +101,17 @@ export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: {
 
 function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
-  const restOf = new Map(rig.clipBones.map((c) => [c.bone, c.rest]));
-  const first = CLIP.frames[0];
-  const clipWorld = (name: string) =>
-    new THREE.Quaternion()
-      .fromArray(first.rot[CLIP.bones.indexOf(name)])
-      .multiply(restOf.get(root.getObjectByName(name)!)!);
+  const grip = readGrip(root, rig.skin, tag, DUMBBELL.handleRadius, DUMBBELL_DIAGONAL, DUMBBELL_INTO_PALM);
   const shoulder = worldPos(s.upperarm);
   const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);
   const upper = elbow.clone().sub(shoulder);
   const fore = wrist.clone().sub(elbow);
+  const palmNormal = worldPos(s.middle1).sub(wrist).cross(grip.dir()).normalize();
   const thumbSide = worldPos(root.getObjectByName(`index_01_${tag}`)!).sub(worldPos(root.getObjectByName(`pinky_01_${tag}`)!));
-  const handClipInv = clipWorld(`hand_${tag}`).invert();
   return {
     s,
+    grip,
     // Where the fist is at the top and bottom of the lift, found once the bench is set up.
     line: null as { high: THREE.Vector3; low: THREE.Vector3 } | null,
     upperLen: upper.length(),
@@ -121,13 +122,10 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
     radial: reject(thumbSide, fore.clone().normalize()).applyQuaternion(worldQuat(s.lowerarm).invert()),
     // The hand at rest: its length and its thumb side.
     handRest: worldQuat(s.hand),
-    handFrame: frame(worldPos(s.middle1).sub(wrist), thumbSide),
+    // Across it is the way the handle lies in the palm, so the dumbbell comes out level.
+    handFrame: frame(worldPos(s.middle1).sub(wrist).applyAxisAngle(palmNormal, deg(HANDLE_TURN)), grip.dir()),
     footRest: worldQuat(s.foot),
     toesRest: worldQuat(s.ball),
-    // The clip's closed fingers, relative to its hand.
-    fingers: rig.clipBones
-      .filter((c) => /^(thumb|index|middle|ring|pinky)_/.test(c.bone.name) && c.bone.name.endsWith(`_${tag}`))
-      .map((c) => ({ bone: c.bone, inHand: handClipInv.clone().multiply(clipWorld(c.bone.name)) })),
   };
 }
 
@@ -140,8 +138,8 @@ export function readPressRig(root: THREE.Object3D, spec: PressSpec = INCLINE_PRE
   // The two ends of the dumbbell's straight line.
   const low = posePress(arms, 1);
   const high = posePress(arms, 0);
-  arms.l.line = { high: high.l.grip, low: low.l.grip };
-  arms.r.line = { high: high.r.grip, low: low.r.grip };
+  arms.l.line = { high: high.l.fist, low: low.l.fist };
+  arms.r.line = { high: high.r.fist, low: low.r.fist };
 
   // Fit the bench to this body: the pad touches the back, the seat the hips.
   const { n } = chestAxes(spec);
@@ -247,8 +245,13 @@ export function posePress(press: PressArms, depth: number) {
       turnTo(s.lowerarm, a.radial, foreNow, thumbs);
       const hand = frame(foreNow, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest);
       setWorldQuat(s.hand, hand);
-      for (const f of a.fingers) setWorldQuat(f.bone, hand.clone().multiply(f.inHand));
-      return worldPos(s.middle1).add(worldPos(s.middle3)).multiplyScalar(0.5);
+      a.grip.close();
+      // The weight presses the hand back: the wrist bends back until the handle sits
+      // nearer over the forearm, as it does under a real load.
+      const across = a.grip.at().sub(worldPos(s.hand));
+      across.addScaledVector(foreNow, -across.dot(foreNow));
+      rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(foreNow.clone().cross(across).normalize(), -deg(WRIST_BACK)));
+      return a.grip.at();
     };
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
 
@@ -259,7 +262,8 @@ export function posePress(press: PressArms, depth: number) {
       const target = a.line.high.clone().lerp(a.line.low, depth);
       for (let pass = 0; pass < 3; pass++) wrist.add(target.clone().sub(solve(wrist)));
     }
-    return { grip: solve(wrist), handle: thumbs };
+    // The hand runs the line; the dumbbell sits where it does in the hand.
+    return { fist: solve(wrist), grip: a.grip.held(), handle: a.grip.dir() };
   });
   return { l: out[0], r: out[1] };
 }

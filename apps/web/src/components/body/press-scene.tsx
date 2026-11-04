@@ -4,8 +4,8 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { memo, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, type View } from "./body-scene";
-import { REGION_IDS, ROLE_COLORS } from "./muscles";
+import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, useMuscleMap, type View } from "./body-scene";
+import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
@@ -101,7 +101,8 @@ function Bench({ layout }: { layout: ReturnType<typeof benchLayout> }) {
 
 function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const scene = useBody();
-  const body = useMemo(() => bodyMaterial(), []);
+  const muscleMap = useMuscleMap();
+  const body = useMemo(() => bodyMaterial(muscleMap), [muscleMap]);
   const press = useMemo(() => {
     scene.traverse((o) => {
       if ((o as THREE.SkinnedMesh).isSkinnedMesh) {
@@ -149,7 +150,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
 
     body.clear();
     for (const act of pressActivation(exercise, depth, c.phase)) {
-      body.setRegion(REGION_IDS[act.region], colors[act.role], 0.2 + 0.8 * act.amount);
+      body.setRegion(REGION_IDS[act.region], colors[act.role], (0.2 + 0.8 * act.amount) * ROLE_STRENGTH[act.role]);
     }
 
     const { rig } = press;

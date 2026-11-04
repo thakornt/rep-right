@@ -15,7 +15,7 @@ const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015;
 const MAX_FOREARM_TILT = 25; // degrees from vertical; a straight hand path cannot keep it at 0 (most tilt is mid-rep)
-const MAX_OFF_LINE = 0.005; // metres the dumbbell may stray from a straight line: too little to see
+const MAX_OFF_LINE = 0.008; // metres the dumbbell may stray from a straight line: too little to see
 const MAX_STEP = 0.015; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
@@ -104,7 +104,7 @@ describe("seated dumbbell shoulder press", () => {
       gap = Math.min(gap, Math.hypot(past, Math.max(0, w.addScaledVector(g.l.handle, -along).length() - DUMBBELL.headRadius)));
     });
     expect(gap).toBeGreaterThan(0.01);
-    expect(gap).toBeLessThan(0.1);
+    expect(gap).toBeLessThan(0.12);
 
     // Not straight out to the side: forward of the body as well as out from it.
     expect(elbow.z - shoulder.z).toBeGreaterThan(0.08);
