@@ -88,8 +88,9 @@ export function SquatViewer() {
     state.current.playing = !state.current.playing;
     setPlaying(state.current.playing);
   };
+  // One fault at a time: mixed together they stop showing any one mistake.
   const toggleFault = (key: keyof SquatFaults) => {
-    const next = { ...faults, [key]: !faults[key] };
+    const next = { ...NO_FAULTS, [key]: !faults[key] };
     state.current.faults = next;
     setFaults(next);
   };
