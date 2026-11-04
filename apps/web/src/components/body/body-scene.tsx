@@ -4,12 +4,13 @@ import { OrbitControls, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS } from "./muscles";
 import { BAR_RADIUS, pose, readRig, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
 
-const MODEL = "/models/body.glb";
+export const MODEL = "/models/body.glb";
 
 export type View = "side" | "front" | "back" | "angle";
 
@@ -50,7 +51,7 @@ export default memo(function BodyScene(props: Props) {
   );
 });
 
-function Floor() {
+export function Floor() {
   return (
     <group>
       <mesh rotation-x={-Math.PI / 2} position-y={-0.001}>
@@ -71,7 +72,7 @@ const CAMERA: Record<View, [number, number, number]> = {
 // High enough that the head stays in frame when standing.
 const TARGET = new THREE.Vector3(0, 0.82, 0);
 
-function CameraRig({ view }: { view: View }) {
+export function CameraRig({ view, target = TARGET }: { view: View; target?: THREE.Vector3 }) {
   const camera = useThree((s) => s.camera);
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const goal = useRef<THREE.Vector3 | null>(null);
@@ -83,7 +84,7 @@ function CameraRig({ view }: { view: View }) {
   useFrame(() => {
     if (!goal.current) return;
     camera.position.lerp(goal.current, 0.14);
-    controls.current?.target.lerp(TARGET, 0.14);
+    controls.current?.target.lerp(target, 0.14);
     controls.current?.update();
     if (camera.position.distanceTo(goal.current) < 0.01) goal.current = null;
   });
@@ -91,7 +92,7 @@ function CameraRig({ view }: { view: View }) {
   return (
     <OrbitControls
       ref={controls}
-      target={TARGET}
+      target={target}
       enablePan={false}
       minDistance={0.9}
       maxDistance={6}
@@ -103,7 +104,7 @@ function CameraRig({ view }: { view: View }) {
 
 // ---------- body material ----------
 
-function bodyMaterial() {
+export function bodyMaterial() {
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
   const mat = new THREE.MeshStandardMaterial({ color: "#b9b2ab", roughness: 0.62 });
@@ -164,10 +165,18 @@ function bodyMaterial() {
 
 // ---------- the lifter ----------
 
-const PLAY_SECONDS = 3.6;
+export const PLAY_SECONDS = 3.6;
+
+// A posable copy of the body for this viewer. The loaded model is shared and
+// cached, so posing it directly would leave the next viewer reading a posed
+// body as its rest pose.
+export function useBody() {
+  const { scene } = useGLTF(MODEL);
+  return useMemo(() => cloneSkinned(scene), [scene]);
+}
 
 function Squatter({ state, onPinMove, onFrame }: Props) {
-  const { scene } = useGLTF(MODEL);
+  const scene = useBody();
   const body = useMemo(() => bodyMaterial(), []);
   const rig = useMemo(() => {
     scene.traverse((o) => {

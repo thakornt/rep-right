@@ -4,6 +4,7 @@ import { CircleX, ClipboardPen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { PressViewer } from "@/components/body/press-viewer";
 import { SquatViewer } from "@/components/body/squat-viewer";
 import type { FormCues } from "@/content/form-cues";
 import { getExercises, type Exercise } from "@/lib/api";
@@ -43,6 +44,7 @@ export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues })
       </header>
 
       {slug === "back-squat" && <SquatViewer />}
+      {slug === "incline-dumbbell-press" && <PressViewer />}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-medium tracking-wide text-faint">จุดสำคัญของฟอร์ม</h2>

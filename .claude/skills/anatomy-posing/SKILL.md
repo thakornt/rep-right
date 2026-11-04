@@ -87,8 +87,11 @@ weight-bearing value for a loaded lift), and tell the user.
 
 1. Get the movement from real motion capture or a clip whose license allows
    our use (UI-PRMD, Mixamo on our body via `tools/body/export_mixamo.py`), or
-   a reference the user approves. Never invent a whole movement by hand. Check
-   several subjects and pick one that moves symmetrically.
+   a reference the user approves. Never invent a whole-body movement by hand.
+   Check several subjects and pick one that moves symmetrically. A lift where
+   the body is fixed and only the limbs move (a bench press) can be built from
+   cues, as `pose-press.ts` is. Set the weight's path first, as a real weight
+   moves, and let the joints follow; never let the path bend to suit a joint.
 2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish Mixamo
    files or a whole baked Mixamo clip; keep them in `tools/body/out/`.
 3. Write the exercise's own form rules next to its code, for example where
