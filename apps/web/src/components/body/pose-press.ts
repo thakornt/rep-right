@@ -14,6 +14,7 @@ const KNEE_AHEAD = 0.42; // metres the ankles sit in front of the hips
 const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
+const WRIST_BACK = 20; // degrees the wrist bends back under the weight
 const HANDLE_TURN = -7; // degrees the wrist holds the hand off the forearm's line, splitting what's left of the handle's tilt through the lift
 const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
@@ -244,6 +245,11 @@ export function posePress(press: PressArms, depth: number) {
       const hand = frame(foreNow, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest);
       setWorldQuat(s.hand, hand);
       a.grip.close();
+      // The weight presses the hand back: the wrist bends back until the handle sits
+      // nearer over the forearm, as it does under a real load.
+      const across = a.grip.at().sub(worldPos(s.hand));
+      across.addScaledVector(foreNow, -across.dot(foreNow));
+      rotateWorld(s.hand, new THREE.Quaternion().setFromAxisAngle(foreNow.clone().cross(across).normalize(), -deg(WRIST_BACK)));
       return a.grip.at();
     };
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
