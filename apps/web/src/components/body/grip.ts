@@ -6,11 +6,15 @@ import * as THREE from "three";
 
 const AHEAD_OF_PALM = 0.012; // metres from the middle knuckle back toward the wrist, where the axis crosses the palm
 const SKIN_GIVE = 0.002; // metres the palm presses in where it holds the object
-const THUMB_AROUND = 108; // degrees around the object from straight past the knuckles, where the thumb's tip lands
+const THUMB_JOINT_AROUND = 125; // degrees around the object from straight past the knuckles, where the thumb's last joint sits
+const THUMB_TIP_AROUND = 112; // and its tip, lying across the fingers
+const THUMB_JOINT_BESIDE = 0.009; // metres the last joint sits to the thumb side of the index finger
+const THUMB_ON_FINGERS = 0.8; // share of the thumb's thickness between its centre and the fingers' skin
 const THUMB_BASE_AHEAD = 0.012; // metres the thumb's base moves toward the fingers in a fist
 const THUMB_BASE_OUT = 0.01; // and out of the palm
-const THUMB_PAST_INDEX = 0.008; // metres the thumb's tip crosses over from the index finger toward the middle
+const THUMB_PAST_INDEX = 0.014; // metres the thumb's tip crosses over from the index finger toward the middle
 const FINGER_PRESS = 0.75; // share of a finger's thickness kept outside the object: a tight fist presses the skin
+const PINKY_PRESS = 0.3; // the little finger is short, so it presses in further to close on the object
 
 const FINGER_GATHER = 0.88; // fingers close up beside each other, from where the knuckles spread them
 const FINGERS = ["index", "middle", "ring", "pinky"];
@@ -115,6 +119,8 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     posed.push(b);
   };
 
+  const fingerSize = thickness("index"); // measured here: its skin stays at rest while the bones move
+  const indexW = midW + (knuckle("index").sub(centre).dot(across) - midW) * FINGER_GATHER;
   // Each finger stays in its own plane across the object and wraps around it.
   for (const f of FINGERS) {
     const [b1, b2, b3] = ["01", "02", "03"].map((n) => bone(`${f}_${n}`));
@@ -123,7 +129,7 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     const u = k.dot(ahead);
     const v = k.dot(palmar);
     const w = midW + (k.dot(across) - midW) * FINGER_GATHER;
-    const r = radius + thickness(f) * FINGER_PRESS;
+    const r = radius + thickness(f) * (f === "pinky" ? PINKY_PRESS : FINGER_PRESS);
     const l1 = pos(b1).distanceTo(pos(b2));
     const l2 = pos(b2).distanceTo(pos(b3));
     const l3 = Math.max(lastLength(f) - thickness(f) * 0.5, 0.01);
@@ -140,53 +146,39 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
   }
 
   const b1Rest = new THREE.Vector3();
-  // The thumb comes around from the wrist side and closes over the first fingers,
-  // staying outside the object all the way (a chain solved by FABRIK).
+  // In a fist the thumb's first joint comes up beside the object, and the rest of
+  // the thumb lies across the first fingers, not reaching up from below.
   {
     const [b1, b2, b3] = ["01", "02", "03"].map((n) => bone(`thumb_${n}`));
     [b1, b2, b3].forEach(keep);
     const thumbSize = thickness("thumb");
-    const fingerSize = thickness("index");
-    const wTip = knuckle("index").sub(centre).dot(across) - THUMB_PAST_INDEX;
-    const chain = [pos(b1), pos(b2), pos(b3)];
+    const l1 = pos(b1).distanceTo(pos(b2));
+    const l2 = pos(b2).distanceTo(pos(b3));
     const last = Math.max(lastLength("thumb") - thumbSize * 0.5, 0.01);
-    chain.push(chain[2].clone().add(chain[2].clone().sub(chain[1]).normalize().multiplyScalar(last)));
-    const lengths = [0, 1, 2].map((i) => chain[i].distanceTo(chain[i + 1]));
     // Closing a fist brings the thumb's base across the palm to meet the fingers.
     b1Rest.copy(b1.position);
-    const root0 = chain[0].clone().addScaledVector(ahead, THUMB_BASE_AHEAD).addScaledVector(palmar, THUMB_BASE_OUT);
-    b1.position.copy(hand.worldToLocal(root0.clone()));
+    const base = pos(b1).addScaledVector(ahead, THUMB_BASE_AHEAD).addScaledVector(palmar, THUMB_BASE_OUT);
+    b1.position.copy(hand.worldToLocal(base.clone()));
     b1.updateMatrixWorld(true);
-    const clear = radius + thumbSize;
-    // The tip lies over the first fingers on the far side of the object. Start the
-    // chain bulging out from the object, so the joints bend around it.
-    const over = radius + fingerSize * FINGER_PRESS * 1.6 + thumbSize * 0.6;
-    const tip = around(wTip, over, THREE.MathUtils.degToRad(THUMB_AROUND));
-    const out = root0.clone().lerp(tip, 0.5).sub(centre).normalize();
-    chain[1].copy(root0.clone().lerp(tip, 0.35)).addScaledVector(out, 0.02);
-    chain[2].copy(root0.clone().lerp(tip, 0.7)).addScaledVector(out, 0.025);
-    const outside = (p: THREE.Vector3) => {
-      const w = p.clone().sub(centre);
-      const along = w.dot(across);
-      const off = w.addScaledVector(across, -along);
-      if (off.length() < clear) p.copy(centre).addScaledVector(across, along).addScaledVector(off.normalize(), clear);
-    };
-    for (let pass = 0; pass < 30; pass++) {
-      chain[3].copy(tip);
-      for (let i = 2; i >= 0; i--) {
-        const dir = chain[i].clone().sub(chain[i + 1]).normalize();
-        chain[i].copy(chain[i + 1]).addScaledVector(dir, lengths[i]);
-        outside(chain[i]);
-      }
-      chain[0].copy(root0);
-      for (let i = 0; i < 3; i++) {
-        const dir = chain[i + 1].clone().sub(chain[i]).normalize();
-        chain[i + 1].copy(chain[i]).addScaledVector(dir, lengths[i]);
-      }
-    }
-    point(b1, pos(b2).sub(pos(b1)), chain[1]);
-    point(b2, pos(b3).sub(pos(b2)), chain[2]);
-    point(b3, pos(b3).sub(pos(b2)), chain[3]);
+    const deg = THREE.MathUtils.degToRad;
+    const over = radius + 2 * fingerSize * FINGER_PRESS + thumbSize * THUMB_ON_FINGERS;
+    const joint = around(indexW + THUMB_JOINT_BESIDE, over, deg(THUMB_JOINT_AROUND));
+    const toTip = around(indexW - THUMB_PAST_INDEX, over, deg(THUMB_TIP_AROUND)).sub(joint).normalize();
+    const tip = joint.clone().addScaledVector(toTip, last);
+    // The first joint: as near the object as the two bones allow, on the thumb side.
+    const span = joint.clone().sub(base);
+    const reach = Math.min(span.length(), l1 + l2 - 0.001);
+    span.normalize();
+    const closeJoint = base.clone().addScaledVector(span, reach);
+    const along = (l1 * l1 - l2 * l2 + reach * reach) / (2 * reach);
+    const side = across.clone().addScaledVector(span, -across.dot(span)).normalize();
+    const first = base
+      .clone()
+      .addScaledVector(span, along)
+      .addScaledVector(side, Math.sqrt(Math.max(l1 * l1 - along * along, 0)));
+    point(b1, pos(b2).sub(pos(b1)), first);
+    point(b2, pos(b3).sub(pos(b2)), closeJoint);
+    point(b3, pos(b3).sub(pos(b2)), closeJoint.clone().add(tip.clone().sub(joint)));
   }
 
   // Finger bones relative to their parents, so they move with the hand.
