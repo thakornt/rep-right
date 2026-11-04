@@ -13,10 +13,14 @@ upper arms buried in the chest, a bar floating over the shoulders, and saying
 
 ## Where things are
 
-- `apps/web/src/components/body/pose.ts` builds the pose. A baked Mixamo clip
-  plays first (`clips/*.json`, made by `tools/body/extract_clip.py`). Then
-  small, bounded adjustments run on top: wrists, bar drop, elbows out, bar
-  onto the traps, balance, faults.
+- `apps/web/src/components/body/pose.ts` builds the pose. A baked clip plays
+  first (`clips/*.json`). Then small, bounded adjustments run on top: wrists,
+  bar drop, elbows out, bar onto the traps, balance, faults. Feet are planted
+  and knees kept as hinges at the end.
+- `tools/body/prmd_clip.mjs` makes the back squat clip: trunk and legs from a
+  UI-PRMD motion capture rep (public domain), arms from the Mixamo clip, the
+  back straightened by `STRAIGHT_BACK`. `tools/body/extract_clip.py` bakes
+  Mixamo clips.
 - `anatomy.ts` holds the joint-range table `LIMITS` and `measure()`. It reads
   joint angles from bone landmarks, because the rig's rest pose is an A-pose,
   not the anatomical position.
@@ -81,12 +85,17 @@ weight-bearing value for a loaded lift), and tell the user.
 
 ## Adding an exercise
 
-1. Get a clip of that movement (Mixamo on our body via
-   `tools/body/export_mixamo.py`) or a reference the user approves.
-2. Bake it with `extract_clip.py`. Never publish the raw Mixamo files.
+1. Get the movement from real motion capture or a clip whose license allows
+   our use (UI-PRMD, Mixamo on our body via `tools/body/export_mixamo.py`), or
+   a reference the user approves. Never invent a whole movement by hand. Check
+   several subjects and pick one that moves symmetrically.
+2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish the raw
+   Mixamo files.
 3. Write the exercise's own form rules next to its code, for example where
    the bar or handle sits, where the elbows point, and how deep to go.
    Confirm them with the user, because form is their call.
 4. Add a test like `squat-anatomy.test.ts` that covers every depth and every
    fault toggle. Faults must stay humanly possible: wrong form, not broken
    joints.
+5. Show one fault at a time, never combined. Mixed faults stop showing any one
+   mistake and break the body.
