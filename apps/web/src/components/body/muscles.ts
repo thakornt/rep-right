@@ -53,7 +53,7 @@ export const ROLE_LABELS: Record<Role, { name: string; hint: string }> = {
 // Shared by the body shader and the legend swatches.
 export const ROLE_COLORS: Record<Role | "warn", string> = {
   prime: "#f97316",
-  synergist: "#fdba74",
+  synergist: "#facc15",
   stabilizer: "#22d3ee",
   warn: "#ef4444",
 };
