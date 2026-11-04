@@ -15,7 +15,7 @@ const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
-const HANDLE_TURN = -7; // degrees the wrist holds the hand off the forearm's line, splitting what's left of the handle's tilt through the lift
+const HANDLE_TURN = -7; // degrees the hand starts off the forearm's line, before the wrist levels the dumbbell
 const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
 const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
@@ -33,6 +33,7 @@ export type PressSpec = {
   lowWidth: number; // hands outside the shoulders at the bottom
   lowHeight: number; // wrists above the shoulders at the bottom
   inward: number; // how far the hands come in on the way up
+  elbowsForward: number; // degrees the hands' arc swings forward at mid-lift
   cameraTarget: [number, number, number];
 };
 
@@ -49,6 +50,7 @@ export const INCLINE_PRESS: PressSpec = {
   highForward: 0.035,
   lowWidth: 0.15,
   lowHeight: 0.1,
+  elbowsForward: 20,
   inward: 0.06,
   cameraTarget: [0, 0.72, -0.05],
 };
@@ -69,6 +71,7 @@ export const SHOULDER_PRESS: PressSpec = {
   highForward: 0.02,
   lowWidth: 0.13,
   lowHeight: 0.06,
+  elbowsForward: 20,
   inward: 0.10,
   cameraTarget: [0, 0.88, -0.05],
 };
@@ -112,8 +115,6 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   return {
     s,
     grip,
-    // Where the fist is at the top and bottom of the lift, found once the bench is set up.
-    line: null as { high: THREE.Vector3; low: THREE.Vector3 } | null,
     upperLen: upper.length(),
     foreLen: fore.length(),
     // The elbow's hinge axis, fixed in the upper arm (as in anatomy.ts).
@@ -135,13 +136,8 @@ export function readPressRig(root: THREE.Object3D, spec: PressSpec = INCLINE_PRE
   const arms: PressArms = { spec, rig, l: readSide(root, rig, "l"), r: readSide(root, rig, "r") };
   const body = readBody(root);
 
-  // The two ends of the dumbbell's straight line.
-  const low = posePress(arms, 1);
-  const high = posePress(arms, 0);
-  arms.l.line = { high: high.l.fist, low: low.l.fist };
-  arms.r.line = { high: high.r.fist, low: low.r.fist };
-
-  // Fit the bench to this body: the pad touches the back, the seat the hips.
+  // Fit the bench to this body, as it sits: the pad touches the back, the seat the hips.
+  posePress(arms, 0);
   const { n } = chestAxes(spec);
   const pelvis = worldPos(rig.pelvis);
   const p = new THREE.Vector3();
@@ -213,7 +209,7 @@ export function posePress(press: PressArms, depth: number) {
   const out = sides.map((a) => {
     const s = a.s;
     const shoulder = worldPos(s.upperarm);
-    // The hands travel a straight line, as under a real weight. Seen from the
+    // The ends of the lift. Seen from the
     // front they rise nearly straight, coming in only as far as the lift needs.
     const low = shoulder.clone();
     low.x += s.sign * spec.lowWidth;
@@ -227,7 +223,7 @@ export function posePress(press: PressArms, depth: number) {
     // Pose the arm with its wrist at a point; returns where the fist lands.
     const solve = (wrist: THREE.Vector3) => {
       // The elbow takes the spot closest to under the wrist, keeping the forearm
-      // as upright as this line allows.
+      // as upright as it can be.
       const hint = wrist.clone().addScaledVector(UP, -a.foreLen).sub(shoulder);
       twoBoneIK(s.upperarm, s.lowerarm, s.hand, a.upperLen, a.foreLen, wrist, hint);
       // The elbow is a hinge: square the upper arm to the arm's plane, which swings
@@ -255,15 +251,24 @@ export function posePress(press: PressArms, depth: number) {
     };
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
 
-    // The dumbbell, which sits past the wrist, is what runs the straight line:
-    // shift the wrist so the fist lands on the line between the lift's two ends.
     const wrist = high.clone().lerp(low, depth);
-    if (a.line) {
-      const target = a.line.high.clone().lerp(a.line.low, depth);
-      for (let pass = 0; pass < 3; pass++) wrist.add(target.clone().sub(solve(wrist)));
+    // A forearm is upright when the elbow is under the wrist, and the upper arm's
+    // length decides how far out that is at each height, so the hands arc between
+    // the two ends of the lift rather than running a straight line.
+    {
+      const apart = (p: THREE.Vector3) => Math.hypot(p.x - shoulder.x, p.z - shoulder.z);
+      const need = (p: THREE.Vector3) => Math.sqrt(Math.max(a.upperLen ** 2 - (p.y - shoulder.y - a.foreLen) ** 2, 0));
+      const out = need(wrist) + THREE.MathUtils.lerp(apart(high) - need(high), apart(low) - need(low), depth);
+      const aim = (p: THREE.Vector3) => Math.atan2(p.z - shoulder.z, (p.x - shoulder.x) * s.sign);
+      const turn = THREE.MathUtils.lerp(aim(high), aim(low), depth) + deg(spec.elbowsForward) * Math.sin(Math.PI * depth);
+      wrist.x = shoulder.x + s.sign * out * Math.cos(turn);
+      wrist.z = shoulder.z + out * Math.sin(turn);
     }
-    // The hand runs the line; the dumbbell sits where it does in the hand.
-    return { fist: solve(wrist), grip: a.grip.held(), handle: a.grip.dir() };
+    // The arm stops there. Then only the wrist moves, keeping the dumbbell level.
+    solve(wrist);
+    const level = a.grip.dir().dot(thumbs) > 0 ? thumbs : thumbs.clone().negate();
+    rotateWorld(s.hand, new THREE.Quaternion().setFromUnitVectors(a.grip.dir(), level));
+    return { grip: a.grip.held(), handle: a.grip.dir() };
   });
   return { l: out[0], r: out[1] };
 }

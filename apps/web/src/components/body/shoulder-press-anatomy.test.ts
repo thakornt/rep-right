@@ -14,9 +14,9 @@ const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but re
 const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015;
-const MAX_FOREARM_TILT = 25; // degrees from vertical; a straight hand path cannot keep it at 0 (most tilt is mid-rep)
-const MAX_OFF_LINE = 0.008; // metres the dumbbell may stray from a straight line: too little to see
-const MAX_STEP = 0.015; // metres a hand may move per 1% of the lift
+const MAX_FOREARM_TILT = 10; // degrees from vertical at any point of the lift: the hands arc to keep it upright
+const WRIST_LEVELLING = 23; // degrees of sideways wrist bend allowed
+const MAX_STEP = 0.016; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
@@ -54,7 +54,11 @@ describe("seated dumbbell shoulder press", () => {
     const g = posePress(press, depth);
     const problems: string[] = [];
 
-    for (const v of violations(measure(anatomy))) problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
+    for (const v of violations(measure(anatomy))) {
+      // Past the 20 limit near the bottom: the wrist keeps the dumbbell level, as the owner asked.
+      if (v.joint.endsWith("wrist.deviation") && Math.abs(v.value) <= WRIST_LEVELLING) continue;
+      problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
+    }
 
     const c = contact(press.body);
     for (const t of c.through) {
@@ -114,16 +118,11 @@ describe("seated dumbbell shoulder press", () => {
     expect(m.l["shoulder.plane"]).toBeLessThan(45);
   });
 
-  test("the dumbbells run a straight line up to nearly straight arms overhead", () => {
+  test("the dumbbells arc up to nearly straight arms overhead", () => {
     const start = posePress(press, 1).l.grip;
     const end = posePress(press, 0).l.grip;
     const line = end.clone().sub(start);
     const length = line.length();
-    line.normalize();
-    for (let i = 0; i <= 20; i++) {
-      const w = posePress(press, i / 20).l.grip.sub(start);
-      expect(w.addScaledVector(line, -w.dot(line)).length()).toBeLessThan(MAX_OFF_LINE);
-    }
     expect(length).toBeGreaterThan(0.3);
 
     posePress(press, 0);

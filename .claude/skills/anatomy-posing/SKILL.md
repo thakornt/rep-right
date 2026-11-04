@@ -100,8 +100,9 @@ weight-bearing value for a loaded lift), and tell the user.
    a reference the user approves. Never invent a whole-body movement by hand.
    Check several subjects and pick one that moves symmetrically. A lift where
    the body is fixed and only the limbs move (a bench press) can be built from
-   cues, as `pose-press.ts` is. Set the weight's path first, as a real weight
-   moves, and let the joints follow; never let the path bend to suit a joint.
+   cues, as `pose-press.ts` is. In a press, keep the forearm upright and let the hands
+   arc as the arm's lengths require; the path need not be a perfect straight line.
+   The wrist alone keeps a dumbbell level, and must not drag the arm with it.
 2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish Mixamo
    files or a whole baked Mixamo clip; keep them in `tools/body/out/`.
 3. Write the exercise's own form rules next to its code, for example where
