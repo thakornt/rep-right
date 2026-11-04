@@ -13,24 +13,24 @@ export const deg = (d: number) => (d * Math.PI) / 180;
 export const worldPos = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
 export const worldQuat = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
 
-function rotateWorld(bone: THREE.Object3D, q: THREE.Quaternion) {
+export function rotateWorld(bone: THREE.Object3D, q: THREE.Quaternion) {
   const parentQ = worldQuat(bone.parent!).invert();
   bone.quaternion.copy(parentQ.multiply(q.clone().multiply(worldQuat(bone))));
   bone.updateMatrixWorld(true);
 }
 
-function setWorldQuat(bone: THREE.Object3D, q: THREE.Quaternion) {
+export function setWorldQuat(bone: THREE.Object3D, q: THREE.Quaternion) {
   bone.quaternion.copy(worldQuat(bone.parent!).invert().multiply(q));
   bone.updateMatrixWorld(true);
 }
 
-function setWorldPos(bone: THREE.Object3D, p: THREE.Vector3) {
+export function setWorldPos(bone: THREE.Object3D, p: THREE.Vector3) {
   bone.position.copy(bone.parent!.worldToLocal(p.clone()));
   bone.updateMatrixWorld(true);
 }
 
 // Turn `bone` so its child points at `target`.
-function aim(bone: THREE.Object3D, child: THREE.Object3D, target: THREE.Vector3) {
+export function aim(bone: THREE.Object3D, child: THREE.Object3D, target: THREE.Vector3) {
   const b = worldPos(bone);
   const from = worldPos(child).sub(b).normalize();
   const to = target.clone().sub(b).normalize();
@@ -38,7 +38,7 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, target: THREE.Vector3)
 }
 
 // Two-bone IK: upper -> lower -> end reaches target, bending toward hint.
-function twoBoneIK(
+export function twoBoneIK(
   upper: THREE.Object3D,
   lower: THREE.Object3D,
   end: THREE.Object3D,
@@ -63,7 +63,7 @@ function twoBoneIK(
 // each one's front faces square to the plane of hip, knee and ankle. IK that
 // only aims the bones leaves them twisted. Near straight the plane is not
 // defined, so the turn fades out below ~20 degrees of bend.
-function keepHinge(s: Rig["l"], ankle: THREE.Vector3) {
+export function keepHinge(s: Rig["l"], ankle: THREE.Vector3) {
   const hip = worldPos(s.thigh);
   const knee = worldPos(s.calf);
   const thigh = knee.clone().sub(hip).normalize();
@@ -93,7 +93,7 @@ function keepHinge(s: Rig["l"], ankle: THREE.Vector3) {
 export type Clip = { fps: number; bones: string[]; frames: { hips: number[]; rot: number[][] }[] };
 // Trunk and legs from UI-PRMD (a real deep squat, motion capture), arms from
 // the Mixamo clip; see tools/body/prmd_clip.mjs.
-const CLIP = backSquat as Clip;
+export const CLIP = backSquat as Clip;
 
 export type Rig = ReturnType<typeof readRig>;
 
