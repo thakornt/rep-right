@@ -17,10 +17,9 @@ const ARMPIT_FOLD = 0.07;
 const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015; // skin may sink this far into the padding, or float this far off it
-const MAX_FOREARM_TILT = 17; // degrees from vertical; a straight hand path cannot keep it at 0 (most tilt is mid-rep)
+const MAX_FOREARM_TILT = 3; // degrees from vertical at any point of the lift: the hands arc to keep it upright
 const RETRACTED = 0.03; // metres the shoulder joints stay behind the upper spine (4.6 cm in front at rest)
-const MAX_OFF_LINE = 0.0065; // metres the dumbbell may stray from a straight line: too little to see
-const MAX_STEP = 0.015; // metres a hand may move per 1% of the lift
+const MAX_STEP = 0.016; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
@@ -103,16 +102,11 @@ describe("incline dumbbell press", () => {
     expect(g.l.grip.y - chest).toBeLessThan(0.08);
   });
 
-  test("the hands travel a straight line, from the nipple line up over the upper chest", () => {
+  test("the hands arc from the nipple line up over the upper chest", () => {
     const start = posePress(press, 1).l.grip;
     const end = posePress(press, 0).l.grip;
     const line = end.clone().sub(start);
     const length = line.length();
-    line.normalize();
-    for (let i = 0; i <= 20; i++) {
-      const w = posePress(press, i / 20).l.grip.sub(start);
-      expect(w.addScaledVector(line, -w.dot(line)).length()).toBeLessThan(MAX_OFF_LINE);
-    }
     expect(length).toBeGreaterThan(0.3);
     expect(end.y).toBeGreaterThan(start.y);
     expect(end.z).toBeLessThan(start.z); // up and back toward the upper chest
@@ -151,7 +145,7 @@ describe("incline dumbbell press", () => {
       expect(turn).toBeLessThan(36);
       expect(m.l["wrist.flexion"]!).toBeCloseTo(-20, 0);
       expect(Math.abs(m.l["wrist.twist"]!)).toBeLessThan(3);
-      expect(Math.abs(m.l["wrist.deviation"]!)).toBeLessThan(10);
+      expect(Math.abs(m.l["wrist.deviation"]!)).toBeLessThan(17); // the wrist keeps the dumbbell level
     }
   });
 
