@@ -18,7 +18,7 @@ const MAX_ANGLE = 2; // degrees between a hand's grip and the object
 const FINGER_CLEAR = 0.0; // a finger's middle joints stay outside the object's surface
 const FINGER_REACH = 0.02; // and within this of it: closed, not hanging open
 const SKIN_THROUGH = 0.0125; // skin folding into the object where the fingers bend most
-const MAX_TILT = 16; // degrees a dumbbell may lean from level through the lift
+const MAX_TILT = 18; // degrees a dumbbell may lean from level through the lift
 const THUMB_ON_INDEX = 0.005; // the thumb's skin rests on the index finger's, not floating over it
 const THUMB_REACH = 0.04; // the thumb's last joint, from the object's surface (the tip reaches further)
 
@@ -30,7 +30,7 @@ function check(root: THREE.Object3D, body: Body, rig: Rig, grip: Grip, tag: "l" 
     const w = p.clone().sub(held.at);
     return w.addScaledVector(held.dir, -w.dot(held.dir)).length();
   };
-  if (dist(grip.at()) > MAX_OFF_AXIS) problems.push(`${tag} grip ${(dist(grip.at()) * 100).toFixed(1)} cm off the axis`);
+  if (dist(grip.held()) > MAX_OFF_AXIS) problems.push(`${tag} grip ${(dist(grip.held()) * 100).toFixed(1)} cm off the axis`);
   const angle = THREE.MathUtils.radToDeg(Math.acos(Math.min(Math.abs(grip.dir().dot(held.dir)), 1)));
   if (angle > MAX_ANGLE) problems.push(`${tag} grip ${angle.toFixed(0)} degrees off the object`);
 

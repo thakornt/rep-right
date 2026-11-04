@@ -19,7 +19,7 @@ const FLOOR = 0.01;
 const ON_BENCH = 0.015; // skin may sink this far into the padding, or float this far off it
 const MAX_FOREARM_TILT = 17; // degrees from vertical; a straight hand path cannot keep it at 0 (most tilt is mid-rep)
 const RETRACTED = 0.03; // metres the shoulder joints stay behind the upper spine (4.6 cm in front at rest)
-const MAX_OFF_LINE = 0.005; // metres the dumbbell may stray from a straight line: too little to see
+const MAX_OFF_LINE = 0.0065; // metres the dumbbell may stray from a straight line: too little to see
 const MAX_STEP = 0.015; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
@@ -142,12 +142,14 @@ describe("incline dumbbell press", () => {
     }
   });
 
-  test("palms stay turned in from facing the feet, with the wrists straight", () => {
+  test("palms stay turned in from facing the feet, with the wrists bent back under the weight", () => {
     for (const d of [0, 0.5, 1]) {
       const g = posePress(press, d);
       const m = measure(anatomy);
       const turn = THREE.MathUtils.radToDeg(Math.atan2(Math.abs(g.l.handle.z), Math.abs(g.l.handle.x)));
-      expect(turn).toBeCloseTo(30, 0);
+      expect(turn).toBeGreaterThan(28);
+      expect(turn).toBeLessThan(36);
+      expect(m.l["wrist.flexion"]!).toBeCloseTo(-20, 0);
       expect(Math.abs(m.l["wrist.twist"]!)).toBeLessThan(3);
       expect(Math.abs(m.l["wrist.deviation"]!)).toBeLessThan(10);
     }

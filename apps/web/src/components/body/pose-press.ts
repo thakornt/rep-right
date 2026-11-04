@@ -16,6 +16,7 @@ const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
 const HANDLE_TURN = -7; // degrees the wrist holds the hand off the forearm's line, splitting what's left of the handle's tilt through the lift
+const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
 const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
@@ -100,7 +101,7 @@ export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: {
 
 function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
-  const grip = readGrip(root, rig.skin, tag, DUMBBELL.handleRadius, DUMBBELL_DIAGONAL);
+  const grip = readGrip(root, rig.skin, tag, DUMBBELL.handleRadius, DUMBBELL_DIAGONAL, DUMBBELL_INTO_PALM);
   const shoulder = worldPos(s.upperarm);
   const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);
@@ -137,8 +138,8 @@ export function readPressRig(root: THREE.Object3D, spec: PressSpec = INCLINE_PRE
   // The two ends of the dumbbell's straight line.
   const low = posePress(arms, 1);
   const high = posePress(arms, 0);
-  arms.l.line = { high: high.l.grip, low: low.l.grip };
-  arms.r.line = { high: high.r.grip, low: low.r.grip };
+  arms.l.line = { high: high.l.fist, low: low.l.fist };
+  arms.r.line = { high: high.r.fist, low: low.r.fist };
 
   // Fit the bench to this body: the pad touches the back, the seat the hips.
   const { n } = chestAxes(spec);
@@ -261,7 +262,8 @@ export function posePress(press: PressArms, depth: number) {
       const target = a.line.high.clone().lerp(a.line.low, depth);
       for (let pass = 0; pass < 3; pass++) wrist.add(target.clone().sub(solve(wrist)));
     }
-    return { grip: solve(wrist), handle: a.grip.dir() };
+    // The hand runs the line; the dumbbell sits where it does in the hand.
+    return { fist: solve(wrist), grip: a.grip.held(), handle: a.grip.dir() };
   });
   return { l: out[0], r: out[1] };
 }

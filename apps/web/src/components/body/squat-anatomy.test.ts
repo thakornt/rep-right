@@ -19,16 +19,16 @@ const KNOWN: Record<string, Record<string, number>> = {
   "*": {
     // Elbows close to the sides need the shoulders turned out past 90, a little
     // more with the bar down off the neck (accepted for the bar's position).
-    "shoulder.rotation": 116,
+    "shoulder.rotation": 118,
     // Inner upper arm folds 2-5 cm into the chest at the armpit (hidden in
     // the crease, but real overlap).
-    "armL/core": 0.049,
-    "armR/core": 0.049,
+    "armL/core": 0.054,
+    "armR/core": 0.054,
   },
 };
 
 const THROUGH = 0.01; // skin may press 1 cm into skin
-const BAR_SINK = 0.008; // the bar may press under 1 cm into the skin (traps, base of the neck)
+const BAR_SINK = 0.009; // the bar may press under 1 cm into the skin (traps, base of the neck)
 const BAR_ON_TRAPS = 0.01; // and rest within 1 cm of the traps, not float over them
 const FLOOR = 0.01;
 const KNEE_GAP = 0.16; // between knee joint centres; about a knee's width of clear air

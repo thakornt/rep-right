@@ -32,7 +32,7 @@ function point(bone: THREE.Object3D, along: THREE.Vector3, target: THREE.Vector3
 export type Grip = ReturnType<typeof readGrip>;
 
 // Call with the body at rest.
-export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0) {
+export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0) {
   root.updateMatrixWorld(true);
   const bone = (name: string) => root.getObjectByName(`${name}_${tag}`)!;
   const hand = bone("hand");
@@ -190,6 +190,8 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
   root.updateMatrixWorld(true);
 
   const inHand = hand.worldToLocal(centre.clone());
+  // The object can sit further from the fingers than they closed around.
+  const heldInHand = hand.worldToLocal(centre.clone().addScaledVector(ahead, -intoPalm));
   const axisInHand = across.clone().applyQuaternion(quat(hand).invert());
   return {
     palmLength,
@@ -199,8 +201,10 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
       thumbBase.position.copy(thumbBaseClosed);
       hand.updateMatrixWorld(true);
     },
-    // The object's axis, as the hand is now.
+    // Where the fingers closed, as the hand is now.
     at: () => hand.localToWorld(inHand.clone()),
+    // The object's axis.
+    held: () => hand.localToWorld(heldInHand.clone()),
     dir: () => axisInHand.clone().applyQuaternion(quat(hand)).normalize(),
   };
 }
