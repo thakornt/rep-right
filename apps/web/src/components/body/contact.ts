@@ -95,6 +95,7 @@ const PAIRS: [Part, Part][] = [
   ["armL", "legL"],
   ["armR", "legR"],
   ["armL", "armR"],
+  ["legL", "legR"],
 ];
 
 export function contact(body: Body, bar?: { at: THREE.Vector3; dir: THREE.Vector3; radius: number; halfWidth: number }): Contact {

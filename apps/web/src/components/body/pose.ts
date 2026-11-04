@@ -239,8 +239,13 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   const ankles = sides.map((s) => worldPos(s.foot));
   const drift = rig.l.ankle.clone().add(rig.r.ankle).sub(ankles[0]).sub(ankles[1]).multiplyScalar(0.5);
   setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(drift));
+  // Correct form stays centred over the feet; the recorded subject drifts sideways.
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).setX((rig.l.ankle.x + rig.r.ankle.x) / 2));
   // Feet as planted now; tipping the upper body below must not tip them.
-  const planted = sides.map((s) => ({ q: worldQuat(s.foot), ball: worldPos(s.ball), toes: worldQuat(s.ball) }));
+  const planted = sides.map((s) => {
+    const toFoot = worldPos(s.ball).sub(worldPos(s.foot));
+    return { q: worldQuat(s.foot), ball: s.ankle.clone().add(toFoot), toFoot, toes: worldQuat(s.ball) };
+  });
 
   // Arms stay exactly as the clip has them. Only the wrists change: the clip's
   // bend back a lot, so turn each hand most of the way into line with its
@@ -346,10 +351,10 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
     const ball = planted[i].ball;
     // Heels lift by turning the foot about the ball of the foot.
     const target = s.ankle.clone().sub(ball).applyQuaternion(qx(heel)).add(ball);
-    const knee = worldPos(s.calf);
-    const middle = worldPos(s.thigh).add(target).multiplyScalar(0.5);
-    const hint = knee.sub(middle);
-    hint.x -= s.sign * f.kneeIn * hint.length() * 0.4;
+    // The knee bends toward the toes: it tracks over the foot on a smooth path
+    // and can't flip backward when the leg is nearly straight.
+    const hint = planted[i].toFoot.clone().setY(0).normalize();
+    hint.x -= s.sign * f.kneeIn * 0.15;
     twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, target, hint);
     keepHinge(s, target);
     setWorldQuat(s.foot, qx(heel).multiply(footQ));
