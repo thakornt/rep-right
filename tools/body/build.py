@@ -85,8 +85,8 @@ MUSCLE_TARGETS = {
     "r-lowerarm-muscle-incr": 1.0,
     "l-upperleg-muscle-incr": 1.0,
     "r-upperleg-muscle-incr": 1.0,
-    "l-lowerleg-muscle-incr": 1.0,
-    "r-lowerleg-muscle-incr": 1.0,
+    "l-lowerleg-muscle-incr": 0.2,
+    "r-lowerleg-muscle-incr": 0.2,
 }
 
 
