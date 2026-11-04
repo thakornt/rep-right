@@ -169,7 +169,9 @@ def classify(mesh, rig):
             else:
                 region = m["lats"] if z > 1.05 else m["obliques"]
         elif base == "clavicle":
-            if front and z < 1.36:
+            if x > 0.135:  # the cap of the shoulder, front and back
+                region = m["delts"]
+            elif front and z < 1.36:
                 region = m["chest"]
             elif back or n.z > 0.5:
                 region = m["upper_back"]
@@ -180,7 +182,7 @@ def classify(mesh, rig):
                 region = m["upper_back"]
         elif base == "upperarm":
             t, a = limbs[bone].coords(p)
-            if t < 0.33 and not (-140 < a < -40):
+            if t < 0.5 and not (-140 < a < -40):  # runs about halfway down the arm
                 region = m["delts"]
             elif abs(a) < 90:
                 region = m["biceps"]

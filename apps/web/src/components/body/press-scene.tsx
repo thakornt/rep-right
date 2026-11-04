@@ -7,23 +7,25 @@ import * as THREE from "three";
 import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, type View } from "./body-scene";
 import { REGION_IDS, ROLE_COLORS } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
-import { benchLayout, DUMBBELL, posePress, readPressRig } from "./pose-press";
-import { PRESS_PINS, pressActivation } from "./press";
+import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
+import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 
 export type PressState = { depth: number; playing: boolean };
 
 type Props = {
+  exercise: PressExercise;
   state: React.RefObject<PressState>;
   view: View;
   onPinMove: (id: string, x: number, y: number, visible: boolean, front: boolean) => void;
   onFrame: (depth: number, phase: Phase) => void;
 };
 
-const TARGET = new THREE.Vector3(0, 0.72, -0.05);
+const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS };
 const ALONG = new THREE.Vector3(1, 0, 0);
 
 export default memo(function PressScene(props: Props) {
+  const target = useMemo(() => new THREE.Vector3(...SPECS[props.exercise].cameraTarget), [props.exercise]);
   return (
     <Canvas
       dpr={[1, 2]}
@@ -37,7 +39,7 @@ export default memo(function PressScene(props: Props) {
       <directionalLight position={[-3, 2, -2]} intensity={0.8} />
       <Floor />
       <Presser {...props} />
-      <CameraRig view={props.view} target={TARGET} />
+      <CameraRig view={props.view} target={target} />
     </Canvas>
   );
 });
@@ -97,7 +99,7 @@ function Bench({ layout }: { layout: ReturnType<typeof benchLayout> }) {
   );
 }
 
-function Presser({ state, onPinMove, onFrame }: Props) {
+function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const scene = useBody();
   const body = useMemo(() => bodyMaterial(), []);
   const press = useMemo(() => {
@@ -108,8 +110,8 @@ function Presser({ state, onPinMove, onFrame }: Props) {
         m.frustumCulled = false;
       }
     });
-    return readPressRig(scene);
-  }, [scene, body]);
+    return readPressRig(scene, SPECS[exercise]);
+  }, [scene, body, exercise]);
   const layout = useMemo(() => benchLayout(press), [press]);
 
   const left = useRef<THREE.Group>(null);
@@ -146,7 +148,7 @@ function Presser({ state, onPinMove, onFrame }: Props) {
     right.current?.quaternion.setFromUnitVectors(ALONG, g.r.handle);
 
     body.clear();
-    for (const act of pressActivation(depth, c.phase)) {
+    for (const act of pressActivation(exercise, depth, c.phase)) {
       body.setRegion(REGION_IDS[act.region], colors[act.role], 0.2 + 0.8 * act.amount);
     }
 
