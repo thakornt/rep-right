@@ -24,7 +24,7 @@ export function faultOffsets(depth: number, faults: SquatFaults) {
     lean: faults.forwardLean ? 18 * depth : 0,
     tuck: 22 * wink,
     kneeIn: faults.kneeValgus ? Math.min(1, depth * 1.3) : 0,
-    heelLift: faults.heelRise ? 16 * depth : 0,
+    heelLift: faults.heelRise ? 15 * depth : 0,
   };
 }
 

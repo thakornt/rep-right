@@ -219,7 +219,8 @@ export function playClip(rig: Rig, frame: number) {
 }
 
 export const BAR_RADIUS = 0.014;
-const LEAN_AT_CHEST = 0.55; // share of a forward lean taken at the upper back, at the bottom
+const LEAN_AT_CHEST = 0.65; // share of a forward lean taken at the upper back, at the bottom
+const BAR_LOWER = 0.03; // metres the bar slides down the upper back, away from the neck
 const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
@@ -289,6 +290,11 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // of the shoulders until it touches, and the fists go with it. The skin
   // moves a little with the arms, so settle twice.
   const barDir = () => worldPos(rig.l.upperarm).sub(worldPos(rig.r.upperarm)).setY(0).normalize();
+  // First slide it down the upper back, away from the neck.
+  const chestDown = new THREE.Vector3(0, -BAR_LOWER, 0).applyQuaternion(
+    worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
+  );
+  for (const s of sides) moveFist(s, fist(s).add(chestDown));
   for (let pass = 0; pass < 2; pass++) {
     const dir = barDir();
     const skinPts = rig.traps.map((i) => rig.skin.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(rig.skin.matrixWorld));

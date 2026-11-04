@@ -2,7 +2,7 @@
 // with each form fault: joints inside human range, no part
 // through another, the bar on the shoulders, the feet on the floor.
 
-import type * as THREE from "three";
+import * as THREE from "three";
 import { beforeAll, describe, expect, test } from "vitest";
 
 import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
@@ -17,17 +17,19 @@ import { NO_FAULTS, type SquatFaults } from "./squat";
 const KNOWN: Record<string, Record<string, number>> = {
   // every pose
   "*": {
-    // Elbows close to the sides need the shoulders turned out past 90.
-    "shoulder.rotation": 113,
-    // Inner upper arm folds 2-4 cm into the chest at the armpit (hidden in
+    // Elbows close to the sides need the shoulders turned out past 90, a little
+    // more with the bar down off the neck (accepted for the bar's position).
+    "shoulder.rotation": 116,
+    // Inner upper arm folds 2-5 cm into the chest at the armpit (hidden in
     // the crease, but real overlap).
-    "armL/core": 0.042,
-    "armR/core": 0.04,
+    "armL/core": 0.048,
+    "armR/core": 0.048,
   },
 };
 
 const THROUGH = 0.01; // skin may press 1 cm into skin
-const BAR_SINK = 0.015; // the bar may press 1.5 cm into the traps
+const BAR_SINK = 0.008; // the bar may press under 1 cm into the skin (traps, base of the neck)
+const BAR_ON_TRAPS = 0.01; // and rest within 1 cm of the traps, not float over them
 const FLOOR = 0.01;
 const STRAIGHT_BACK = 15; // correct form: degrees the whole back may round
 const PLANTED = 0.01; // heel and toes stay within 1 cm of where they stand
@@ -81,6 +83,16 @@ describe.each(FAULTS)("back squat, %s", (name, faults) => {
       if (t.depth > allowed) problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
     }
     if (c.barSink > BAR_SINK) problems.push(`bar ${(c.barSink * 100).toFixed(1)} cm into the shoulders`);
+    // Riding up onto the neck: the bar must stay below the base of the neck.
+    const chestUp = worldPos(rig.neck).sub(worldPos(rig.spine3)).normalize();
+    if (worldPos(rig.neck).sub(j.bar).dot(chestUp) < 0) problems.push("bar above the base of the neck");
+    let onTraps = Infinity;
+    const p = new THREE.Vector3();
+    for (const i of rig.traps) {
+      rig.skin.getVertexPosition(i, p).applyMatrix4(rig.skin.matrixWorld).sub(j.bar);
+      onTraps = Math.min(onTraps, p.addScaledVector(j.barDir, -p.dot(j.barDir)).length() - BAR_RADIUS);
+    }
+    if (onTraps > BAR_ON_TRAPS) problems.push(`bar floats ${(onTraps * 100).toFixed(1)} cm over the traps`);
     if (c.floor > FLOOR) problems.push(`skin ${(c.floor * 100).toFixed(1)} cm under the floor`);
     for (const [side, s] of [["l", rig.l], ["r", rig.r]] as const) {
       for (const [part, bone] of [["heel", s.foot], ["toes", s.ball]] as const) {
