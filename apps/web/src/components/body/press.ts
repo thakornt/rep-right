@@ -12,11 +12,14 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
   const effort = phase === "up" ? 1 : 0.8;
   if (exercise === "shoulder") {
     return [
-      { region: "delts", role: "prime", amount: (0.5 + 0.5 * depth) * effort },
+      { region: "delt_front", role: "prime", amount: (0.55 + 0.45 * depth) * effort },
+      { region: "delt_side", role: "prime", amount: (0.5 + 0.4 * depth) * effort },
       { region: "triceps", role: "synergist", amount: (0.8 - 0.3 * depth) * effort },
+      { region: "chest_upper", role: "synergist", amount: (0.25 + 0.5 * depth) * effort }, // elbows forward, bench reclined
       { region: "upper_back", role: "synergist", amount: (0.7 - 0.2 * depth) * effort }, // rotating the shoulder blades up
       { region: "forearms", role: "stabilizer", amount: 0.45 },
       { region: "biceps", role: "stabilizer", amount: 0.25 },
+      { region: "delt_rear", role: "stabilizer", amount: 0.3 },
       { region: "abs", role: "stabilizer", amount: 0.5 },
       { region: "obliques", role: "stabilizer", amount: 0.35 },
       { region: "erectors", role: "stabilizer", amount: 0.35 },
@@ -24,11 +27,15 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
   }
   // The chest works hardest stretched at the bottom and while pressing up.
   return [
-    { region: "chest", role: "prime", amount: (0.4 + 0.6 * depth) * effort },
-    { region: "delts", role: "synergist", amount: (0.35 + 0.45 * depth) * effort },
+    { region: "chest_upper", role: "prime", amount: (0.45 + 0.55 * depth) * effort },
+    { region: "chest_mid", role: "prime", amount: (0.3 + 0.5 * depth) * effort },
+    { region: "chest_lower", role: "synergist", amount: (0.2 + 0.3 * depth) * effort },
+    { region: "delt_front", role: "synergist", amount: (0.35 + 0.45 * depth) * effort },
     { region: "triceps", role: "synergist", amount: (0.75 - 0.25 * depth) * effort },
     { region: "forearms", role: "stabilizer", amount: 0.45 },
     { region: "biceps", role: "stabilizer", amount: 0.25 },
+    { region: "delt_side", role: "stabilizer", amount: 0.3 },
+    { region: "delt_rear", role: "stabilizer", amount: 0.3 },
     { region: "upper_back", role: "stabilizer", amount: 0.75 }, // holding the shoulder blades back
     { region: "lats", role: "stabilizer", amount: 0.3 },
     { region: "abs", role: "stabilizer", amount: 0.35 },

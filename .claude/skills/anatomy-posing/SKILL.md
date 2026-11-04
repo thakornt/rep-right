@@ -17,6 +17,12 @@ upper arms buried in the chest, a bar floating over the shoulders, and saying
   first (`clips/*.json`). Then small, bounded adjustments run on top: wrists,
   bar drop, elbows out, bar onto the traps, balance, faults. Feet are planted
   and knees kept as hinges at the end.
+- `tools/body/build.py` builds the body and bakes two maps beside it:
+  `muscles.png` (region id per pixel, plus shorts or shoes in the upper bits) and
+  `relief.png` (normal map of the grooves between muscles). Both are drawn from
+  each pixel's position, so a rule writes a line on the body, not a mesh edge.
+  Muscle size changes the skin, so rerun the tests and look again after changing
+  `MACRO` or `MUSCLE_TARGETS`.
 - `tools/body/prmd_clip.mjs` makes the back squat clip: trunk and legs from a
   UI-PRMD motion capture rep (public domain), arms from the Mixamo clip, the
   back straightened by `STRAIGHT_BACK`. `tools/body/extract_clip.py` bakes

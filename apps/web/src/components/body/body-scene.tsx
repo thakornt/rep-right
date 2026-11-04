@@ -1,16 +1,18 @@
 "use client";
 
 import { OrbitControls, useGLTF } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { REGION_COUNT, REGION_IDS, ROLE_COLORS } from "./muscles";
+import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { BAR_RADIUS, pose, readRig, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
 
 export const MODEL = "/models/body.glb";
+const MUSCLE_MAP = "/models/muscles.png";
+const RELIEF_MAP = "/models/relief.png";
 
 export type View = "side" | "front" | "back" | "angle";
 
@@ -104,53 +106,72 @@ export function CameraRig({ view, target = TARGET }: { view: View; target?: THRE
 
 // ---------- body material ----------
 
-export function bodyMaterial() {
+// Skin keeps showing through the colour, so its shape and grooves still read.
+export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THREE.Texture }) {
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
-  const mat = new THREE.MeshStandardMaterial({ color: "#b9b2ab", roughness: 0.62 });
+  const mat = new THREE.MeshStandardMaterial({
+    color: "#b9b2ab",
+    roughness: 0.62,
+    normalMap: relief,
+  });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTint = { value: tints };
     shader.uniforms.uAmt = { value: amounts };
+    shader.uniforms.uMuscleMap = { value: map };
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
         `#include <common>
-        attribute float _muscle;
-        attribute float _cloth;
-        uniform vec3 uTint[${REGION_COUNT}];
-        uniform float uAmt[${REGION_COUNT}];
-        varying vec3 vTintAmt;
-        varying float vAmt;
-        varying float vCloth;`,
+        varying vec2 vMapUv;`,
       )
       .replace(
         "#include <begin_vertex>",
         `#include <begin_vertex>
-        int mi = int(_muscle + 0.5);
-        vAmt = uAmt[mi];
-        vTintAmt = uTint[mi] * vAmt;
-        vCloth = _cloth;`,
+        vMapUv = uv;`,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
         `#include <common>
-        varying vec3 vTintAmt;
-        varying float vAmt;
-        varying float vCloth;`,
+        uniform sampler2D uMuscleMap;
+        uniform vec3 uTint[${REGION_COUNT}];
+        uniform float uAmt[${REGION_COUNT}];
+        varying vec2 vMapUv;
+        vec3 mapTint;
+        float mapAmt;`,
       )
       .replace(
         "#include <color_fragment>",
         `#include <color_fragment>
-        vec3 base = vCloth > 1.5 ? vec3(0.05, 0.06, 0.07) : vCloth > 0.5 ? vec3(0.07, 0.1, 0.12) : diffuseColor.rgb;
-        // vTintAmt is premultiplied so region borders fade instead of darkening.
-        vec3 tint = vTintAmt / max(vAmt, 0.001);
-        diffuseColor.rgb = mix(base, tint, clamp(vAmt, 0.0, 1.0) * 0.92);`,
+        // Region ids can't be filtered, so blend the four nearest pixels' colours.
+        vec2 size = vec2(textureSize(uMuscleMap, 0));
+        vec2 st = vMapUv * size - 0.5;
+        vec2 cell = floor(st);
+        vec2 mixAt = st - cell;
+        mapTint = vec3(0.0);
+        mapAmt = 0.0;
+        vec3 base = vec3(0.0);
+        for (int j = 0; j < 2; j++) {
+          for (int i = 0; i < 2; i++) {
+            vec2 corner = vec2(float(i), float(j));
+            vec2 w = mix(1.0 - mixAt, mixAt, corner);
+            int v = int(texture2D(uMuscleMap, (cell + corner + 0.5) / size).r * 255.0 + 0.5);
+            int r = v % 32;
+            int cloth = v / 32;
+            mapTint += w.x * w.y * uTint[r] * uAmt[r];
+            mapAmt += w.x * w.y * uAmt[r];
+            base += w.x * w.y * (cloth == 2 ? vec3(0.05, 0.06, 0.07) : cloth == 1 ? vec3(0.07, 0.1, 0.12) : diffuseColor.rgb);
+          }
+        }
+        // mapTint is premultiplied so region borders fade instead of darkening.
+        vec3 tint = mapTint / max(mapAmt, 0.001);
+        diffuseColor.rgb = mix(base, tint, clamp(mapAmt, 0.0, 1.0) * 0.84);`,
       )
       .replace(
         "#include <emissivemap_fragment>",
         `#include <emissivemap_fragment>
-        totalEmissiveRadiance += vTintAmt * 0.22;`,
+        totalEmissiveRadiance += mapTint * 0.16;`,
       );
   };
   return {
@@ -161,6 +182,25 @@ export function bodyMaterial() {
       amounts[i] = amount;
     },
   };
+}
+
+// The muscle map holds region ids, not colours: no filtering, no colour conversion.
+export function useMuscleMap() {
+  const [loadedMap, loadedRelief] = useLoader(THREE.TextureLoader, [MUSCLE_MAP, RELIEF_MAP]);
+  return useMemo(() => {
+    const map = loadedMap.clone();
+    map.flipY = false;
+    map.colorSpace = THREE.NoColorSpace;
+    map.magFilter = THREE.NearestFilter;
+    map.minFilter = THREE.NearestFilter;
+    map.generateMipmaps = false;
+    map.needsUpdate = true;
+    const relief = loadedRelief.clone();
+    relief.flipY = false;
+    relief.colorSpace = THREE.NoColorSpace;
+    relief.needsUpdate = true;
+    return { map, relief };
+  }, [loadedMap, loadedRelief]);
 }
 
 // ---------- the lifter ----------
@@ -177,7 +217,8 @@ export function useBody() {
 
 function Squatter({ state, onPinMove, onFrame }: Props) {
   const scene = useBody();
-  const body = useMemo(() => bodyMaterial(), []);
+  const muscleMap = useMuscleMap();
+  const body = useMemo(() => bodyMaterial(muscleMap), [muscleMap]);
   const rig = useMemo(() => {
     scene.traverse((o) => {
       if ((o as THREE.SkinnedMesh).isSkinnedMesh) {
@@ -227,7 +268,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       body.setRegion(
         REGION_IDS[act.region],
         act.warn ? colors.warn : colors[act.role],
-        act.warn ? pulse : 0.2 + 0.8 * act.amount,
+        act.warn ? pulse : (0.2 + 0.8 * act.amount) * ROLE_STRENGTH[act.role],
       );
     }
 

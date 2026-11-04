@@ -22,8 +22,8 @@ const KNOWN: Record<string, Record<string, number>> = {
     "shoulder.rotation": 116,
     // Inner upper arm folds 2-5 cm into the chest at the armpit (hidden in
     // the crease, but real overlap).
-    "armL/core": 0.048,
-    "armR/core": 0.048,
+    "armL/core": 0.049,
+    "armR/core": 0.049,
   },
 };
 

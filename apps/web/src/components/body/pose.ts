@@ -220,6 +220,7 @@ export function playClip(rig: Rig, frame: number) {
 
 export const BAR_RADIUS = 0.014;
 const LEAN_AT_CHEST = 0.65; // share of a forward lean taken at the upper back, at the bottom
+const BAR_CLEARANCE = 0.002; // metres the bar settles short of the traps, as other skin rises around it
 const BAR_LOWER = 0.03; // metres the bar slides down the upper back, away from the neck
 const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
@@ -313,7 +314,7 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
         if (!near || w.lengthSq() < near.lengthSq()) near = w;
       }
       if (!near) break;
-      b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS);
+      b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS - BAR_CLEARANCE);
     }
     const shift = b.sub(start);
     for (const s of sides) moveFist(s, fist(s).add(shift));

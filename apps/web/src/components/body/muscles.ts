@@ -1,5 +1,5 @@
-// Surface muscle regions painted onto public/models/body.glb (vertex attribute
-// _muscle). Ids must match MUSCLES in tools/body/build.py.
+// Surface muscle regions painted into public/models/muscles.png, one id per
+// pixel. Ids must match MUSCLES in tools/body/build.py.
 
 export const REGION_IDS = {
   quads: 1,
@@ -12,15 +12,19 @@ export const REGION_IDS = {
   erectors: 8,
   lats: 9,
   upper_back: 10,
-  chest: 11,
-  delts: 12,
+  chest_mid: 11,
+  delt_front: 12,
   biceps: 13,
   triceps: 14,
   forearms: 15,
+  chest_upper: 16,
+  chest_lower: 17,
+  delt_side: 18,
+  delt_rear: 19,
 } as const;
 
 export type Region = keyof typeof REGION_IDS;
-export const REGION_COUNT = 16;
+export const REGION_COUNT = 20;
 
 export const REGION_LABELS: Record<Region, string> = {
   quads: "ต้นขาหน้า",
@@ -33,8 +37,12 @@ export const REGION_LABELS: Record<Region, string> = {
   erectors: "กล้ามเนื้อข้างกระดูกสันหลัง",
   lats: "ปีก (หลังด้านข้าง)",
   upper_back: "หลังบนและบ่า",
-  chest: "อก",
-  delts: "ไหล่",
+  chest_upper: "อกส่วนบน",
+  chest_mid: "อกส่วนกลาง",
+  chest_lower: "อกส่วนล่าง",
+  delt_front: "ไหล่หน้า",
+  delt_side: "ไหล่กลาง",
+  delt_rear: "ไหล่หลัง",
   biceps: "หน้าแขน",
   triceps: "หลังแขน",
   forearms: "แขนท่อนล่าง",
@@ -56,4 +64,11 @@ export const ROLE_COLORS: Record<Role | "warn", string> = {
   synergist: "#facc15",
   stabilizer: "#22d3ee",
   warn: "#ef4444",
+};
+
+// Muscles holding still stay in the background of the ones doing the lift.
+export const ROLE_STRENGTH: Record<Role, number> = {
+  prime: 1,
+  synergist: 1,
+  stabilizer: 0.55,
 };
