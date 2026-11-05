@@ -8,6 +8,7 @@ import { readGrip } from "./grip";
 import { faultOffsets, type SquatFaults } from "./squat";
 
 export const X = new THREE.Vector3(1, 0, 0);
+const UP = new THREE.Vector3(0, 1, 0);
 export const qx = (rad: number) => new THREE.Quaternion().setFromAxisAngle(X, rad);
 export const deg = (d: number) => (d * Math.PI) / 180;
 
@@ -91,7 +92,12 @@ export function keepHinge(s: Rig["l"], ankle: THREE.Vector3) {
 
 // A clip baked by tools/body/extract_clip.py or prmd_clip.mjs: per frame, each bone's
 // world rotation change since rest, plus the hips' position change.
-export type Clip = { fps: number; bones: string[]; frames: { hips: number[]; rot: number[][] }[] };
+export type Clip = {
+  fps: number;
+  bones: string[];
+  frames: { hips: number[]; rot: number[][] }[];
+  stance?: { widen: number; toeOut: number; drop: number };
+};
 // Trunk and legs from UI-PRMD (a real deep squat, motion capture), arms from
 // the Mixamo clip; see tools/body/prmd_clip.mjs.
 export const CLIP = backSquat as Clip;
@@ -114,7 +120,10 @@ function mirrored(clip: Clip): Clip {
     })),
   };
 }
-export const SQUAT_CLIP = mirrored(CLIP);
+// Form: feet a little wider than the shoulders, toes a little out. Added to the
+// clip's own stance: metres each ankle moves out, degrees each foot turns out, and
+// metres the hips sit lower for it.
+export const SQUAT_CLIP: Clip = { ...mirrored(CLIP), stance: { widen: 0.075, toeOut: 9.3, drop: 0.01 } };
 
 export type Rig = ReturnType<typeof readRig>;
 
@@ -206,8 +215,6 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
     pelvis,
     pelvisRest: worldPos(pelvis),
     pelvisRestQ: worldQuat(pelvis),
-    // Hip position front to back at evenly spaced depths; see plantHips.
-    hipBack: [] as number[],
     spine1: bone("spine_01"),
     spine2: bone("spine_02"),
     spine3,
@@ -216,14 +223,9 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
   // Plant the feet where the clip stands in its first frame (its stance and
   // toe-out), not where the rig stands at rest.
   playClip(rig, 0);
-  for (const s of [rig.l, rig.r]) s.ankle = worldPos(s.foot).setY(s.ankle.y); // on the floor
-  // The recorded hips come forward again deep in the squat; going down, ours only
-  // go back. Once they have gone as far back as they will, they drop straight down.
-  for (let i = 0; i <= HIP_SAMPLES; i++) {
-    toRest(rig);
-    playClip(rig, (i / HIP_SAMPLES) * bottom);
-    plantHips(rig);
-    rig.hipBack.push(Math.min(worldPos(pelvis).z, rig.hipBack[i - 1] ?? Infinity));
+  for (const s of [rig.l, rig.r]) {
+    s.ankle = worldPos(s.foot).setY(s.ankle.y); // on the floor
+    s.ankle.x += s.sign * (clip.stance?.widen ?? 0);
   }
   toRest(rig);
   root.updateMatrixWorld(true);
@@ -289,27 +291,31 @@ const GRIP_HALF = 0.355; // metres from the middle of the bar to each fist, the 
 const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
-const HIP_SAMPLES = 200; // depths sampled for the hips' path
-const PELVIS_TILT = 27.7; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
-const PELVIS_HOLD_FROM = 0.45; // depth where the hold starts to apply
-const PELVIS_HOLD_FULL = 0.6; // depth where it applies fully
-const TRUNK_LEAN = 32.7; // degrees the trunk leans at TRUNK_LEAN_FROM, where the clip's lean would turn back
-const TRUNK_LEAN_FROM = 0.6; // depth where the set line starts
-const TRUNK_LEAN_RATE = 3; // degrees more lean per unit of depth from there
+const STANCE_DROP_UNTIL = 0.25; // depth by which the hips no longer sit lower for the stance
+const PELVIS_TILT = 26; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
+const PELVIS_HOLD_FROM = 0.35; // depth where the pelvis starts to ease onto that tilt
+const PELVIS_HOLD_FULL = 0.5; // depth where it is on it
+const TRUNK_LEAN_FROM = 0.4; // depth where the trunk starts to follow its set curve
+const TRUNK_LEAN_START = 27.6; // degrees it leans there
+const TRUNK_LEAN_END = 33.6; // degrees it levels off toward, deep in the squat
+const TRUNK_LEAN_EASE = 6.7; // how quickly it levels off, matching the lean it arrives with
+const TRUNK_BLEND_FROM = 0.3; // depth where the trunk starts to blend onto the curve
+const TRUNK_BLEND_FULL = 0.45; // depth where it is on it
 
 export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   toRest(rig);
   playClip(rig, depth * rig.bottom);
   plantHips(rig);
-  const sample = depth * HIP_SAMPLES;
-  const below = Math.min(Math.floor(sample), HIP_SAMPLES - 1);
-  const hipBack = THREE.MathUtils.lerp(rig.hipBack[below], rig.hipBack[below + 1], sample - below);
-  setWorldPos(rig.pelvis, worldPos(rig.pelvis).setZ(hipBack));
+  // Wider feet are further from the hips, so the legs would lock when standing: sit
+  // a little lower there to keep the knees soft. Deep down the knees are bent anyway.
+  const drop = (rig.clip.stance?.drop ?? 0) * (1 - THREE.MathUtils.smoothstep(depth, 0, STANCE_DROP_UNTIL));
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(new THREE.Vector3(0, -drop, 0)));
   const sides = [rig.l, rig.r];
   // Feet as planted now; tipping the upper body below must not tip them.
   const planted = sides.map((s) => {
-    const toFoot = worldPos(s.ball).sub(worldPos(s.foot));
-    return { q: worldQuat(s.foot), ball: s.ankle.clone().add(toFoot), toFoot, toes: worldQuat(s.ball) };
+    const out = new THREE.Quaternion().setFromAxisAngle(UP, s.sign * deg(rig.clip.stance?.toeOut ?? 0));
+    const toFoot = worldPos(s.ball).sub(worldPos(s.foot)).applyQuaternion(out);
+    return { q: out.clone().multiply(worldQuat(s.foot)), ball: s.ankle.clone().add(toFoot), toFoot, toes: out.clone().multiply(worldQuat(s.ball)) };
   });
 
   // Arms stay exactly as the clip has them. Only the wrists change: the clip's
@@ -417,20 +423,18 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // set the bar back over the foot from the lower back. Leaning forward and lifting
   // the heels fold the hip further on their own, so those two faults go without it.
   const steady = !faults.forwardLean && !faults.heelRise;
-  const holdTilt = steady
-    ? Math.max(0, deg(PELVIS_TILT) - pelvisTilt(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL)
-    : 0;
+  const holdTilt = steady ? (deg(PELVIS_TILT) - pelvisTilt(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL) : 0;
   rotateWorld(rig.pelvis, qx(holdTilt));
   rotateWorld(rig.spine1, qx(-holdTilt * 0.6));
   rotateWorld(rig.spine2, qx(-holdTilt * 0.4));
   rotateWorld(rig.spine1, qx(tipToMidfoot(rig.spine1)));
 
   // Those tips outrun the clip's own fold deep down, so the trunk would come back up
-  // and the head rock. Keep folding on a set line through the back and neck, and let
-  // the hips sit further back to keep the bar over the foot.
+  // and the head rock. Fold on one set curve through the back and neck instead, and
+  // let the hips sit back as far as it takes to keep the bar over the foot.
   if (steady) {
-    const wanted = TRUNK_LEAN + TRUNK_LEAN_RATE * Math.max(0, depth - TRUNK_LEAN_FROM);
-    const fold = Math.max(0, deg(wanted) - trunkLean(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL);
+    const wanted = TRUNK_LEAN_END - (TRUNK_LEAN_END - TRUNK_LEAN_START) * Math.exp(-TRUNK_LEAN_EASE * (depth - TRUNK_LEAN_FROM));
+    const fold = (deg(wanted) - trunkLean(rig)) * THREE.MathUtils.smoothstep(depth, TRUNK_BLEND_FROM, TRUNK_BLEND_FULL);
     rotateWorld(rig.spine1, qx(fold * 0.6));
     rotateWorld(rig.spine2, qx(fold * 0.4));
     rotateWorld(rig.neck, qx(-fold * 0.8));

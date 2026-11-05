@@ -43,7 +43,12 @@ const MAX_GRIP_CHANGE = 0.002;
 const MAX_FIST_OFF_BAR = 0.005; // where a fist centres on the bar, measured square to it
 const MAX_JUMP = 0.0005; // per 0.25% of depth
 const MAX_HIP_FORWARD = 0.00005; // per 0.25% of depth
-const MAX_PELVIS_TILT_BACK = 1.5; // degrees below the most it has tipped forward
+const MAX_PELVIS_TILT_BACK = 0.6; // degrees below the most it has tipped forward
+const MAX_HIP_SPEED_UP = 0.00015; // per 1% of depth, against the step before
+const MIN_STANCE_WIDER = 0.03; // ankles wider than the shoulder joints
+const MAX_STANCE_WIDER = 0.09;
+const MIN_TOE_OUT = 15; // degrees
+const MAX_TOE_OUT = 21;
 const MAX_BAR_OFF_MIDFOOT = 0.005;
 const MAX_LEAN_BACK_STEP = 0.1; // degrees below the most the trunk has leaned
 const MAX_HEAD_REBOUND = 0.005; // back and forth, front to back
@@ -175,6 +180,41 @@ test("the hips sit back without thrusting forward", () => {
   }
   if (tiltBack > MAX_PELVIS_TILT_BACK) problems.push(`pelvis tips back ${tiltBack.toFixed(1)} degrees`);
   expect(problems.join("; ")).toBe("");
+});
+
+// Deep in the squat the hips only ever slow down: no pause and start again.
+test("the hips ease to a stop without a pause", () => {
+  const n = 100;
+  const problems: string[] = [];
+  let lastZ = 0;
+  let lastSpeed = Infinity;
+  for (let i = 45; i <= n; i++) {
+    pose(rig, i / n, NO_FAULTS);
+    const z = worldPos(rig.pelvis).z;
+    if (i > 45) {
+      const speed = lastZ - z;
+      if (speed > lastSpeed + MAX_HIP_SPEED_UP) problems.push(`hips speed up ${((speed - lastSpeed) * 1000).toFixed(2)} mm at depth ${i / n}`);
+      lastSpeed = speed;
+    }
+    lastZ = z;
+  }
+  expect(problems.join("; ")).toBe("");
+});
+
+test("the feet stand a little wider than the shoulders, toes a little out", () => {
+  pose(rig, 0, NO_FAULTS);
+  const wider = rig.l.ankle.x - rig.r.ankle.x - (worldPos(rig.l.upperarm).x - worldPos(rig.r.upperarm).x);
+  expect(wider).toBeGreaterThan(MIN_STANCE_WIDER);
+  expect(wider).toBeLessThan(MAX_STANCE_WIDER);
+  for (const [s, side] of [[rig.l, 1], [rig.r, -1]] as const) {
+    for (const depth of [0, 0.5, 1]) {
+      pose(rig, depth, NO_FAULTS);
+      const toes = worldPos(s.ball).sub(worldPos(s.foot));
+      const out = THREE.MathUtils.radToDeg(Math.atan2(side * toes.x, toes.z));
+      expect(out).toBeGreaterThan(MIN_TOE_OUT);
+      expect(out).toBeLessThan(MAX_TOE_OUT);
+    }
+  }
 });
 
 // From hips to head the body folds in one smooth movement: the trunk never comes
