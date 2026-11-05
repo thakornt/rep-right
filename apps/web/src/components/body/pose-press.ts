@@ -33,6 +33,7 @@ export type PressSpec = {
   lowWidth: number; // hands outside the shoulders at the bottom
   lowHeight: number; // wrists above the shoulders at the bottom
   inward: number; // how far the hands come in on the way up
+  pushOut: number; // how far the hands bow out early in the push, keeping the forearm more upright
   cameraTarget: [number, number, number];
 };
 
@@ -50,6 +51,7 @@ export const INCLINE_PRESS: PressSpec = {
   lowWidth: 0.18,
   lowHeight: 0.1,
   inward: 0.115,
+  pushOut: 0,
   cameraTarget: [0, 0.72, -0.05],
 };
 
@@ -70,6 +72,7 @@ export const SHOULDER_PRESS: PressSpec = {
   lowWidth: 0.16,
   lowHeight: 0.06,
   inward: 0.11,
+  pushOut: 0.05,
   cameraTarget: [0, 0.88, -0.05],
 };
 
@@ -251,6 +254,7 @@ export function posePress(press: PressArms, depth: number) {
     // Seen from the front the hands rise nearly straight from a wider bottom, then
     // curve in to squeeze near the top. Seen from the side they stay straight.
     wrist.x = high.x + (low.x - high.x) * (1 - (1 - depth) ** SQUEEZE_LATE);
+    wrist.x += s.sign * spec.pushOut * depth * depth * (1 - depth) * 6.75; // peaks two-thirds of the way down
     // The arm stops there. Then only the wrist moves, keeping the dumbbell level.
     solve(wrist);
     const level = a.grip.dir().dot(thumbs) > 0 ? thumbs : thumbs.clone().negate();
