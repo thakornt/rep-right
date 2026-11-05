@@ -16,9 +16,8 @@ const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
 const SQUEEZE_LATE = 4; // the higher, the later in the lift the hands start coming in
-const HANDLE_TURN = -7; // degrees the hand starts off the forearm's line, before the wrist levels the dumbbell
 const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
-const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
+const DUMBBELL_DIAGONAL = 7; // degrees the handle turns in the palm toward the knuckles' line. More lets the little finger reach, but the wrist bends further sideways to keep the dumbbell level
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // What differs between presses. Angles in degrees, distances in metres.
@@ -108,7 +107,6 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const wrist = worldPos(s.hand);
   const upper = elbow.clone().sub(shoulder);
   const fore = wrist.clone().sub(elbow);
-  const palmNormal = worldPos(s.middle1).sub(wrist).cross(grip.dir()).normalize();
   const thumbSide = worldPos(root.getObjectByName(`index_01_${tag}`)!).sub(worldPos(root.getObjectByName(`pinky_01_${tag}`)!));
   return {
     s,
@@ -122,7 +120,7 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
     // The hand at rest: its length and its thumb side.
     handRest: worldQuat(s.hand),
     // Across it is the way the handle lies in the palm, so the dumbbell comes out level.
-    handFrame: frame(worldPos(s.middle1).sub(wrist).applyAxisAngle(palmNormal, deg(HANDLE_TURN)), grip.dir()),
+    handFrame: frame(worldPos(s.middle1).sub(wrist), grip.dir()),
     footRest: worldQuat(s.foot),
     toesRest: worldQuat(s.ball),
   };
