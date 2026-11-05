@@ -6,7 +6,7 @@
 import * as THREE from "three";
 
 import { readBody } from "./contact";
-import { readGrip } from "./grip";
+import { readDumbbellGrip } from "./grip";
 import { aim, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 
 const HIP_HEIGHT = 0.5; // metres of the pelvis above the floor, sitting
@@ -16,9 +16,6 @@ const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
 const SQUEEZE_LATE = 4; // the higher, the later in the lift the hands start coming in
-const PINKY_CUP = 0.004; // metres the edge of the palm cups toward the handle, for the little finger to close on it
-const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
-const DUMBBELL_DIAGONAL = 7; // degrees the handle turns in the palm toward the knuckles' line. More lets the little finger reach, but the wrist bends further sideways to keep the dumbbell level
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // What differs between presses. Angles in degrees, distances in metres.
@@ -105,7 +102,7 @@ export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: {
 
 function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
-  const grip = readGrip(root, rig.skin, tag, DUMBBELL.handleRadius, DUMBBELL_DIAGONAL, DUMBBELL_INTO_PALM, PINKY_CUP);
+  const grip = readDumbbellGrip(root, rig.skin, tag, DUMBBELL.handleRadius);
   const shoulder = worldPos(s.upperarm);
   const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);

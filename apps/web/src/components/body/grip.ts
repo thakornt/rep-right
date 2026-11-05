@@ -33,6 +33,14 @@ function point(bone: THREE.Object3D, along: THREE.Vector3, target: THREE.Vector3
 
 export type Grip = ReturnType<typeof readGrip>;
 
+// How a hand holds a dumbbell, agreed with the owner against photos of a real grip.
+// Use this for any dumbbell lift.
+export const DUMBBELL_GRIP = {
+  diagonal: 7, // degrees the handle turns in the palm toward the knuckles' line. More lets the little finger reach, but the wrist bends further sideways to keep the dumbbell level
+  intoPalm: 0.012, // metres the handle sits further from the fingers than they closed, toward the base of the thumb
+  pinkyCup: 0.004, // metres the edge of the palm cups toward the handle, for the little finger to close on it
+};
+
 // Call with the body at rest.
 export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0, pinkyCup = 0) {
   root.updateMatrixWorld(true);
@@ -230,4 +238,8 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     held: () => hand.localToWorld(heldInHand.clone()),
     dir: () => axisInHand.clone().applyQuaternion(quat(hand)).normalize(),
   };
+}
+
+export function readDumbbellGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number) {
+  return readGrip(root, skin, tag, radius, DUMBBELL_GRIP.diagonal, DUMBBELL_GRIP.intoPalm, DUMBBELL_GRIP.pinkyCup);
 }

@@ -26,7 +26,10 @@ upper arms buried in the chest, a bar floating over the shoulders, and saying
 - `grip.ts` closes a hand around a bar or handle, worked out from this body's own
   hand: the axis in the palm at the base of the fingers, fingers wrapped around it,
   thumb bent over them. `grip.test.ts` checks it. A hand holds its object through
-  `grip.at()` and `grip.dir()`; never place an object from a finger joint.
+  `grip.held()` and `grip.dir()`; never place an object from a finger joint.
+  **Every dumbbell lift uses `readDumbbellGrip`:** the owner agreed this grip against
+  photos of a real one. Its little finger cups and folds its tip, and the wrist
+  alone keeps the dumbbell level. Change `DUMBBELL_GRIP` only with the owner.
 - `tools/body/prmd_clip.mjs` makes the back squat clip: trunk and legs from a
   UI-PRMD motion capture rep (public domain), arms from the Mixamo clip, the
   back straightened by `STRAIGHT_BACK`. `tools/body/extract_clip.py` bakes
