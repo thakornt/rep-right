@@ -31,6 +31,7 @@ export function LibraryView() {
       key={muscles.join(",")}
       exercises={exercises}
       initialMuscles={muscles}
+      mark3d
       onPick={(e) => router.push(`/exercises/${e.slug}`)}
     />
   );
