@@ -4,7 +4,7 @@ import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import type { Exercise } from "@/lib/api";
-import { CATEGORIES, MUSCLES, muscleLabel } from "@/lib/exercise-groups";
+import { CATEGORIES, MUSCLES, SLUGS_WITH_3D, muscleLabel } from "@/lib/exercise-groups";
 
 import { btnPrimary, btnQuiet } from "./ui";
 
@@ -21,11 +21,13 @@ export function ExercisePicker({
   title,
   onPick,
   initialMuscles = [],
+  mark3d = false,
 }: {
   exercises: Exercise[];
   title?: string;
   onPick: (e: Exercise) => void;
   initialMuscles?: string[];
+  mark3d?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [muscles, setMuscles] = useState<Set<string>>(() => new Set(initialMuscles));
@@ -110,6 +112,14 @@ export function ExercisePicker({
                         {e.name_en} · {e.muscles.map(muscleLabel).join(", ")}
                       </span>
                     </span>
+                    {mark3d && SLUGS_WITH_3D.has(e.slug) && (
+                      <span
+                        title="มีภาพ 3D"
+                        className="num grid h-6 w-6 shrink-0 place-items-center rounded-full bg-health text-xs font-bold text-health-fg"
+                      >
+                        3D
+                      </span>
+                    )}
                     <ChevronRight aria-hidden size={18} className="shrink-0 text-faint" />
                   </button>
                 </li>
