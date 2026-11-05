@@ -96,6 +96,26 @@ export type Clip = { fps: number; bones: string[]; frames: { hips: number[]; rot
 // the Mixamo clip; see tools/body/prmd_clip.mjs.
 export const CLIP = backSquat as Clip;
 
+// The back squat played left-right even: each bone is averaged with its mirrored
+// partner, so the trunk and head only bend forward and the arms match. The recorded
+// subject sways, twists and holds the left elbow further back, and that shows.
+function mirrored(clip: Clip): Clip {
+  const partner = clip.bones.map((name, n) => {
+    const at = clip.bones.indexOf(name.endsWith("_l") ? name.replace(/_l$/, "_r") : name.replace(/_r$/, "_l"));
+    return at >= 0 ? at : n; // bones on the midline pair with themselves
+  });
+  // Reflecting across the body's midline flips a rotation's y and z.
+  const flip = ([x, y, z, w]: number[]) => new THREE.Quaternion(x, -y, -z, w);
+  return {
+    ...clip,
+    frames: clip.frames.map((f) => ({
+      hips: [0, f.hips[1], f.hips[2]],
+      rot: f.rot.map((q, n) => new THREE.Quaternion().fromArray(q).slerp(flip(f.rot[partner[n]]), 0.5).toArray()),
+    })),
+  };
+}
+export const SQUAT_CLIP = mirrored(CLIP);
+
 export type Rig = ReturnType<typeof readRig>;
 
 export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
@@ -185,6 +205,9 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
     r: { ...side("r"), grip: grips.r },
     pelvis,
     pelvisRest: worldPos(pelvis),
+    pelvisRestQ: worldQuat(pelvis),
+    // Hip position front to back at evenly spaced depths; see plantHips.
+    hipBack: [] as number[],
     spine1: bone("spine_01"),
     spine2: bone("spine_02"),
     spine3,
@@ -194,12 +217,42 @@ export function readRig(root: THREE.Object3D, clip: Clip = CLIP) {
   // toe-out), not where the rig stands at rest.
   playClip(rig, 0);
   for (const s of [rig.l, rig.r]) s.ankle = worldPos(s.foot).setY(s.ankle.y); // on the floor
-  for (const [b, r] of rest) {
+  // The recorded hips come forward again deep in the squat; going down, ours only
+  // go back. Once they have gone as far back as they will, they drop straight down.
+  for (let i = 0; i <= HIP_SAMPLES; i++) {
+    toRest(rig);
+    playClip(rig, (i / HIP_SAMPLES) * bottom);
+    plantHips(rig);
+    rig.hipBack.push(Math.min(worldPos(pelvis).z, rig.hipBack[i - 1] ?? Infinity));
+  }
+  toRest(rig);
+  root.updateMatrixWorld(true);
+  return rig;
+}
+
+function toRest(rig: Rig) {
+  for (const [b, r] of rig.rest) {
     b.quaternion.copy(r.q);
     b.position.copy(r.p);
   }
-  root.updateMatrixWorld(true);
-  return rig;
+  rig.pelvis.parent!.updateMatrixWorld(true);
+}
+
+// Our leg lengths differ a little from the clip's, so plant the feet where
+// they stand at rest: move the hips by the difference, then fit the legs.
+function plantHips(rig: Rig) {
+  const sides = [rig.l, rig.r];
+  const ankles = sides.map((s) => worldPos(s.foot));
+  const drift = rig.l.ankle.clone().add(rig.r.ankle).sub(ankles[0]).sub(ankles[1]).multiplyScalar(0.5);
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(drift));
+  // Correct form stays centred over the feet; the recorded subject drifts sideways.
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).setX((rig.l.ankle.x + rig.r.ankle.x) / 2));
+}
+
+// How far the pelvis has tipped forward since standing at rest, radians.
+export function pelvisTilt(rig: Rig) {
+  const top = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat(rig.pelvis).multiply(rig.pelvisRestQ.clone().invert()));
+  return Math.atan2(top.z, top.y);
 }
 
 const q0 = new THREE.Quaternion();
@@ -224,27 +277,26 @@ export const BAR_RADIUS = 0.014;
 const BAR_DIAGONAL = -8; // degrees the bar turns in the palm, so the wrists stay in range with the forearms leaning out
 const LEAN_AT_CHEST = 0.65; // share of a forward lean taken at the upper back, at the bottom
 const BAR_CLEARANCE = 0.002; // metres the bar settles short of the traps, as other skin rises around it
+const BAR_SETTLE_SOFT = 0.004; // metres; skin this much farther than the nearest counts about a third as much
 const BAR_LOWER = 0.03; // metres the bar slides down the upper back, away from the neck
+const GRIP_HALF = 0.355; // metres from the middle of the bar to each fist, the clip's grip when standing
 const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
+const HIP_SAMPLES = 200; // depths sampled for the hips' path
+const PELVIS_TILT = 28; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
+const PELVIS_HOLD_FROM = 0.45; // depth where the hold starts to apply
+const PELVIS_HOLD_FULL = 0.6; // depth where it applies fully
 
 export function pose(rig: Rig, depth: number, faults: SquatFaults) {
-  for (const [b, r] of rig.rest) {
-    b.quaternion.copy(r.q);
-    b.position.copy(r.p);
-  }
-  rig.pelvis.parent!.updateMatrixWorld(true);
+  toRest(rig);
   playClip(rig, depth * rig.bottom);
-
-  // Our leg lengths differ a little from the clip's, so plant the feet where
-  // they stand at rest: move the hips by the difference, then fit the legs.
+  plantHips(rig);
+  const sample = depth * HIP_SAMPLES;
+  const below = Math.min(Math.floor(sample), HIP_SAMPLES - 1);
+  const hipBack = THREE.MathUtils.lerp(rig.hipBack[below], rig.hipBack[below + 1], sample - below);
+  setWorldPos(rig.pelvis, worldPos(rig.pelvis).setZ(hipBack));
   const sides = [rig.l, rig.r];
-  const ankles = sides.map((s) => worldPos(s.foot));
-  const drift = rig.l.ankle.clone().add(rig.r.ankle).sub(ankles[0]).sub(ankles[1]).multiplyScalar(0.5);
-  setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(drift));
-  // Correct form stays centred over the feet; the recorded subject drifts sideways.
-  setWorldPos(rig.pelvis, worldPos(rig.pelvis).setX((rig.l.ankle.x + rig.r.ankle.x) / 2));
   // Feet as planted now; tipping the upper body below must not tip them.
   const planted = sides.map((s) => {
     const toFoot = worldPos(s.ball).sub(worldPos(s.foot));
@@ -299,25 +351,35 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // Let the bar settle onto the traps: move it toward the nearest skin on top
   // of the shoulders until it touches, and the fists go with it. The skin
   // moves a little with the arms, so settle twice.
-  const barDir = () => worldPos(rig.l.upperarm).sub(worldPos(rig.r.upperarm)).setY(0).normalize();
+  // The bar is rigid and square to the feet; the recorded shoulders twist a few
+  // degrees either way, and a bar that followed them would swing at its ends.
+  const along = X;
   // First slide it down the upper back, away from the neck.
   const chestDown = new THREE.Vector3(0, -BAR_LOWER, 0).applyQuaternion(
     worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
   );
   for (const s of sides) moveFist(s, fist(s).add(chestDown));
   for (let pass = 0; pass < 2; pass++) {
-    const dir = barDir();
     const skinPts = rig.traps.map((i) => rig.skin.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(rig.skin.matrixWorld));
     const start = barNow();
     const b = start.clone();
     for (let step = 0; step < 4; step++) {
-      let near: THREE.Vector3 | undefined;
-      for (const p of skinPts) {
+      // Blend the nearest skin points by distance. Taking only the single nearest
+      // makes the bar jump whenever a different point becomes the nearest.
+      const toSkin = skinPts.map((p) => {
         const w = p.clone().sub(b);
-        w.addScaledVector(dir, -w.dot(dir));
-        if (!near || w.lengthSq() < near.lengthSq()) near = w;
+        return w.addScaledVector(along, -w.dot(along));
+      });
+      const nearest = Math.min(...toSkin.map((w) => w.length()));
+      const near = new THREE.Vector3();
+      let total = 0;
+      for (const w of toSkin) {
+        const weight = Math.exp((nearest - w.length()) / BAR_SETTLE_SOFT);
+        near.addScaledVector(w, weight);
+        total += weight;
       }
-      if (!near) break;
+      if (total === 0) break;
+      near.divideScalar(total);
       b.addScaledVector(near.clone().normalize(), near.length() - BAR_RADIUS - BAR_CLEARANCE);
     }
     const shift = b.sub(start);
@@ -329,12 +391,29 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // bar back there (a few degrees), keeping the eyes where they were.
   const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
   const midfoot = mid(rig.l.foot, rig.r.foot).lerp(mid(rig.l.ball, rig.r.ball), 0.45).setY(0);
-  const hip = worldPos(rig.pelvis);
-  const v = barNow().sub(hip);
-  const r = Math.hypot(v.y, v.z);
-  const balance = Math.asin(THREE.MathUtils.clamp((midfoot.z - hip.z) / r, -1, 1)) - Math.atan2(v.z, v.y);
+  const tipToMidfoot = (pivot: THREE.Object3D) => {
+    const at = worldPos(pivot);
+    const v = barNow().sub(at);
+    const r = Math.hypot(v.y, v.z);
+    return Math.asin(THREE.MathUtils.clamp((midfoot.z - at.z) / r, -1, 1)) - Math.atan2(v.z, v.y);
+  };
+  const balance = tipToMidfoot(rig.pelvis);
   rotateWorld(rig.pelvis, qx(balance));
   rotateWorld(rig.neck, qx(-balance * 0.8));
+
+  // That tip would roll the pelvis back under a still chest as the squat deepens,
+  // which reads as a thrust of the hips. Hold the pelvis forward instead and take
+  // the difference out of the lower back, so the chest stays where it was, then
+  // set the bar back over the foot from the lower back. Leaning forward and lifting
+  // the heels fold the hip further on their own, so those two faults go without it.
+  const holdTilt =
+    faults.forwardLean || faults.heelRise
+      ? 0
+      : Math.max(0, deg(PELVIS_TILT) - pelvisTilt(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL);
+  rotateWorld(rig.pelvis, qx(holdTilt));
+  rotateWorld(rig.spine1, qx(-holdTilt * 0.6));
+  rotateWorld(rig.spine2, qx(-holdTilt * 0.4));
+  rotateWorld(rig.spine1, qx(tipToMidfoot(rig.spine1)));
 
   // Form faults are small changes on top of the real movement.
   const f = faultOffsets(depth, faults);
@@ -370,9 +449,9 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
 
   // One straight bar through both hands. Each hand brings its own grip onto the
   // bar: the forearm turns the palm to meet it, the wrist takes what is left, and
-  // the arm carries the hand there. Bodies aren't even, so neither hand decides.
-  const bar = barNow();
-  const along = barDir();
+  // the arm carries the hand there. Bodies aren't even, so neither hand decides:
+  // the bar stays centred over the feet and each fist holds its own spot on it.
+  const bar = barNow().setX((rig.l.ankle.x + rig.r.ankle.x) / 2);
   for (let pass = 0; pass < 3; pass++) {
     for (const s of sides) {
       const want = s.grip.dir().dot(along) > 0 ? along.clone() : along.clone().negate();
@@ -382,13 +461,13 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
       const to = flat(want);
       rotateWorld(s.lowerarm, new THREE.Quaternion().setFromAxisAngle(fore, Math.atan2(now.clone().cross(to).dot(fore), now.dot(to))));
       rotateWorld(s.hand, new THREE.Quaternion().setFromUnitVectors(s.grip.dir(), want));
-      moveFist(s, bar.clone().addScaledVector(along, fist(s).sub(bar).dot(along)));
+      moveFist(s, bar.clone().addScaledVector(along, s.sign * GRIP_HALF));
     }
   }
   return {
     hip: mid(rig.l.thigh, rig.r.thigh),
     bar,
-    // Level, across the shoulders.
+    // Level, square to the feet.
     barDir: along,
     midfoot,
   };
