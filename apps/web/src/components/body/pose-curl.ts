@@ -129,12 +129,28 @@ export function poseCurlArms(curl: CurlRig, bendL: number, forwardL: number, ben
   return { l: out[0], r: out[1] };
 }
 
-// Depth 0 = curled to the top, 1 = arms down, as with the presses. Alternating, depth
-// is the left arm's and the right arm moves opposite it.
-export function poseCurl(curl: CurlRig, depth: number, alternate = false) {
+// Depth 0 = curled to the top, 1 = arms down, as with the presses. The right arm
+// matches the left unless given its own depth.
+export function poseCurl(curl: CurlRig, depth: number, depthR = depth) {
   const { lowBend, highBend, forwardAtTop } = HAMMER_CURL;
   const arm = (d: number) => [highBend + (lowBend - highBend) * d, forwardAtTop * (1 - d) ** 2] as const;
   const [bendL, forwardL] = arm(depth);
-  const [bendR, forwardR] = arm(alternate ? 1 - depth : depth);
+  const [bendR, forwardR] = arm(depthR);
   return poseCurlArms(curl, bendL, forwardL, bendR, forwardR);
+}
+
+export type CurlSide = "l" | "r";
+
+// Alternating: one arm does a whole rep, from down to the top and back, while the other
+// waits down; then they swap. `rep` is the seconds one rep takes.
+export function alternateAt(seconds: number, rep: number): { side: CurlSide; depth: number } {
+  const cycle = ((seconds % (2 * rep)) + 2 * rep) % (2 * rep);
+  const side = cycle < rep ? "l" : "r";
+  const into = side === "l" ? cycle : cycle - rep;
+  return { side, depth: into === 0 ? 1 : (1 + Math.cos((into / rep) * Math.PI * 2)) / 2 };
+}
+
+// Where in that cycle this arm is at this depth, on its way up.
+export function alternateTime(depth: number, side: CurlSide, rep: number) {
+  return (Math.acos(2 * depth - 1) / (Math.PI * 2)) * rep + (side === "l" ? 0 : rep);
 }

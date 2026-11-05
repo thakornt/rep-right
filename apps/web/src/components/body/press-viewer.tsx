@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { View } from "./body-scene";
 import { REGION_LABELS, ROLE_COLORS, ROLE_LABELS, type Role } from "./muscles";
+import type { CurlSide } from "./pose-curl";
 import { PRESS_CONTENT, PRESS_PINS, pressActivation, type PressExercise, type PressPin } from "./press";
 import type { PressState } from "./press-scene";
 import type { Phase } from "./squat";
@@ -29,8 +30,9 @@ const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
 
 export function PressViewer({ exercise }: { exercise: PressExercise }) {
   const content = PRESS_CONTENT[exercise];
-  const state = useRef<PressState>({ depth: 0.5, playing: true, alternate: false });
+  const state = useRef<PressState>({ depth: 0.5, playing: true, alternate: false, side: "l" });
   const [alternate, setAlternate] = useState(false);
+  const [side, setSide] = useState<CurlSide>("l");
   const [view, setView] = useState<View>("angle");
   const [playing, setPlaying] = useState(true);
   const [depth, setDepth] = useState(0.5);
@@ -38,10 +40,14 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
   const [activePin, setActivePin] = useState<PressPin | null>(null);
   const pinEls = useRef<Record<string, HTMLElement | null>>({});
 
-  const onFrame = useCallback((d: number, p: Phase) => {
+  const onFrame = useCallback((d: number, p: Phase, s: CurlSide) => {
     setDepth(d);
     setPhase(p);
+    setSide(s);
+    state.current.side = s;
   }, []);
+
+  const arm = side === "l" ? "แขนซ้าย" : "แขนขวา";
 
   const onPinMove = useCallback((id: string, x: number, y: number, visible: boolean, front: boolean) => {
     const el = pinEls.current[id];
@@ -86,8 +92,8 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
             exercise === "hammer" ? "bottom-3 sm:top-3 sm:bottom-auto" : "top-3"
           }`}
         >
-          {alternate ? (phase === "down" ? "แขนซ้ายลง แขนขวายก" : "แขนซ้ายยก แขนขวาลง") : phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู ·
-          กดตัวเลขดูวิธีจัดท่า
+          {alternate && arm}
+          {phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
         </div>
         {exercise === "hammer" && (
           <div role="group" aria-label="รูปแบบการยก" className="absolute top-3 right-3 flex rounded-full bg-bg/80 p-1">
@@ -164,8 +170,8 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
             className="w-full accent-[var(--primary)]"
           />
           <span aria-hidden className="flex justify-between text-xs text-faint">
-            <span>{alternate ? `แขนซ้าย${content.top}` : content.top}</span>
-            <span>{alternate ? `แขนซ้าย${content.bottom}` : content.bottom}</span>
+            <span>{alternate ? `${arm}${content.top}` : content.top}</span>
+            <span>{alternate ? `${arm}${content.bottom}` : content.bottom}</span>
           </span>
         </label>
       </div>

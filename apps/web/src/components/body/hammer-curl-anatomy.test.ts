@@ -10,7 +10,7 @@ import { contact, readBody, type Body } from "./contact";
 import { DUMBBELL_GRIP } from "./grip";
 import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
-import { bicepsBulge, HAMMER_CURL, poseCurl, poseCurlArms, readCurlRig, type CurlRig } from "./pose-curl";
+import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, poseCurlArms, readCurlRig, type CurlRig } from "./pose-curl";
 import { DUMBBELL } from "./pose-press";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but real overlap
@@ -179,28 +179,50 @@ describe("dumbbell hammer curl", () => {
     expect(onFront).toBe(total);
   });
 
-  test("alternating, one arm rises as the other lowers, and each pose stays a real one", () => {
+  test("alternating, one arm finishes its rep while the other waits down", () => {
+    const T = 3;
+    // The left arm's rep: from down, to the top, back down, with the right arm waiting.
+    expect(alternateAt(0, T)).toEqual({ side: "l", depth: 1 });
+    expect(alternateAt(T / 2, T).side).toBe("l");
+    expect(alternateAt(T / 2, T).depth).toBeCloseTo(0, 5);
+    expect(alternateAt(T * 0.99, T).side).toBe("l");
+    expect(alternateAt(T * 0.99, T).depth).toBeGreaterThan(0.99);
+    // Only then the right arm's.
+    expect(alternateAt(T, T)).toEqual({ side: "r", depth: 1 });
+    expect(alternateAt(T * 1.5, T).side).toBe("r");
+    expect(alternateAt(T * 1.5, T).depth).toBeCloseTo(0, 5);
+    expect(alternateAt(T * 2, T)).toEqual({ side: "l", depth: 1 });
+    // Picking up from the slider lands on the same arm, on its way up.
+    for (const side of ["l", "r"] as const) {
+      for (const depth of [0.2, 0.5, 0.9]) {
+        const at = alternateAt(alternateTime(depth, side, T), T);
+        expect(at.side).toBe(side);
+        expect(at.depth).toBeCloseTo(depth, 5);
+      }
+    }
+  });
+
+  test("each arm can lift alone while the other waits down, and the pose stays a real one", () => {
     const flexion = () => {
       const m = measure(anatomy) as unknown as Record<"l" | "r", Record<string, number>>;
       return { l: m.l["elbow.flexion"], r: m.r["elbow.flexion"] };
     };
-    poseCurl(curl, 0, true);
+    poseCurl(curl, 0, 1);
     expect(flexion().l).toBeGreaterThan(125);
     expect(flexion().r).toBeLessThan(15);
-    poseCurl(curl, 1, true);
+    poseCurl(curl, 1, 0);
     expect(flexion().l).toBeLessThan(15);
     expect(flexion().r).toBeGreaterThan(125);
-    poseCurl(curl, 0.5, true);
-    expect(Math.abs(flexion().l - flexion().r)).toBeLessThan(1);
 
     for (const d of DEPTHS) {
-      const g = poseCurl(curl, d, true);
-      const problems = violations(measure(anatomy)).map((v) => `${v.joint} ${v.value.toFixed(0)}`);
-      for (const t of contact(body).through) {
-        if (t.depth > (t.pair.endsWith("/core") ? ARMPIT_FOLD : THROUGH)) problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
+      for (const g of [poseCurl(curl, d, 1), poseCurl(curl, 1, d)]) {
+        const problems = violations(measure(anatomy)).map((v) => `${v.joint} ${v.value.toFixed(0)}`);
+        for (const t of contact(body).through) {
+          if (t.depth > (t.pair.endsWith("/core") ? ARMPIT_FOLD : THROUGH)) problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
+        }
+        if (dumbbellToSkin(g) < MIN_DUMBBELL_GAP) problems.push(`dumbbell ${(dumbbellToSkin(g) * 100).toFixed(1)} cm from the body at depth ${d}`);
+        expect(problems.join("; ")).toBe("");
       }
-      if (dumbbellToSkin(g) < MIN_DUMBBELL_GAP) problems.push(`dumbbell ${(dumbbellToSkin(g) * 100).toFixed(1)} cm from the body at depth ${d}`);
-      expect(problems.join("; ")).toBe("");
     }
   });
 
