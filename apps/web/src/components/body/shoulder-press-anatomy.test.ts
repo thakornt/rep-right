@@ -16,7 +16,7 @@ const FLOOR = 0.01;
 const ON_BENCH = 0.015;
 const MAX_FOREARM_TILT = 10; // degrees from vertical at any point of the lift: the hands arc to keep it upright
 const WRIST_LEVELLING = 23; // degrees of sideways wrist bend allowed
-const MAX_STEP = 0.016; // metres a hand may move per 1% of the lift
+const MAX_STEP = 0.017; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
