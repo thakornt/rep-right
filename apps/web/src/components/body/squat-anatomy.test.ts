@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
-import { BAR_RADIUS, pose, readRig, worldPos, type Rig } from "./pose";
+import { BAR_RADIUS, pelvisTilt, pose, readRig, SQUAT_CLIP, trunkLean, worldPos, type Rig } from "./pose";
 import { NO_FAULTS, type SquatFaults } from "./squat";
 
 // Past a limit today, by this much at most (degrees from neutral, or metres).
@@ -37,6 +37,23 @@ const MAX_KNEE_BACK_IN = 0.01; // once out, a knee may come back in 1 cm
 const MAX_KNEE_UNEVEN = 0.015;
 const STRAIGHT_BACK = 15; // correct form: degrees the whole back may round
 const PLANTED = 0.01; // heel and toes stay within 1 cm of where they stand
+const MAX_BAR_YAW = 0.01; // degrees the bar may turn away from square to the feet
+const MAX_BAR_SIDEWAYS = 0.001;
+const MAX_GRIP_CHANGE = 0.002;
+const MAX_FIST_OFF_BAR = 0.005; // where a fist centres on the bar, measured square to it
+const MAX_JUMP = 0.0005; // per 0.25% of depth
+const MAX_HIP_FORWARD = 0.00005; // per 0.25% of depth
+const MAX_PELVIS_TILT_BACK = 0.6; // degrees below the most it has tipped forward
+const MAX_HIP_SPEED_UP = 0.00015; // per 1% of depth, against the step before
+const MIN_STANCE_WIDER = 0.03; // ankles wider than the shoulder joints
+const MAX_STANCE_WIDER = 0.09;
+const MIN_TOE_OUT = 15; // degrees
+const MAX_TOE_OUT = 21;
+const MAX_BAR_OFF_MIDFOOT = 0.005;
+const MAX_LEAN_BACK_STEP = 0.1; // degrees below the most the trunk has leaned
+const MAX_HEAD_REBOUND = 0.005; // back and forth, front to back
+const MAX_HEAD_OFF_CENTRE = 0.001;
+const MAX_MIRROR_OFF = 0.002;
 
 // One at a time, as the app shows them: mixed, they stop showing any one
 // mistake.
@@ -58,7 +75,7 @@ beforeAll(async () => {
   const root = await loadBody();
   anatomy = readAnatomy(root);
   body = readBody(root);
-  rig = readRig(root);
+  rig = readRig(root, SQUAT_CLIP);
   pose(rig, 0, NO_FAULTS);
   stand = {
     l: { heel: worldPos(rig.l.foot), toes: worldPos(rig.l.ball) },
@@ -93,6 +110,154 @@ test("the knees move smoothly and evenly through the squat", () => {
   l.forEach((p, i) => {
     if (Math.abs(p.x + r[i].x - centre) > MAX_KNEE_UNEVEN) problems.push(`knees uneven at depth ${i / n}`);
   });
+  expect(problems.join("; ")).toBe("");
+});
+
+// A bar is one rigid thing held in fixed spots: it must not swing with the
+// shoulders, slide under the hands, or jump as it rests on different skin.
+test("the bar stays steady through the squat", () => {
+  const n = 400;
+  const bars: THREE.Vector3[] = [];
+  const inChest: THREE.Vector3[] = [];
+  const elbows: THREE.Vector3[][] = [[], []];
+  const gaps: number[] = [];
+  const problems: string[] = [];
+  for (let i = 0; i <= n; i++) {
+    const j = pose(rig, i / n, NO_FAULTS);
+    bars.push(j.bar.clone());
+    inChest.push(rig.spine3.worldToLocal(j.bar.clone()));
+    elbows[0].push(rig.spine3.worldToLocal(worldPos(rig.l.lowerarm)));
+    elbows[1].push(rig.spine3.worldToLocal(worldPos(rig.r.lowerarm)));
+    const fists = [rig.l.grip.at(), rig.r.grip.at()];
+    gaps.push(fists[0].distanceTo(fists[1]));
+    const yaw = THREE.MathUtils.radToDeg(j.barDir.angleTo(new THREE.Vector3(1, 0, 0)));
+    if (yaw > MAX_BAR_YAW) problems.push(`bar turned ${yaw.toFixed(2)} degrees at depth ${i / n}`);
+    for (const f of fists) {
+      const off = f.clone().sub(j.bar);
+      off.addScaledVector(j.barDir, -off.dot(j.barDir));
+      if (off.length() > MAX_FIST_OFF_BAR) problems.push(`fist ${(off.length() * 1000).toFixed(1)} mm off the bar at depth ${i / n}`);
+    }
+  }
+  const range = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
+  const sideways = range(bars.map((b) => b.x));
+  if (sideways > MAX_BAR_SIDEWAYS) problems.push(`bar slides sideways ${(sideways * 1000).toFixed(1)} mm`);
+  const frontToBack = range(bars.map((b) => b.z));
+  if (frontToBack > MAX_BAR_SIDEWAYS) problems.push(`bar drifts ${(frontToBack * 1000).toFixed(1)} mm front to back`);
+  const gap = range(gaps);
+  if (gap > MAX_GRIP_CHANGE) problems.push(`hands slide ${(gap * 1000).toFixed(1)} mm along the bar`);
+  // How far a step leaves the line through its neighbours: a jump shows up here.
+  const jump = (path: THREE.Vector3[]) => {
+    let worst = 0;
+    for (let i = 1; i < path.length - 1; i++) {
+      worst = Math.max(worst, path[i].clone().sub(path[i - 1].clone().add(path[i + 1]).multiplyScalar(0.5)).length());
+    }
+    return worst;
+  };
+  for (const [label, path] of [["bar", inChest], ["left elbow", elbows[0]], ["right elbow", elbows[1]]] as const) {
+    if (jump(path) > MAX_JUMP) problems.push(`${label} jumps ${(jump(path) * 1000).toFixed(2)} mm`);
+  }
+  expect(problems.join("; ")).toBe("");
+});
+
+// Going down the hips only go back and the pelvis does not tip back under a
+// still chest; together those read as a thrust of the hips.
+test("the hips sit back without thrusting forward", () => {
+  const n = 400;
+  const problems: string[] = [];
+  let lastZ = Infinity;
+  let mostTilt = -Infinity;
+  let tiltBack = 0;
+  for (let i = 0; i <= n; i++) {
+    const j = pose(rig, i / n, NO_FAULTS);
+    const z = worldPos(rig.pelvis).z;
+    if (z > lastZ + MAX_HIP_FORWARD) problems.push(`hips forward ${((z - lastZ) * 1000).toFixed(2)} mm at depth ${i / n}`);
+    lastZ = z;
+    const tilt = THREE.MathUtils.radToDeg(pelvisTilt(rig));
+    mostTilt = Math.max(mostTilt, tilt);
+    tiltBack = Math.max(tiltBack, mostTilt - tilt);
+    const overFoot = Math.abs(j.bar.z - j.midfoot.z);
+    if (overFoot > MAX_BAR_OFF_MIDFOOT) problems.push(`bar ${(overFoot * 1000).toFixed(1)} mm off the middle of the foot at depth ${i / n}`);
+  }
+  if (tiltBack > MAX_PELVIS_TILT_BACK) problems.push(`pelvis tips back ${tiltBack.toFixed(1)} degrees`);
+  expect(problems.join("; ")).toBe("");
+});
+
+// Deep in the squat the hips only ever slow down: no pause and start again.
+test("the hips ease to a stop without a pause", () => {
+  const n = 100;
+  const problems: string[] = [];
+  let lastZ = 0;
+  let lastSpeed = Infinity;
+  for (let i = 45; i <= n; i++) {
+    pose(rig, i / n, NO_FAULTS);
+    const z = worldPos(rig.pelvis).z;
+    if (i > 45) {
+      const speed = lastZ - z;
+      if (speed > lastSpeed + MAX_HIP_SPEED_UP) problems.push(`hips speed up ${((speed - lastSpeed) * 1000).toFixed(2)} mm at depth ${i / n}`);
+      lastSpeed = speed;
+    }
+    lastZ = z;
+  }
+  expect(problems.join("; ")).toBe("");
+});
+
+test("the feet stand a little wider than the shoulders, toes a little out", () => {
+  pose(rig, 0, NO_FAULTS);
+  const wider = rig.l.ankle.x - rig.r.ankle.x - (worldPos(rig.l.upperarm).x - worldPos(rig.r.upperarm).x);
+  expect(wider).toBeGreaterThan(MIN_STANCE_WIDER);
+  expect(wider).toBeLessThan(MAX_STANCE_WIDER);
+  for (const [s, side] of [[rig.l, 1], [rig.r, -1]] as const) {
+    for (const depth of [0, 0.5, 1]) {
+      pose(rig, depth, NO_FAULTS);
+      const toes = worldPos(s.ball).sub(worldPos(s.foot));
+      const out = THREE.MathUtils.radToDeg(Math.atan2(side * toes.x, toes.z));
+      expect(out).toBeGreaterThan(MIN_TOE_OUT);
+      expect(out).toBeLessThan(MAX_TOE_OUT);
+    }
+  }
+});
+
+// From hips to head the body folds in one smooth movement: the trunk never comes
+// back up on the way down, and the head doesn't rock back and forth.
+test("the trunk folds steadily from hips to head", () => {
+  const head = rig.neck.getObjectByName("head")!;
+  const n = 200;
+  const problems: string[] = [];
+  let lastLean = -Infinity;
+  let most = -Infinity;
+  let least = Infinity;
+  let rebound = 0;
+  for (let i = n / 2; i <= n; i++) {
+    pose(rig, i / n, NO_FAULTS);
+    const lean = THREE.MathUtils.radToDeg(trunkLean(rig));
+    if (lean < lastLean - MAX_LEAN_BACK_STEP) problems.push(`trunk comes up ${(lastLean - lean).toFixed(2)} degrees at depth ${i / n}`);
+    lastLean = Math.max(lastLean, lean);
+    const z = worldPos(head).z;
+    most = Math.max(most, z);
+    least = Math.min(least, z);
+    rebound = Math.max(rebound, Math.min(most - z, z - least));
+  }
+  if (rebound > MAX_HEAD_REBOUND) problems.push(`head rocks ${(rebound * 1000).toFixed(1)} mm`);
+  expect(problems.join("; ")).toBe("");
+});
+
+// Correct form is left-right even: the head stays over the middle of the feet, the
+// shoulders stay square, and each elbow mirrors the other.
+test("the body stays left-right even through the squat", () => {
+  const head = rig.neck.getObjectByName("head")!;
+  const centre = (rig.l.ankle.x + rig.r.ankle.x) / 2;
+  const problems: string[] = [];
+  for (let i = 0; i <= 100; i++) {
+    pose(rig, i / 100, NO_FAULTS);
+    const off = Math.abs(worldPos(head).x - centre);
+    if (off > MAX_HEAD_OFF_CENTRE) problems.push(`head ${(off * 1000).toFixed(1)} mm off centre at depth ${i / 100}`);
+    const shoulders = worldPos(rig.l.upperarm).z - worldPos(rig.r.upperarm).z;
+    if (Math.abs(shoulders) > MAX_MIRROR_OFF) problems.push(`shoulders ${(shoulders * 1000).toFixed(1)} mm uneven at depth ${i / 100}`);
+    const l = worldPos(rig.l.lowerarm);
+    const r = worldPos(rig.r.lowerarm);
+    const mirror = l.clone().setX(2 * centre - l.x).distanceTo(r);
+    if (mirror > MAX_MIRROR_OFF) problems.push(`elbows ${(mirror * 1000).toFixed(1)} mm from mirrored at depth ${i / 100}`);
+  }
   expect(problems.join("; ")).toBe("");
 });
 
