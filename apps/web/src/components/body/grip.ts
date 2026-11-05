@@ -17,6 +17,8 @@ const FINGER_PRESS = 0.75; // share of a finger's thickness kept outside the obj
 const PINKY_PRESS = 0.3; // the little finger is short, so it presses in further to close on the object
 
 const FINGER_GATHER = 0.88; // fingers close up beside each other, from where the knuckles spread them
+const PINKY_WRAP = 1; // share of its thickness the little finger keeps outside a handle
+const PINKY_FOLD = 25; // degrees further the little finger's last joint folds over a handle
 const FINGERS = ["index", "middle", "ring", "pinky"];
 
 const pos = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
@@ -139,7 +141,7 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     const u = k.dot(ahead);
     const v = k.dot(palmar);
     const w = midW + (k.dot(across) - midW) * FINGER_GATHER;
-    const r = radius + thickness(f) * (f === "pinky" && !cupped ? PINKY_PRESS : FINGER_PRESS);
+    const r = radius + thickness(f) * (f === "pinky" ? (cupped ? PINKY_WRAP : PINKY_PRESS) : FINGER_PRESS);
     const l1 = pos(b1).distanceTo(pos(b2));
     const l2 = pos(b2).distanceTo(pos(b3));
     const l3 = Math.max(lastLength(f) - thickness(f) * 0.5, 0.01);
@@ -153,6 +155,13 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     point(b1, along(b1, b2), around(w, r, start).add(shift));
     point(b2, along(b2, b3), around(w, r, a2).add(shift));
     point(b3, pos(b3).sub(pos(b2)), around(w, r, a3).add(shift));
+    if (cupped) {
+      // Skin here can't give as a fingertip does, so fold the last joint a little past
+      // the handle's surface, or the tip sticks out.
+      const fold = new THREE.Quaternion().setFromAxisAngle(ahead.clone().cross(palmar).normalize(), (PINKY_FOLD * Math.PI) / 180);
+      b3.quaternion.copy(quat(b3.parent!).invert().multiply(fold).multiply(quat(b3)));
+      b3.updateMatrixWorld(true);
+    }
   }
 
   const b1Rest = new THREE.Vector3();
