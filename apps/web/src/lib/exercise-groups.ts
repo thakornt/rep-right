@@ -30,6 +30,14 @@ export const MUSCLES: [string, string][] = [
 
 export const muscleLabel = (m: string) => MUSCLES.find(([k]) => k === m)?.[1] ?? m;
 
+// Exercises with a 3D viewer; keep in step with exercises/[slug]/exercise-detail.tsx.
+export const SLUGS_WITH_3D = new Set([
+  "back-squat",
+  "incline-dumbbell-press",
+  "seated-dumbbell-shoulder-press",
+  "hammer-curl",
+]);
+
 // Muscle groups by body region, for the home page.
 export const REGIONS: [string, string[]][] = [
   ["ช่วงบน", ["chest", "back", "traps", "shoulders", "biceps", "triceps"]],
