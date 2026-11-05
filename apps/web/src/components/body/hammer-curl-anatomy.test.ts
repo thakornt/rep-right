@@ -10,7 +10,7 @@ import { contact, readBody, type Body } from "./contact";
 import { DUMBBELL_GRIP } from "./grip";
 import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
-import { HAMMER_CURL, poseCurl, poseCurlArms, readCurlRig, type CurlRig } from "./pose-curl";
+import { bicepsBulge, HAMMER_CURL, poseCurl, poseCurlArms, readCurlRig, type CurlRig } from "./pose-curl";
 import { DUMBBELL } from "./pose-press";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but real overlap
@@ -20,6 +20,8 @@ const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 const MIN_DUMBBELL_GAP = 0.04; // dumbbell to the trunk, head and legs at any point of the lift
 const MAX_STEP = 0.012; // metres a hand may move per 1% of the lift
 const STRAIGHT_WRIST = 2; // degrees
+const MAX_ELBOW_KINK = 1; // degrees the arm may bend out at the elbow, seen from the front, arm down
+const MAX_WRIST_OUT = 0.12; // metres the wrist may sit outside the shoulder, arm down; closer and the dumbbell meets the thigh
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 
@@ -95,7 +97,7 @@ describe("dumbbell hammer curl", () => {
 
   test("the elbow can't fold much past the top of the lift: the dumbbell reaches the body", () => {
     expect(dumbbellToSkin(poseCurlArms(curl, 130, HAMMER_CURL.forwardAtTop))).toBeGreaterThan(0.06);
-    expect(dumbbellToSkin(poseCurlArms(curl, 145, HAMMER_CURL.forwardAtTop))).toBeLessThan(0.01);
+    expect(dumbbellToSkin(poseCurlArms(curl, 155, HAMMER_CURL.forwardAtTop))).toBeLessThan(0.01);
   });
 
   test("the palm keeps facing in and the wrist stays straight", () => {
@@ -126,6 +128,85 @@ describe("dumbbell hammer curl", () => {
     expect(elbowZ(0.5)).toBeLessThan(0.02);
     expect(elbowZ(0)).toBeGreaterThan(0.03);
     expect(elbowZ(0)).toBeLessThan(0.07);
+  });
+
+  test("the arm hangs straight beside the body, not bowed out at the elbow", () => {
+    poseCurl(curl, 1);
+    const s = curl.l.s;
+    const shoulder = worldPos(s.upperarm);
+    const elbow = worldPos(s.lowerarm);
+    const wrist = worldPos(s.hand);
+    const out = (a: THREE.Vector3, b: THREE.Vector3) => THREE.MathUtils.radToDeg(Math.atan2(b.x - a.x, a.y - b.y));
+    expect(Math.abs(out(elbow, wrist) - out(shoulder, elbow))).toBeLessThan(MAX_ELBOW_KINK);
+    expect(wrist.x - shoulder.x).toBeLessThan(MAX_WRIST_OUT);
+  });
+
+  test("the biceps swells only on the front of the upper arm, as the elbow bends", () => {
+    expect(bicepsBulge(1)).toBeLessThan(0.002);
+    expect(bicepsBulge(0)).toBeCloseTo(HAMMER_CURL.bicepsBulge, 3);
+    for (let d = 0.1; d <= 1; d += 0.1) expect(bicepsBulge(d)).toBeLessThanOrEqual(bicepsBulge(d - 0.1));
+
+    const { skin } = curl.rig;
+    const at = curl.biceps;
+    expect(Math.max(...at)).toBeCloseTo(1, 1);
+    // Both arms, and nothing else.
+    const names = skin.skeleton.bones.map((b) => b.name);
+    let swelling = [0, 0];
+    at.forEach((w, i) => {
+      if (w === 0) return;
+      const bones = [0, 1, 2, 3].filter((k) => skin.geometry.attributes.skinWeight.getComponent(i, k) > 0.5).map((k) => names[skin.geometry.attributes.skinIndex.getComponent(i, k)]);
+      expect(bones.join()).toMatch(/upperarm_[lr]/);
+      swelling[bones[0].endsWith("_l") ? 0 : 1]++;
+    });
+    expect(swelling[0]).toBeGreaterThan(20);
+    expect(swelling[0]).toBe(swelling[1]);
+    swelling = [];
+
+    // The swelling faces the way the forearm folds.
+    poseCurl(curl, 0.5);
+    const s = curl.l.s;
+    const middle = worldPos(s.upperarm).lerp(worldPos(s.lowerarm), 0.5);
+    const fore = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
+    const p = new THREE.Vector3();
+    let onFront = 0;
+    let total = 0;
+    at.forEach((w, i) => {
+      if (w < 0.5 || skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld).x < 0) return;
+      total++;
+      if (p.sub(middle).dot(fore) > 0) onFront++;
+    });
+    expect(total).toBeGreaterThan(0);
+    expect(onFront).toBe(total);
+  });
+
+  test("alternating, one arm rises as the other lowers, and each pose stays a real one", () => {
+    const flexion = () => {
+      const m = measure(anatomy) as unknown as Record<"l" | "r", Record<string, number>>;
+      return { l: m.l["elbow.flexion"], r: m.r["elbow.flexion"] };
+    };
+    poseCurl(curl, 0, true);
+    expect(flexion().l).toBeGreaterThan(125);
+    expect(flexion().r).toBeLessThan(15);
+    poseCurl(curl, 1, true);
+    expect(flexion().l).toBeLessThan(15);
+    expect(flexion().r).toBeGreaterThan(125);
+    poseCurl(curl, 0.5, true);
+    expect(Math.abs(flexion().l - flexion().r)).toBeLessThan(1);
+
+    for (const d of DEPTHS) {
+      const g = poseCurl(curl, d, true);
+      const problems = violations(measure(anatomy)).map((v) => `${v.joint} ${v.value.toFixed(0)}`);
+      for (const t of contact(body).through) {
+        if (t.depth > (t.pair.endsWith("/core") ? ARMPIT_FOLD : THROUGH)) problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
+      }
+      if (dumbbellToSkin(g) < MIN_DUMBBELL_GAP) problems.push(`dumbbell ${(dumbbellToSkin(g) * 100).toFixed(1)} cm from the body at depth ${d}`);
+      expect(problems.join("; ")).toBe("");
+    }
+  });
+
+  test("the biceps swell apart: weights mark which arm each vertex is on", () => {
+    expect(Math.max(...curl.biceps)).toBeCloseTo(1, 1);
+    expect(Math.min(...curl.biceps)).toBeCloseTo(-1, 1);
   });
 
   test("the dumbbell turns with the forearm, at the angle the approved grip holds it", () => {

@@ -29,7 +29,8 @@ const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
 
 export function PressViewer({ exercise }: { exercise: PressExercise }) {
   const content = PRESS_CONTENT[exercise];
-  const state = useRef<PressState>({ depth: 0.5, playing: true });
+  const state = useRef<PressState>({ depth: 0.5, playing: true, alternate: false });
+  const [alternate, setAlternate] = useState(false);
   const [view, setView] = useState<View>("angle");
   const [playing, setPlaying] = useState(true);
   const [depth, setDepth] = useState(0.5);
@@ -80,9 +81,39 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
             {i + 1}
           </button>
         ))}
-        <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
-          {phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
+        <div
+          className={`pointer-events-none absolute left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted ${
+            exercise === "hammer" ? "bottom-3 sm:top-3 sm:bottom-auto" : "top-3"
+          }`}
+        >
+          {alternate ? (phase === "down" ? "แขนซ้ายลง แขนขวายก" : "แขนซ้ายยก แขนขวาลง") : phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู ·
+          กดตัวเลขดูวิธีจัดท่า
         </div>
+        {exercise === "hammer" && (
+          <div role="group" aria-label="รูปแบบการยก" className="absolute top-3 right-3 flex rounded-full bg-bg/80 p-1">
+            {(
+              [
+                [false, "ยกพร้อมกัน"],
+                [true, "สลับข้าง"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={alternate === value}
+                onClick={() => {
+                  state.current.alternate = value;
+                  setAlternate(value);
+                }}
+                className={`h-9 cursor-pointer rounded-full px-3 text-sm transition-colors ${
+                  alternate === value ? "bg-primary font-semibold text-primary-fg" : "text-fg hover:bg-[#1f3035]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {activePin && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
             <span className="font-semibold text-primary">{PRESS_PINS.indexOf(activePin) + 1}. </span>
@@ -133,8 +164,8 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
             className="w-full accent-[var(--primary)]"
           />
           <span aria-hidden className="flex justify-between text-xs text-faint">
-            <span>{content.top}</span>
-            <span>{content.bottom}</span>
+            <span>{alternate ? `แขนซ้าย${content.top}` : content.top}</span>
+            <span>{alternate ? `แขนซ้าย${content.bottom}` : content.bottom}</span>
           </span>
         </label>
       </div>

@@ -7,12 +7,12 @@ import * as THREE from "three";
 import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, useMuscleMap, type View } from "./body-scene";
 import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
-import { HAMMER_CURL, poseCurl, readCurlRig } from "./pose-curl";
+import { bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig } from "./pose-curl";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 
-export type PressState = { depth: number; playing: boolean };
+export type PressState = { depth: number; playing: boolean; alternate: boolean };
 
 type Props = {
   exercise: PressExercise;
@@ -29,10 +29,10 @@ const ALONG = new THREE.Vector3(1, 0, 0);
 function readLift(root: THREE.Object3D, exercise: PressExercise) {
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
-    return { rig: curl.rig, pose: (depth: number) => poseCurl(curl, depth), bench: null };
+    return { rig: curl.rig, pose: (depth: number, alternate: boolean) => poseCurl(curl, depth, alternate), biceps: bicepsBulge, bench: null };
   }
   const press = readPressRig(root, SPECS[exercise]);
-  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), bench: benchLayout(press) };
+  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
 }
 
 export default memo(function PressScene(props: Props) {
@@ -152,7 +152,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     else if (depth < c.depth - 1e-4) c.phase = "up";
     c.depth = depth;
 
-    const g = lift.pose(depth);
+    const g = lift.pose(depth, s.alternate);
+    body.setBiceps(lift.biceps(depth), lift.biceps(s.alternate ? 1 - depth : depth));
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
