@@ -7,19 +7,20 @@ import * as THREE from "three";
 import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, useMuscleMap, type View } from "./body-scene";
 import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
-import { HAMMER_CURL, poseCurl, readCurlRig } from "./pose-curl";
+import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig, type CurlSide } from "./pose-curl";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 
-export type PressState = { depth: number; playing: boolean };
+// Alternating, depth is the moving arm's, `side`, and the other arm waits down.
+export type PressState = { depth: number; playing: boolean; alternate: boolean; side: CurlSide };
 
 type Props = {
   exercise: PressExercise;
   state: React.RefObject<PressState>;
   view: View;
   onPinMove: (id: string, x: number, y: number, visible: boolean, front: boolean) => void;
-  onFrame: (depth: number, phase: Phase) => void;
+  onFrame: (depth: number, phase: Phase, side: CurlSide) => void;
 };
 
 const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL };
@@ -29,10 +30,10 @@ const ALONG = new THREE.Vector3(1, 0, 0);
 function readLift(root: THREE.Object3D, exercise: PressExercise) {
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
-    return { rig: curl.rig, pose: (depth: number) => poseCurl(curl, depth), bench: null };
+    return { rig: curl.rig, pose: (left: number, right: number) => poseCurl(curl, left, right), biceps: bicepsBulge, bench: null };
   }
   const press = readPressRig(root, SPECS[exercise]);
-  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), bench: benchLayout(press) };
+  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
 }
 
 export default memo(function PressScene(props: Props) {
@@ -127,7 +128,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
 
   const left = useRef<THREE.Group>(null);
   const right = useRef<THREE.Group>(null);
-  const clock = useRef({ t: 0, depth: 0, wasPlaying: false, lastReport: 0, phase: "down" as Phase });
+  const clock = useRef({ t: 0, depth: 0, wasPlaying: false, wasAlternate: false, lastReport: 0, phase: "down" as Phase, side: "l" as CurlSide });
   const colors = useMemo(
     () => ({
       prime: new THREE.Color(ROLE_COLORS.prime),
@@ -141,18 +142,31 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const s = state.current;
     const c = clock.current;
     let depth = s.depth;
+    if (!s.playing) c.side = s.side;
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
-      if (!c.wasPlaying) c.t = (Math.acos(1 - 2 * c.depth) / (Math.PI * 2)) * PLAY_SECONDS;
+      if (!c.wasPlaying || c.wasAlternate !== s.alternate) {
+        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : (Math.acos(1 - 2 * c.depth) / (Math.PI * 2)) * PLAY_SECONDS;
+      }
       c.t += dt;
-      depth = (1 - Math.cos((c.t / PLAY_SECONDS) * Math.PI * 2)) / 2;
+      if (s.alternate) {
+        const at = alternateAt(c.t, PLAY_SECONDS);
+        depth = at.depth;
+        c.side = at.side;
+      } else {
+        depth = (1 - Math.cos((c.t / PLAY_SECONDS) * Math.PI * 2)) / 2;
+      }
     }
     c.wasPlaying = s.playing;
+    c.wasAlternate = s.alternate;
     if (depth > c.depth + 1e-4) c.phase = "down";
     else if (depth < c.depth - 1e-4) c.phase = "up";
     c.depth = depth;
 
-    const g = lift.pose(depth);
+    const depthL = s.alternate && c.side === "r" ? 1 : depth;
+    const depthR = s.alternate && c.side === "l" ? 1 : depth;
+    const g = lift.pose(depthL, depthR);
+    body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
@@ -191,7 +205,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const now = performance.now();
     if (now - c.lastReport > 90) {
       c.lastReport = now;
-      onFrame(depth, c.phase);
+      onFrame(depth, c.phase, c.side);
     }
   });
 

@@ -110,6 +110,7 @@ export function CameraRig({ view, target = TARGET }: { view: View; target?: THRE
 export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THREE.Texture }) {
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
+  const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
@@ -119,15 +120,21 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     shader.uniforms.uTint = { value: tints };
     shader.uniforms.uAmt = { value: amounts };
     shader.uniforms.uMuscleMap = { value: map };
+    shader.uniforms.uBiceps = biceps;
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
         `#include <common>
+        attribute float aBiceps;
+        uniform vec2 uBiceps;
         varying vec2 vMapUv;`,
       )
       .replace(
         "#include <begin_vertex>",
         `#include <begin_vertex>
+        // Before skinning, so the swelling rides with the arm. Lifts without it have no
+        // aBiceps on the mesh, which reads as 0.
+        transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
         vMapUv = uv;`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -177,6 +184,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
   return {
     mat,
     clear: () => amounts.fill(0),
+    setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       tints[i].set(color.r, color.g, color.b);
       amounts[i] = amount;

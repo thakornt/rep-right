@@ -6,34 +6,86 @@
 
 import * as THREE from "three";
 
-import { aim, deg, keepHinge, readRig, setWorldQuat, twoBoneIK, worldPos, type Rig } from "./pose";
+import { aim, deg, keepHinge, readRig, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 import { frame, readSide, turnTo, type PressSide } from "./pose-press";
 
 export const HAMMER_CURL = {
-  armOut: 9, // degrees the upper arm hangs away from the trunk, leaving room for the dumbbell beside the thigh
-  carrying: 8, // degrees the straight forearm angles out from the upper arm, as a real elbow's does
+  armOut: 13, // degrees the whole arm hangs away from the trunk, in one straight line, leaving room for the dumbbell beside the thigh
+  carrying: 0, // degrees the straight forearm angles out from the upper arm; the owner wants the arm straight
   lowBend: 8, // degrees the elbow stays bent at the bottom: not locked
   highBend: 130, // degrees at the top
   forwardAtTop: 12, // degrees the elbow may drift forward at the very top
-  stance: 0.15, // metres from the middle to each ankle
+  stance: 0.12, // metres from the middle to each ankle
   toeOut: 8, // degrees
+  bicepsBulge: 0.01, // metres the front of the upper arm swells at the top: a little, as the owner asked
+  bicepsFrom: 30, // degrees of elbow bend where it starts to swell
+  bicepsFull: 120, // degrees where it is fully swollen
   cameraTarget: [0, 0.87, 0] as [number, number, number],
 };
 
-export type CurlRig = { rig: Rig; l: PressSide; r: PressSide };
+export type CurlRig = { rig: Rig; l: PressSide; r: PressSide; biceps: Float32Array };
 
 const X = new THREE.Vector3(1, 0, 0);
 const FRONT = new THREE.Vector3(0, 0, 1);
 const UP = new THREE.Vector3(0, 1, 0);
+const BICEPS_START = 0.15; // share of the upper arm, from the shoulder, where the belly of the muscle starts
+const BICEPS_END = 0.9; // and ends
+const BICEPS_MIN_WEIGHT = 0.02; // below this a vertex stays still
 
 // Call once with the body at rest.
 export function readCurlRig(root: THREE.Object3D): CurlRig {
   const rig = readRig(root);
-  return { rig, l: readSide(root, rig, "l"), r: readSide(root, rig, "r") };
+  const l = readSide(root, rig, "l");
+  const r = readSide(root, rig, "r");
+  return { rig, l, r, biceps: readBiceps(rig, [l, r]) };
+}
+
+// How much each vertex swells with the biceps, up to 1: most at the middle of the upper
+// arm's front, none at its ends or behind. The front is the side the forearm folds
+// toward, square to the elbow's hinge. Kept on the mesh as the attribute aBiceps,
+// which the body material pushes out along the skin's normal: positive on the left
+// arm and negative on the right, so each can swell by its own amount.
+function readBiceps(rig: Rig, sides: PressSide[]) {
+  const { skin } = rig;
+  for (const [b, rest] of rig.rest) {
+    b.quaternion.copy(rest.q);
+    b.position.copy(rest.p);
+  }
+  rig.pelvis.parent!.updateMatrixWorld(true);
+  const { skinIndex, skinWeight, position } = skin.geometry.attributes;
+  const bones = skin.skeleton.bones;
+  const limbs = sides.map((a) => {
+    const shoulder = worldPos(a.s.upperarm);
+    const along = worldPos(a.s.lowerarm).sub(shoulder).normalize();
+    const hinge = a.hinge.clone().applyQuaternion(worldQuat(a.s.upperarm));
+    return { bone: bones.indexOf(a.s.upperarm as THREE.Bone), shoulder, along, front: along.clone().cross(hinge).normalize(), length: a.upperLen };
+  });
+  const at = new Float32Array(position.count);
+  const p = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    const limb = limbs.find((m) => [0, 1, 2, 3].some((k) => skinIndex.getComponent(i, k) === m.bone && skinWeight.getComponent(i, k) > 0.5));
+    if (!limb) continue;
+    skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld).sub(limb.shoulder);
+    const t = (p.dot(limb.along) / limb.length - BICEPS_START) / (BICEPS_END - BICEPS_START);
+    if (t <= 0 || t >= 1) continue;
+    const out = p.addScaledVector(limb.along, -p.dot(limb.along)).normalize().dot(limb.front);
+    if (out <= 0) continue;
+    const w = Math.sin(Math.PI * t) ** 2 * out ** 2;
+    if (w > BICEPS_MIN_WEIGHT) at[i] = limb === limbs[0] ? w : -w;
+  }
+  skin.geometry.setAttribute("aBiceps", new THREE.BufferAttribute(at, 1));
+  return at;
+}
+
+// Metres the biceps swells at this depth of the lift.
+export function bicepsBulge(depth: number) {
+  const { lowBend, highBend, bicepsFrom, bicepsFull, bicepsBulge: most } = HAMMER_CURL;
+  return most * THREE.MathUtils.smoothstep(highBend + (lowBend - highBend) * depth, bicepsFrom, bicepsFull);
 }
 
 // Pose both arms with the elbows bent this far, and the upper arms this far forward.
-export function poseCurlArms(curl: CurlRig, bend: number, forward: number) {
+// The right arm matches the left unless given its own.
+export function poseCurlArms(curl: CurlRig, bendL: number, forwardL: number, bendR = bendL, forwardR = forwardL) {
   const { rig } = curl;
   for (const [b, r] of rig.rest) {
     b.quaternion.copy(r.q);
@@ -41,8 +93,10 @@ export function poseCurlArms(curl: CurlRig, bend: number, forward: number) {
   }
   rig.pelvis.parent!.updateMatrixWorld(true);
 
-  const out = [curl.l, curl.r].map((a) => {
+  const out = [curl.l, curl.r].map((a, side) => {
     const s = a.s;
+    const bend = side === 0 ? bendL : bendR;
+    const forward = side === 0 ? forwardL : forwardR;
     // Feet about hip width, flat on the floor, which softens the knees a little.
     const ankle = new THREE.Vector3(s.sign * HAMMER_CURL.stance, s.ankle.y, s.ankle.z);
     const yaw = new THREE.Quaternion().setFromAxisAngle(UP, s.sign * deg(HAMMER_CURL.toeOut));
@@ -75,8 +129,28 @@ export function poseCurlArms(curl: CurlRig, bend: number, forward: number) {
   return { l: out[0], r: out[1] };
 }
 
-// Depth 0 = curled to the top, 1 = arms down, as with the presses.
-export function poseCurl(curl: CurlRig, depth: number) {
+// Depth 0 = curled to the top, 1 = arms down, as with the presses. The right arm
+// matches the left unless given its own depth.
+export function poseCurl(curl: CurlRig, depth: number, depthR = depth) {
   const { lowBend, highBend, forwardAtTop } = HAMMER_CURL;
-  return poseCurlArms(curl, highBend + (lowBend - highBend) * depth, forwardAtTop * (1 - depth) ** 2);
+  const arm = (d: number) => [highBend + (lowBend - highBend) * d, forwardAtTop * (1 - d) ** 2] as const;
+  const [bendL, forwardL] = arm(depth);
+  const [bendR, forwardR] = arm(depthR);
+  return poseCurlArms(curl, bendL, forwardL, bendR, forwardR);
+}
+
+export type CurlSide = "l" | "r";
+
+// Alternating: one arm does a whole rep, from down to the top and back, while the other
+// waits down; then they swap. `rep` is the seconds one rep takes.
+export function alternateAt(seconds: number, rep: number): { side: CurlSide; depth: number } {
+  const cycle = ((seconds % (2 * rep)) + 2 * rep) % (2 * rep);
+  const side = cycle < rep ? "l" : "r";
+  const into = side === "l" ? cycle : cycle - rep;
+  return { side, depth: into === 0 ? 1 : (1 + Math.cos((into / rep) * Math.PI * 2)) / 2 };
+}
+
+// Where in that cycle this arm is at this depth, on its way up.
+export function alternateTime(depth: number, side: CurlSide, rep: number) {
+  return (Math.acos(2 * depth - 1) / (Math.PI * 2)) * rep + (side === "l" ? 0 : rep);
 }
