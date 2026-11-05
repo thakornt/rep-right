@@ -81,7 +81,7 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
           </button>
         ))}
         <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
-          {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
+          {phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
         </div>
         {activePin && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">

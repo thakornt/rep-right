@@ -81,7 +81,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const reject = (v: THREE.Vector3, axis: THREE.Vector3) => v.clone().addScaledVector(axis, -v.dot(axis)).normalize();
 
 // Rotation with columns across, long, out (right-handed), from two directions.
-function frame(long: THREE.Vector3, across: THREE.Vector3) {
+export function frame(long: THREE.Vector3, across: THREE.Vector3) {
   const y = long.clone().normalize();
   const x = reject(across, y);
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, x.clone().cross(y)));
@@ -89,18 +89,18 @@ function frame(long: THREE.Vector3, across: THREE.Vector3) {
 
 // Turn a bone about dir (a unit vector along it) so a direction fixed in it
 // points as close to want as it can.
-function turnTo(bone: THREE.Object3D, local: THREE.Vector3, dir: THREE.Vector3, want: THREE.Vector3) {
+export function turnTo(bone: THREE.Object3D, local: THREE.Vector3, dir: THREE.Vector3, want: THREE.Vector3) {
   const now = reject(local.clone().applyQuaternion(worldQuat(bone)), dir);
   const to = reject(want, dir);
   const angle = Math.atan2(now.clone().cross(to).dot(dir), now.dot(to));
   rotateWorld(bone, new THREE.Quaternion().setFromAxisAngle(dir, angle));
 }
 
-type PressSide = ReturnType<typeof readSide>;
+export type PressSide = ReturnType<typeof readSide>;
 type PressArms = { spec: PressSpec; rig: Rig; l: PressSide; r: PressSide };
 export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: { backOffset: number; seatY: number } };
 
-function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
+export function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
   const grip = readDumbbellGrip(root, rig.skin, tag, DUMBBELL.handleRadius);
   const shoulder = worldPos(s.upperarm);

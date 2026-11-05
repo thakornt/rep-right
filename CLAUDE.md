@@ -190,3 +190,7 @@ COOKIE_DOMAIN=localhost
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ```
+
+## 14. งานที่ทำค้างไว้
+
+ก่อนแตะงาน 3D อ่าน `docs/HANDOFF.md` (วิธีทำงานกับเจ้าของ การกำดัมเบลที่อนุมัติแล้ว และเรื่องที่ค้างอยู่)
