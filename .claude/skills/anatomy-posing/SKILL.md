@@ -105,8 +105,9 @@ weight-bearing value for a loaded lift), and tell the user.
    the body is fixed and only the limbs move (a bench press) can be built from
    cues, as `pose-press.ts` is. The arm's lengths decide how far out an upright
    forearm puts the hand at each height, so a path, an upright forearm and the two
-   ends cannot all be exact. Show the owner the path before posing it. The wrist alone
-   keeps a dumbbell level, and must not drag the arm with it.
+   ends cannot all be exact. Show the owner the path before posing it. In a press the
+   wrist alone keeps a dumbbell level, and must not drag the arm with it. In a curl
+   the wrist stays straight and the dumbbell turns with the forearm (`pose-curl.ts`).
 2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish Mixamo
    files or a whole baked Mixamo clip; keep them in `tools/body/out/`.
 3. Write the exercise's own form rules next to its code, for example where

@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, useMuscleMap, type View } from "./body-scene";
 import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
+import { HAMMER_CURL, poseCurl, readCurlRig } from "./pose-curl";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
@@ -21,8 +22,18 @@ type Props = {
   onFrame: (depth: number, phase: Phase) => void;
 };
 
-const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS };
+const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL };
 const ALONG = new THREE.Vector3(1, 0, 0);
+
+// The rig, how it moves, and the bench if the lift has one.
+function readLift(root: THREE.Object3D, exercise: PressExercise) {
+  if (exercise === "hammer") {
+    const curl = readCurlRig(root);
+    return { rig: curl.rig, pose: (depth: number) => poseCurl(curl, depth), bench: null };
+  }
+  const press = readPressRig(root, SPECS[exercise]);
+  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), bench: benchLayout(press) };
+}
 
 export default memo(function PressScene(props: Props) {
   const target = useMemo(() => new THREE.Vector3(...SPECS[props.exercise].cameraTarget), [props.exercise]);
@@ -103,7 +114,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const scene = useBody();
   const muscleMap = useMuscleMap();
   const body = useMemo(() => bodyMaterial(muscleMap), [muscleMap]);
-  const press = useMemo(() => {
+  const lift = useMemo(() => {
     scene.traverse((o) => {
       if ((o as THREE.SkinnedMesh).isSkinnedMesh) {
         const m = o as THREE.SkinnedMesh;
@@ -111,9 +122,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         m.frustumCulled = false;
       }
     });
-    return readPressRig(scene, SPECS[exercise]);
+    return readLift(scene, exercise);
   }, [scene, body, exercise]);
-  const layout = useMemo(() => benchLayout(press), [press]);
 
   const left = useRef<THREE.Group>(null);
   const right = useRef<THREE.Group>(null);
@@ -142,7 +152,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     else if (depth < c.depth - 1e-4) c.phase = "up";
     c.depth = depth;
 
-    const g = posePress(press, depth);
+    const g = lift.pose(depth);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
@@ -153,14 +163,14 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       body.setRegion(REGION_IDS[act.region], colors[act.role], (0.2 + 0.8 * act.amount) * ROLE_STRENGTH[act.role]);
     }
 
-    const { rig } = press;
+    const { rig } = lift;
     const chestFront = new THREE.Vector3(0, 0, 1).applyQuaternion(
       worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
     );
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
-      elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, 0)),
+      elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
       dumbbell: g.l.grip.clone().add(new THREE.Vector3(0.1, 0.08, 0)),
       core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
@@ -188,7 +198,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   return (
     <group>
       <primitive object={scene} />
-      <Bench layout={layout} />
+      {lift.bench && <Bench layout={lift.bench} />}
       <Dumbbell inner={left} />
       <Dumbbell inner={right} />
     </group>

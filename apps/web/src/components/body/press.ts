@@ -1,15 +1,27 @@
-// Incline dumbbell press: which muscles work. General guidance, not EMG data.
+// Dumbbell lifts: which muscles work. General guidance, not EMG data.
 
 import type { Activation } from "./squat";
 
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder";
+export type PressExercise = "incline" | "shoulder" | "hammer";
 
-// Depth 0 = arms up, 1 = dumbbells down.
+// Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "hammer") {
+    // Hardest with the forearm level, when the weight pulls straight across it.
+    const hold = Math.sin(Math.PI * Math.min(1, depth * 1.1));
+    return [
+      { region: "biceps", role: "prime", amount: (0.5 + 0.5 * hold) * effort },
+      { region: "forearms", role: "prime", amount: (0.5 + 0.4 * hold) * effort }, // the thumb-side forearm works hardest with the palm facing in
+      { region: "delt_front", role: "stabilizer", amount: 0.3 },
+      { region: "upper_back", role: "stabilizer", amount: 0.35 },
+      { region: "abs", role: "stabilizer", amount: 0.35 },
+      { region: "erectors", role: "stabilizer", amount: 0.35 },
+    ];
+  }
   if (exercise === "shoulder") {
     return [
       { region: "delt_front", role: "prime", amount: (0.55 + 0.45 * depth) * effort },
@@ -44,7 +56,7 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
 
 export const PRESS_CONTENT: Record<
   PressExercise,
-  { cues: Record<PressPin, string>; top: string; bottom: string; notice: string[] }
+  { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; notice: string[] }
 > = {
   incline: {
     cues: {
@@ -55,11 +67,29 @@ export const PRESS_CONTENT: Record<
       core: "เกร็งท้องเบา ๆ ไม่แอ่นหลังล่างเพื่อช่วยดัน",
     },
     top: "ดันขึ้นสุด",
+    rising: "กำลังดันขึ้น",
     bottom: "ลดลงสุด",
     notice: [
       "ร่างกายแต่ละคนไม่เหมือนกัน มุมศอกและระยะที่ลดลงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลดลงเท่าที่ไหล่ยังสบายและสะบักยังแนบพนัก ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  hammer: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงเต็มเท้า ตัวไม่โยกเพื่อช่วยยก",
+      back: "ยืนตัวตรง ไหล่ลงไม่ห่อ ไม่เอนตัวไปข้างหลังตอนยก",
+      elbow: "ศอกอยู่ข้างลำตัวเป็นจุดหมุน ขยับไปข้างหน้าได้นิดเดียวตอนใกล้ยกสุด ลดลงจนแขนเกือบตรงแต่ไม่ล็อกศอก",
+      dumbbell: "ฝ่ามือหันเข้าหาลำตัวตลอดทาง ไม่บิดมือ ข้อมือตรง ยกจนดัมเบลเข้าใกล้ไหล่ ไม่ต้องให้แตะ",
+      core: "เกร็งท้องเบา ๆ ให้ลำตัวนิ่ง ถ้าต้องเหวี่ยงตัวช่วย แปลว่าน้ำหนักอาจมากไป",
+    },
+    top: "ยกขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังยกขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ยกเท่าที่ศอกยังอยู่ข้างลำตัวและข้อมือยังตรง ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ข้อมือ หรือไหล่ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   shoulder: {
@@ -71,6 +101,7 @@ export const PRESS_CONTENT: Record<
       core: "เกร็งท้องให้แน่น ซี่โครงไม่บานออก ช่วยไม่ให้หลังล่างแอ่น",
     },
     top: "ดันขึ้นสุด",
+    rising: "กำลังดันขึ้น",
     bottom: "ลดลงสุด",
     notice: [
       "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างศอกและระยะที่ลดลงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
