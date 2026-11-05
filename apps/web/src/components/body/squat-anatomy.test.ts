@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
-import { BAR_RADIUS, pelvisTilt, pose, readRig, SQUAT_CLIP, worldPos, type Rig } from "./pose";
+import { BAR_RADIUS, pelvisTilt, pose, readRig, SQUAT_CLIP, trunkLean, worldPos, type Rig } from "./pose";
 import { NO_FAULTS, type SquatFaults } from "./squat";
 
 // Past a limit today, by this much at most (degrees from neutral, or metres).
@@ -45,6 +45,8 @@ const MAX_JUMP = 0.0005; // per 0.25% of depth
 const MAX_HIP_FORWARD = 0.00005; // per 0.25% of depth
 const MAX_PELVIS_TILT_BACK = 1.5; // degrees below the most it has tipped forward
 const MAX_BAR_OFF_MIDFOOT = 0.005;
+const MAX_LEAN_BACK_STEP = 0.1; // degrees below the most the trunk has leaned
+const MAX_HEAD_REBOUND = 0.005; // back and forth, front to back
 const MAX_HEAD_OFF_CENTRE = 0.001;
 const MAX_MIRROR_OFF = 0.002;
 
@@ -134,6 +136,8 @@ test("the bar stays steady through the squat", () => {
   const range = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
   const sideways = range(bars.map((b) => b.x));
   if (sideways > MAX_BAR_SIDEWAYS) problems.push(`bar slides sideways ${(sideways * 1000).toFixed(1)} mm`);
+  const frontToBack = range(bars.map((b) => b.z));
+  if (frontToBack > MAX_BAR_SIDEWAYS) problems.push(`bar drifts ${(frontToBack * 1000).toFixed(1)} mm front to back`);
   const gap = range(gaps);
   if (gap > MAX_GRIP_CHANGE) problems.push(`hands slide ${(gap * 1000).toFixed(1)} mm along the bar`);
   // How far a step leaves the line through its neighbours: a jump shows up here.
@@ -170,6 +174,30 @@ test("the hips sit back without thrusting forward", () => {
     if (overFoot > MAX_BAR_OFF_MIDFOOT) problems.push(`bar ${(overFoot * 1000).toFixed(1)} mm off the middle of the foot at depth ${i / n}`);
   }
   if (tiltBack > MAX_PELVIS_TILT_BACK) problems.push(`pelvis tips back ${tiltBack.toFixed(1)} degrees`);
+  expect(problems.join("; ")).toBe("");
+});
+
+// From hips to head the body folds in one smooth movement: the trunk never comes
+// back up on the way down, and the head doesn't rock back and forth.
+test("the trunk folds steadily from hips to head", () => {
+  const head = rig.neck.getObjectByName("head")!;
+  const n = 200;
+  const problems: string[] = [];
+  let lastLean = -Infinity;
+  let most = -Infinity;
+  let least = Infinity;
+  let rebound = 0;
+  for (let i = n / 2; i <= n; i++) {
+    pose(rig, i / n, NO_FAULTS);
+    const lean = THREE.MathUtils.radToDeg(trunkLean(rig));
+    if (lean < lastLean - MAX_LEAN_BACK_STEP) problems.push(`trunk comes up ${(lastLean - lean).toFixed(2)} degrees at depth ${i / n}`);
+    lastLean = Math.max(lastLean, lean);
+    const z = worldPos(head).z;
+    most = Math.max(most, z);
+    least = Math.min(least, z);
+    rebound = Math.max(rebound, Math.min(most - z, z - least));
+  }
+  if (rebound > MAX_HEAD_REBOUND) problems.push(`head rocks ${(rebound * 1000).toFixed(1)} mm`);
   expect(problems.join("; ")).toBe("");
 });
 

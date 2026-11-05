@@ -249,6 +249,12 @@ function plantHips(rig: Rig) {
   setWorldPos(rig.pelvis, worldPos(rig.pelvis).setX((rig.l.ankle.x + rig.r.ankle.x) / 2));
 }
 
+// How far the whole trunk leans forward, from the pelvis to the base of the neck, radians.
+export function trunkLean(rig: Rig) {
+  const v = worldPos(rig.neck).sub(worldPos(rig.pelvis));
+  return Math.atan2(v.z, v.y);
+}
+
 // How far the pelvis has tipped forward since standing at rest, radians.
 export function pelvisTilt(rig: Rig) {
   const top = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat(rig.pelvis).multiply(rig.pelvisRestQ.clone().invert()));
@@ -284,9 +290,12 @@ const ELBOWS_OUT = 18; // degrees the elbows move out from the sides
 const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper back
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
 const HIP_SAMPLES = 200; // depths sampled for the hips' path
-const PELVIS_TILT = 28; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
+const PELVIS_TILT = 27.7; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
 const PELVIS_HOLD_FROM = 0.45; // depth where the hold starts to apply
 const PELVIS_HOLD_FULL = 0.6; // depth where it applies fully
+const TRUNK_LEAN = 32.7; // degrees the trunk leans at TRUNK_LEAN_FROM, where the clip's lean would turn back
+const TRUNK_LEAN_FROM = 0.6; // depth where the set line starts
+const TRUNK_LEAN_RATE = 3; // degrees more lean per unit of depth from there
 
 export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   toRest(rig);
@@ -390,7 +399,8 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // a few centimetres either way. Tip the upper body about the hips to put the
   // bar back there (a few degrees), keeping the eyes where they were.
   const mid = (a: THREE.Object3D, b: THREE.Object3D) => worldPos(a).add(worldPos(b)).multiplyScalar(0.5);
-  const midfoot = mid(rig.l.foot, rig.r.foot).lerp(mid(rig.l.ball, rig.r.ball), 0.45).setY(0);
+  // From where the feet stand on the floor: the bones still move with the hips here.
+  const midfoot = rig.l.ankle.clone().add(rig.r.ankle).multiplyScalar(0.5).lerp(planted[0].ball.clone().add(planted[1].ball).multiplyScalar(0.5), 0.45).setY(0);
   const tipToMidfoot = (pivot: THREE.Object3D) => {
     const at = worldPos(pivot);
     const v = barNow().sub(at);
@@ -406,14 +416,26 @@ export function pose(rig: Rig, depth: number, faults: SquatFaults) {
   // the difference out of the lower back, so the chest stays where it was, then
   // set the bar back over the foot from the lower back. Leaning forward and lifting
   // the heels fold the hip further on their own, so those two faults go without it.
-  const holdTilt =
-    faults.forwardLean || faults.heelRise
-      ? 0
-      : Math.max(0, deg(PELVIS_TILT) - pelvisTilt(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL);
+  const steady = !faults.forwardLean && !faults.heelRise;
+  const holdTilt = steady
+    ? Math.max(0, deg(PELVIS_TILT) - pelvisTilt(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL)
+    : 0;
   rotateWorld(rig.pelvis, qx(holdTilt));
   rotateWorld(rig.spine1, qx(-holdTilt * 0.6));
   rotateWorld(rig.spine2, qx(-holdTilt * 0.4));
   rotateWorld(rig.spine1, qx(tipToMidfoot(rig.spine1)));
+
+  // Those tips outrun the clip's own fold deep down, so the trunk would come back up
+  // and the head rock. Keep folding on a set line through the back and neck, and let
+  // the hips sit further back to keep the bar over the foot.
+  if (steady) {
+    const wanted = TRUNK_LEAN + TRUNK_LEAN_RATE * Math.max(0, depth - TRUNK_LEAN_FROM);
+    const fold = Math.max(0, deg(wanted) - trunkLean(rig)) * THREE.MathUtils.smoothstep(depth, PELVIS_HOLD_FROM, PELVIS_HOLD_FULL);
+    rotateWorld(rig.spine1, qx(fold * 0.6));
+    rotateWorld(rig.spine2, qx(fold * 0.4));
+    rotateWorld(rig.neck, qx(-fold * 0.8));
+    setWorldPos(rig.pelvis, worldPos(rig.pelvis).add(new THREE.Vector3(0, 0, midfoot.z - barNow().z)));
+  }
 
   // Form faults are small changes on top of the real movement.
   const f = faultOffsets(depth, faults);
