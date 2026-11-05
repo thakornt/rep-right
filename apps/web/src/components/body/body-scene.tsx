@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
-import { BAR_RADIUS, pose, readRig, worldPos, worldQuat, X } from "./pose";
+import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
 
 export const MODEL = "/models/body.glb";
@@ -235,7 +235,7 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
         m.frustumCulled = false;
       }
     });
-    return readRig(scene);
+    return readRig(scene, SQUAT_CLIP);
   }, [scene, body]);
 
   const bar = useRef<THREE.Group>(null);

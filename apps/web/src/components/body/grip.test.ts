@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 import { readBody, type Body } from "./contact";
 import type { Grip } from "./grip";
 import { loadBody } from "./load-body";
-import { BAR_RADIUS, pose, readRig, worldPos, type Rig } from "./pose";
+import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, type Rig } from "./pose";
 import { DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { NO_FAULTS } from "./squat";
 
@@ -88,7 +88,7 @@ const SLOW = 60000; // every case loads a body of its own
 describe("the bar", () => {
   test.each(DEPTHS)("rests in both fists, depth %s", { timeout: SLOW }, async (depth) => {
     const root = await loadBody();
-    const rig = readRig(root);
+    const rig = readRig(root, SQUAT_CLIP);
     const body = readBody(root);
     const j = pose(rig, depth, NO_FAULTS);
     const held = { at: j.bar, dir: j.barDir, radius: BAR_RADIUS };
