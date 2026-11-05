@@ -15,7 +15,6 @@ const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
-const ARC_FORWARD = 20; // degrees a forward arc swings at mid-lift
 const HANDLE_TURN = -7; // degrees the hand starts off the forearm's line, before the wrist levels the dumbbell
 const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
 const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
@@ -34,7 +33,6 @@ export type PressSpec = {
   lowWidth: number; // hands outside the shoulders at the bottom
   lowHeight: number; // wrists above the shoulders at the bottom
   inward: number; // how far the hands come in on the way up
-  arc: "forward" | "out"; // which way the hands' arc bulges at mid-lift, as the forearms stay upright
   cameraTarget: [number, number, number];
 };
 
@@ -51,7 +49,6 @@ export const INCLINE_PRESS: PressSpec = {
   highForward: 0.035,
   lowWidth: 0.15,
   lowHeight: 0.1,
-  arc: "forward",
   inward: 0.06,
   cameraTarget: [0, 0.72, -0.05],
 };
@@ -72,7 +69,6 @@ export const SHOULDER_PRESS: PressSpec = {
   highForward: 0.02,
   lowWidth: 0.13,
   lowHeight: 0.06,
-  arc: "out",
   inward: 0.10,
   cameraTarget: [0, 0.88, -0.05],
 };
@@ -260,17 +256,10 @@ export function posePress(press: PressArms, depth: number) {
       const apart = (p: THREE.Vector3) => Math.hypot(p.x - shoulder.x, p.z - shoulder.z);
       const need = (p: THREE.Vector3) => Math.sqrt(Math.max(a.upperLen ** 2 - (p.y - shoulder.y - a.foreLen) ** 2, 0));
       const out = need(wrist) + THREE.MathUtils.lerp(apart(high) - need(high), apart(low) - need(low), depth);
-      if (spec.arc === "out") {
-        // Elbows out: straight from the side, so all the arc shows from the front.
-        const ahead = THREE.MathUtils.lerp(high.z, low.z, depth) - shoulder.z;
-        wrist.x = shoulder.x + s.sign * Math.sqrt(Math.max(out * out - ahead * ahead, 0));
-        wrist.z = shoulder.z + ahead;
-      } else {
-        const aim = (p: THREE.Vector3) => Math.atan2(p.z - shoulder.z, (p.x - shoulder.x) * s.sign);
-        const turn = THREE.MathUtils.lerp(aim(high), aim(low), depth) + deg(ARC_FORWARD) * Math.sin(Math.PI * depth);
-        wrist.x = shoulder.x + s.sign * out * Math.cos(turn);
-        wrist.z = shoulder.z + out * Math.sin(turn);
-      }
+      // Elbows out: straight from the side, so all the arc shows from the front.
+      const ahead = THREE.MathUtils.lerp(high.z, low.z, depth) - shoulder.z;
+      wrist.x = shoulder.x + s.sign * Math.sqrt(Math.max(out * out - ahead * ahead, 0));
+      wrist.z = shoulder.z + ahead;
     }
     // The arm stops there. Then only the wrist moves, keeping the dumbbell level.
     solve(wrist);
