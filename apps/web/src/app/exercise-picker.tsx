@@ -115,7 +115,7 @@ export function ExercisePicker({
                     {mark3d && SLUGS_WITH_3D.has(e.slug) && (
                       <span
                         title="มีภาพ 3D"
-                        className="num grid h-7 w-7 shrink-0 place-items-center rounded-full bg-health text-xs font-bold text-health-fg"
+                        className="num grid h-6 w-6 shrink-0 place-items-center rounded-full bg-health text-xs font-bold text-health-fg"
                       >
                         3D
                       </span>
