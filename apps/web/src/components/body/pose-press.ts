@@ -15,6 +15,7 @@ const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
+const SQUEEZE_LATE = 4; // the higher, the later in the lift the hands start coming in
 const HANDLE_TURN = -7; // degrees the hand starts off the forearm's line, before the wrist levels the dumbbell
 const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
 const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
@@ -47,9 +48,9 @@ export const INCLINE_PRESS: PressSpec = {
   chestUp: 8,
   lowForward: 0.122,
   highForward: 0.035,
-  lowWidth: 0.15,
+  lowWidth: 0.18,
   lowHeight: 0.1,
-  inward: 0.06,
+  inward: 0.115,
   cameraTarget: [0, 0.72, -0.05],
 };
 
@@ -67,9 +68,9 @@ export const SHOULDER_PRESS: PressSpec = {
   chestUp: 4,
   lowForward: 0.13,
   highForward: 0.02,
-  lowWidth: 0.13,
+  lowWidth: 0.16,
   lowHeight: 0.06,
-  inward: 0.10,
+  inward: 0.11,
   cameraTarget: [0, 0.88, -0.05],
 };
 
@@ -249,18 +250,9 @@ export function posePress(press: PressArms, depth: number) {
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
 
     const wrist = high.clone().lerp(low, depth);
-    // A forearm is upright when the elbow is under the wrist, and the upper arm's
-    // length decides how far out that is at each height, so the hands arc between
-    // the two ends of the lift rather than running a straight line.
-    {
-      const apart = (p: THREE.Vector3) => Math.hypot(p.x - shoulder.x, p.z - shoulder.z);
-      const need = (p: THREE.Vector3) => Math.sqrt(Math.max(a.upperLen ** 2 - (p.y - shoulder.y - a.foreLen) ** 2, 0));
-      const out = need(wrist) + THREE.MathUtils.lerp(apart(high) - need(high), apart(low) - need(low), depth);
-      // Elbows out: straight from the side, so all the arc shows from the front.
-      const ahead = THREE.MathUtils.lerp(high.z, low.z, depth) - shoulder.z;
-      wrist.x = shoulder.x + s.sign * Math.sqrt(Math.max(out * out - ahead * ahead, 0));
-      wrist.z = shoulder.z + ahead;
-    }
+    // Seen from the front the hands rise nearly straight from a wider bottom, then
+    // curve in to squeeze near the top. Seen from the side they stay straight.
+    wrist.x = high.x + (low.x - high.x) * (1 - (1 - depth) ** SQUEEZE_LATE);
     // The arm stops there. Then only the wrist moves, keeping the dumbbell level.
     solve(wrist);
     const level = a.grip.dir().dot(thumbs) > 0 ? thumbs : thumbs.clone().negate();
