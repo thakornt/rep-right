@@ -14,8 +14,7 @@ const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but re
 const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015;
-const MAX_FOREARM_TILT = 10; // degrees from vertical at any point of the lift: the hands arc to keep it upright
-const WRIST_LEVELLING = 23; // degrees of sideways wrist bend allowed
+const MAX_FOREARM_TILT = 14; // degrees from vertical at any point of the lift; most near the top, as the hands squeeze in
 const MAX_STEP = 0.017; // metres a hand may move per 1% of the lift
 const MAX_FINGER_GAP = 0.035; // middle finger bones to the handle's centre
 
@@ -54,11 +53,7 @@ describe("seated dumbbell shoulder press", () => {
     const g = posePress(press, depth);
     const problems: string[] = [];
 
-    for (const v of violations(measure(anatomy))) {
-      // Past the 20 limit near the bottom: the wrist keeps the dumbbell level, as the owner asked.
-      if (v.joint.endsWith("wrist.deviation") && Math.abs(v.value) <= WRIST_LEVELLING) continue;
-      problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
-    }
+    for (const v of violations(measure(anatomy))) problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
 
     const c = contact(press.body);
     for (const t of c.through) {
@@ -118,7 +113,7 @@ describe("seated dumbbell shoulder press", () => {
     expect(m.l["shoulder.plane"]).toBeLessThan(45);
   });
 
-  test("the dumbbells arc up to nearly straight arms overhead", () => {
+  test("the dumbbells rise to nearly straight arms overhead", () => {
     const start = posePress(press, 1).l.grip;
     const end = posePress(press, 0).l.grip;
     const line = end.clone().sub(start);
@@ -133,13 +128,13 @@ describe("seated dumbbell shoulder press", () => {
     expect(end.y).toBeGreaterThan(worldPos(root.getObjectByName("head")!).y + 0.3);
   });
 
-  test("the forearm is upright at both ends of the rep, from the front and from the side", () => {
+  test("the forearm is nearly upright at both ends of the rep, from the front and from the side", () => {
     for (const d of [1, 0]) {
       posePress(press, d);
       for (const a of [press.l, press.r]) {
         const f = worldPos(a.s.hand).sub(worldPos(a.s.lowerarm));
-        expect(Math.abs(THREE.MathUtils.radToDeg(Math.atan2(f.x, f.y)))).toBeLessThan(7);
-        expect(Math.abs(THREE.MathUtils.radToDeg(Math.atan2(f.z, f.y)))).toBeLessThan(7);
+        expect(Math.abs(THREE.MathUtils.radToDeg(Math.atan2(f.x, f.y)))).toBeLessThan(10);
+        expect(Math.abs(THREE.MathUtils.radToDeg(Math.atan2(f.z, f.y)))).toBeLessThan(10);
       }
     }
   });
