@@ -111,7 +111,8 @@ export function readAnatomy(root: THREE.Object3D) {
       hand: bone(`hand_${s}`),
       index: bone(`index_01_${s}`),
       middle: bone(`middle_01_${s}`),
-      pinky: bone(`pinky_01_${s}`),
+      // Not the little finger's knuckle: it moves when the palm cups around a handle.
+      ring: bone(`ring_01_${s}`),
       thigh: bone(`thigh_${s}`),
       calf: bone(`calf_${s}`),
       foot: bone(`foot_${s}`),
@@ -130,7 +131,7 @@ export function readAnatomy(root: THREE.Object3D) {
       // the upper arm and points to +X on both sides at the anatomical position.
       hinge: local(b.upperarm, fore.clone().cross(upper).normalize()),
       // Thumb side of the wrist, fixed in the forearm.
-      radial: local(b.lowerarm, reject(pos(b.index).sub(pos(b.pinky)), fore.clone().normalize())),
+      radial: local(b.lowerarm, reject(pos(b.index).sub(pos(b.ring)), fore.clone().normalize())),
       thighFront: local(b.thigh, reject(Z, thighY)),
       shinFront: local(b.calf, reject(Z, shinY)),
       footDown: Math.atan2(-inFrame(shin, foot).y, inFrame(shin, foot).z) * DEG,
@@ -194,7 +195,7 @@ export function measure(an: Anatomy) {
     const lateral = reject(arm.x.clone().multiplyScalar(sign), fore);
     const palmar = fore.clone().cross(radial).multiplyScalar(sign);
     const hand = pos(s.middle).sub(wrist).normalize();
-    const handRadial = reject(pos(s.index).sub(pos(s.pinky)), hand);
+    const handRadial = reject(pos(s.index).sub(pos(s.ring)), hand);
 
     return {
       "hip.flexion": h.flexion,

@@ -26,7 +26,10 @@ upper arms buried in the chest, a bar floating over the shoulders, and saying
 - `grip.ts` closes a hand around a bar or handle, worked out from this body's own
   hand: the axis in the palm at the base of the fingers, fingers wrapped around it,
   thumb bent over them. `grip.test.ts` checks it. A hand holds its object through
-  `grip.at()` and `grip.dir()`; never place an object from a finger joint.
+  `grip.held()` and `grip.dir()`; never place an object from a finger joint.
+  **Every dumbbell lift uses `readDumbbellGrip`:** the owner agreed this grip against
+  photos of a real one. Its little finger cups and folds its tip, and the wrist
+  alone keeps the dumbbell level. Change `DUMBBELL_GRIP` only with the owner.
 - `tools/body/prmd_clip.mjs` makes the back squat clip: trunk and legs from a
   UI-PRMD motion capture rep (public domain), arms from the Mixamo clip, the
   back straightened by `STRAIGHT_BACK`. `tools/body/extract_clip.py` bakes
@@ -100,9 +103,10 @@ weight-bearing value for a loaded lift), and tell the user.
    a reference the user approves. Never invent a whole-body movement by hand.
    Check several subjects and pick one that moves symmetrically. A lift where
    the body is fixed and only the limbs move (a bench press) can be built from
-   cues, as `pose-press.ts` is. In a press, keep the forearm upright and let the hands
-   arc as the arm's lengths require; the path need not be a perfect straight line.
-   The wrist alone keeps a dumbbell level, and must not drag the arm with it.
+   cues, as `pose-press.ts` is. The arm's lengths decide how far out an upright
+   forearm puts the hand at each height, so a path, an upright forearm and the two
+   ends cannot all be exact. Show the owner the path before posing it. The wrist alone
+   keeps a dumbbell level, and must not drag the arm with it.
 2. Bake it with `prmd_clip.mjs` or `extract_clip.py`. Never publish Mixamo
    files or a whole baked Mixamo clip; keep them in `tools/body/out/`.
 3. Write the exercise's own form rules next to its code, for example where

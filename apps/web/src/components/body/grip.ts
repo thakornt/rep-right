@@ -17,6 +17,8 @@ const FINGER_PRESS = 0.75; // share of a finger's thickness kept outside the obj
 const PINKY_PRESS = 0.3; // the little finger is short, so it presses in further to close on the object
 
 const FINGER_GATHER = 0.88; // fingers close up beside each other, from where the knuckles spread them
+const PINKY_WRAP = 1; // share of its thickness the little finger keeps outside a handle
+const PINKY_FOLD = 25; // degrees further the little finger's last joint folds over a handle
 const FINGERS = ["index", "middle", "ring", "pinky"];
 
 const pos = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
@@ -31,8 +33,16 @@ function point(bone: THREE.Object3D, along: THREE.Vector3, target: THREE.Vector3
 
 export type Grip = ReturnType<typeof readGrip>;
 
+// How a hand holds a dumbbell, agreed with the owner against photos of a real grip.
+// Use this for any dumbbell lift.
+export const DUMBBELL_GRIP = {
+  diagonal: 7, // degrees the handle turns in the palm toward the knuckles' line. More lets the little finger reach, but the wrist bends further sideways to keep the dumbbell level
+  intoPalm: 0.012, // metres the handle sits further from the fingers than they closed, toward the base of the thumb
+  pinkyCup: 0.004, // metres the edge of the palm cups toward the handle, for the little finger to close on it
+};
+
 // Call with the body at rest.
-export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0) {
+export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0, pinkyCup = 0) {
   root.updateMatrixWorld(true);
   const bone = (name: string) => root.getObjectByName(`${name}_${tag}`)!;
   const hand = bone("hand");
@@ -119,17 +129,27 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     posed.push(b);
   };
 
+  const pinkyRest = new THREE.Vector3();
   const fingerSize = thickness("index"); // measured here: its skin stays at rest while the bones move
   const indexW = midW + (knuckle("index").sub(centre).dot(across) - midW) * FINGER_GATHER;
   // Each finger stays in its own plane across the object and wraps around it.
   for (const f of FINGERS) {
     const [b1, b2, b3] = ["01", "02", "03"].map((n) => bone(`${f}_${n}`));
     [b1, b2, b3].forEach(keep);
-    const k = pos(b1).sub(centre);
+    // The little finger is short, so the edge of the palm cups toward the object it
+    // holds, and the finger wraps that object rather than where the others closed.
+    const cupped = f === "pinky" && pinkyCup > 0;
+    if (cupped) {
+      pinkyRest.copy(b1.position);
+      b1.position.copy(hand.worldToLocal(pos(b1).addScaledVector(palmar, pinkyCup)));
+      b1.updateMatrixWorld(true);
+    }
+    const shift = cupped ? ahead.clone().multiplyScalar(-intoPalm) : new THREE.Vector3();
+    const k = pos(b1).sub(centre).sub(shift);
     const u = k.dot(ahead);
     const v = k.dot(palmar);
     const w = midW + (k.dot(across) - midW) * FINGER_GATHER;
-    const r = radius + thickness(f) * (f === "pinky" ? PINKY_PRESS : FINGER_PRESS);
+    const r = radius + thickness(f) * (f === "pinky" ? (cupped ? PINKY_WRAP : PINKY_PRESS) : FINGER_PRESS);
     const l1 = pos(b1).distanceTo(pos(b2));
     const l2 = pos(b2).distanceTo(pos(b3));
     const l3 = Math.max(lastLength(f) - thickness(f) * 0.5, 0.01);
@@ -140,9 +160,16 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     const start = Math.atan2(v, u) + Math.acos(x / r);
     const a2 = start + 2 * Math.asin(Math.min(l2 / (2 * r), 1));
     const a3 = a2 + 2 * Math.asin(Math.min(l3 / (2 * r), 1));
-    point(b1, along(b1, b2), around(w, r, start));
-    point(b2, along(b2, b3), around(w, r, a2));
-    point(b3, pos(b3).sub(pos(b2)), around(w, r, a3));
+    point(b1, along(b1, b2), around(w, r, start).add(shift));
+    point(b2, along(b2, b3), around(w, r, a2).add(shift));
+    point(b3, pos(b3).sub(pos(b2)), around(w, r, a3).add(shift));
+    if (cupped) {
+      // Skin here can't give as a fingertip does, so fold the last joint a little past
+      // the handle's surface, or the tip sticks out.
+      const fold = new THREE.Quaternion().setFromAxisAngle(ahead.clone().cross(palmar).normalize(), (PINKY_FOLD * Math.PI) / 180);
+      b3.quaternion.copy(quat(b3.parent!).invert().multiply(fold).multiply(quat(b3)));
+      b3.updateMatrixWorld(true);
+    }
   }
 
   const b1Rest = new THREE.Vector3();
@@ -185,8 +212,11 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
   const closed = posed.map((b) => ({ bone: b, q: b.quaternion.clone() }));
   const thumbBase = bone("thumb_01");
   const thumbBaseClosed = thumbBase.position.clone();
+  const pinkyBase = bone("pinky_01");
+  const pinkyBaseClosed = pinkyBase.position.clone();
   for (const [b, q] of rest) b.quaternion.copy(q);
   thumbBase.position.copy(b1Rest);
+  if (pinkyCup > 0) pinkyBase.position.copy(pinkyRest);
   root.updateMatrixWorld(true);
 
   const inHand = hand.worldToLocal(centre.clone());
@@ -199,6 +229,7 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     close() {
       for (const { bone: b, q } of closed) b.quaternion.copy(q);
       thumbBase.position.copy(thumbBaseClosed);
+      pinkyBase.position.copy(pinkyBaseClosed);
       hand.updateMatrixWorld(true);
     },
     // Where the fingers closed, as the hand is now.
@@ -207,4 +238,8 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
     held: () => hand.localToWorld(heldInHand.clone()),
     dir: () => axisInHand.clone().applyQuaternion(quat(hand)).normalize(),
   };
+}
+
+export function readDumbbellGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number) {
+  return readGrip(root, skin, tag, radius, DUMBBELL_GRIP.diagonal, DUMBBELL_GRIP.intoPalm, DUMBBELL_GRIP.pinkyCup);
 }

@@ -6,7 +6,7 @@
 import * as THREE from "three";
 
 import { readBody } from "./contact";
-import { readGrip } from "./grip";
+import { readDumbbellGrip } from "./grip";
 import { aim, deg, keepHinge, qx, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 
 const HIP_HEIGHT = 0.5; // metres of the pelvis above the floor, sitting
@@ -15,10 +15,7 @@ const STANCE = 0.25; // metres from the middle to each ankle
 const TOE_OUT = 15; // degrees
 const TOP_REACH = 0.985; // share of the full arm at the top: elbows stay soft
 const WRIST_BACK = 20; // degrees the wrist bends back under the weight
-const ARC_FORWARD = 20; // degrees a forward arc swings at mid-lift
-const HANDLE_TURN = -7; // degrees the hand starts off the forearm's line, before the wrist levels the dumbbell
-const DUMBBELL_INTO_PALM = 0.012; // metres the handle sits further from the fingers than they closed, toward the base of the thumb
-const DUMBBELL_DIAGONAL = 14; // degrees the handle lies along the knuckles, so the little finger reaches it too
+const SQUEEZE_LATE = 4; // the higher, the later in the lift the hands start coming in
 const PALM_TURN = 30; // degrees the palms turn in from facing the feet, easier on the shoulder
 
 // What differs between presses. Angles in degrees, distances in metres.
@@ -34,7 +31,7 @@ export type PressSpec = {
   lowWidth: number; // hands outside the shoulders at the bottom
   lowHeight: number; // wrists above the shoulders at the bottom
   inward: number; // how far the hands come in on the way up
-  arc: "forward" | "out"; // which way the hands' arc bulges at mid-lift, as the forearms stay upright
+  pushOut: number; // how far the hands bow out early in the push, keeping the forearm more upright
   cameraTarget: [number, number, number];
 };
 
@@ -49,10 +46,10 @@ export const INCLINE_PRESS: PressSpec = {
   chestUp: 8,
   lowForward: 0.122,
   highForward: 0.035,
-  lowWidth: 0.15,
+  lowWidth: 0.18,
   lowHeight: 0.1,
-  arc: "forward",
-  inward: 0.06,
+  inward: 0.115,
+  pushOut: 0,
   cameraTarget: [0, 0.72, -0.05],
 };
 
@@ -70,10 +67,10 @@ export const SHOULDER_PRESS: PressSpec = {
   chestUp: 4,
   lowForward: 0.13,
   highForward: 0.02,
-  lowWidth: 0.13,
+  lowWidth: 0.16,
   lowHeight: 0.06,
-  arc: "out",
-  inward: 0.10,
+  inward: 0.11,
+  pushOut: 0.05,
   cameraTarget: [0, 0.88, -0.05],
 };
 
@@ -105,13 +102,12 @@ export type PressRig = PressArms & { body: ReturnType<typeof readBody>; bench: {
 
 function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
   const s = rig[tag];
-  const grip = readGrip(root, rig.skin, tag, DUMBBELL.handleRadius, DUMBBELL_DIAGONAL, DUMBBELL_INTO_PALM);
+  const grip = readDumbbellGrip(root, rig.skin, tag, DUMBBELL.handleRadius);
   const shoulder = worldPos(s.upperarm);
   const elbow = worldPos(s.lowerarm);
   const wrist = worldPos(s.hand);
   const upper = elbow.clone().sub(shoulder);
   const fore = wrist.clone().sub(elbow);
-  const palmNormal = worldPos(s.middle1).sub(wrist).cross(grip.dir()).normalize();
   const thumbSide = worldPos(root.getObjectByName(`index_01_${tag}`)!).sub(worldPos(root.getObjectByName(`pinky_01_${tag}`)!));
   return {
     s,
@@ -125,7 +121,7 @@ function readSide(root: THREE.Object3D, rig: Rig, tag: "l" | "r") {
     // The hand at rest: its length and its thumb side.
     handRest: worldQuat(s.hand),
     // Across it is the way the handle lies in the palm, so the dumbbell comes out level.
-    handFrame: frame(worldPos(s.middle1).sub(wrist).applyAxisAngle(palmNormal, deg(HANDLE_TURN)), grip.dir()),
+    handFrame: frame(worldPos(s.middle1).sub(wrist), grip.dir()),
     footRest: worldQuat(s.foot),
     toesRest: worldQuat(s.ball),
   };
@@ -253,25 +249,10 @@ export function posePress(press: PressArms, depth: number) {
     const thumbs = new THREE.Vector3(-s.sign, 0, 0).applyAxisAngle(UP, -s.sign * deg(PALM_TURN));
 
     const wrist = high.clone().lerp(low, depth);
-    // A forearm is upright when the elbow is under the wrist, and the upper arm's
-    // length decides how far out that is at each height, so the hands arc between
-    // the two ends of the lift rather than running a straight line.
-    {
-      const apart = (p: THREE.Vector3) => Math.hypot(p.x - shoulder.x, p.z - shoulder.z);
-      const need = (p: THREE.Vector3) => Math.sqrt(Math.max(a.upperLen ** 2 - (p.y - shoulder.y - a.foreLen) ** 2, 0));
-      const out = need(wrist) + THREE.MathUtils.lerp(apart(high) - need(high), apart(low) - need(low), depth);
-      if (spec.arc === "out") {
-        // Elbows out: straight from the side, so all the arc shows from the front.
-        const ahead = THREE.MathUtils.lerp(high.z, low.z, depth) - shoulder.z;
-        wrist.x = shoulder.x + s.sign * Math.sqrt(Math.max(out * out - ahead * ahead, 0));
-        wrist.z = shoulder.z + ahead;
-      } else {
-        const aim = (p: THREE.Vector3) => Math.atan2(p.z - shoulder.z, (p.x - shoulder.x) * s.sign);
-        const turn = THREE.MathUtils.lerp(aim(high), aim(low), depth) + deg(ARC_FORWARD) * Math.sin(Math.PI * depth);
-        wrist.x = shoulder.x + s.sign * out * Math.cos(turn);
-        wrist.z = shoulder.z + out * Math.sin(turn);
-      }
-    }
+    // Seen from the front the hands rise nearly straight from a wider bottom, then
+    // curve in to squeeze near the top. Seen from the side they stay straight.
+    wrist.x = high.x + (low.x - high.x) * (1 - (1 - depth) ** SQUEEZE_LATE);
+    wrist.x += s.sign * spec.pushOut * depth * depth * (1 - depth) * 6.75; // peaks two-thirds of the way down
     // The arm stops there. Then only the wrist moves, keeping the dumbbell level.
     solve(wrist);
     const level = a.grip.dir().dot(thumbs) > 0 ? thumbs : thumbs.clone().negate();
