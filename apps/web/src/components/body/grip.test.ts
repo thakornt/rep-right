@@ -11,6 +11,7 @@ import { loadBody } from "./load-body";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, type Rig } from "./pose";
 import { DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { poseDumbbellSquat, readDumbbellSquatRig } from "./pose-dumbbell-squat";
+import { posePulldown, readPulldownRig } from "./pose-pulldown";
 import { poseRaise, readRaiseRig } from "./pose-raise";
 import { NO_FAULTS } from "./squat";
 
@@ -47,7 +48,7 @@ function skinOf(body: Body, names: string[]) {
   return out;
 }
 
-function check(root: THREE.Object3D, body: Body, rig: Rig, grip: Grip, tag: "l" | "r", held: Held) {
+function check(root: THREE.Object3D, body: Body, rig: Rig, grip: Grip, tag: "l" | "r", held: Held, closedThumb = true) {
   const problems: string[] = [];
   const dist = (p: THREE.Vector3) => {
     const w = p.clone().sub(held.at);
@@ -64,13 +65,16 @@ function check(root: THREE.Object3D, body: Body, rig: Rig, grip: Grip, tag: "l" 
       if (gap > FINGER_REACH) problems.push(`${tag} ${f} ${n} joint ${(gap * 100).toFixed(1)} cm off`);
     }
   }
-  const thumb = dist(worldPos(root.getObjectByName(`thumb_03_${tag}`)!)) - held.radius;
-  if (thumb > THUMB_REACH) problems.push(`${tag} thumb ${(thumb * 100).toFixed(1)} cm off`);
+  // A thumbless grip's thumb has its own test, in lat-pulldown-anatomy.test.ts.
+  if (closedThumb) {
+    const thumb = dist(worldPos(root.getObjectByName(`thumb_03_${tag}`)!)) - held.radius;
+    if (thumb > THUMB_REACH) problems.push(`${tag} thumb ${(thumb * 100).toFixed(1)} cm off`);
 
-  const index = skinOf(body, [`index_02_${tag}`, `index_03_${tag}`]);
-  let onIndex = Infinity;
-  for (const p of skinOf(body, [`thumb_03_${tag}`])) for (const q of index) onIndex = Math.min(onIndex, p.distanceTo(q));
-  if (onIndex > THUMB_ON_INDEX) problems.push(`${tag} thumb ${(onIndex * 100).toFixed(1)} cm off the index finger`);
+    const index = skinOf(body, [`index_02_${tag}`, `index_03_${tag}`]);
+    let onIndex = Infinity;
+    for (const p of skinOf(body, [`thumb_03_${tag}`])) for (const q of index) onIndex = Math.min(onIndex, p.distanceTo(q));
+    if (onIndex > THUMB_ON_INDEX) problems.push(`${tag} thumb ${(onIndex * 100).toFixed(1)} cm off the index finger`);
+  }
 
   const part = tag === "l" ? "armL" : "armR";
   const wrist = worldPos(rig[tag].hand);
@@ -95,6 +99,18 @@ describe("the bar", () => {
     const j = pose(rig, depth, NO_FAULTS);
     const held = { at: j.bar, dir: j.barDir, radius: BAR_RADIUS };
     expect([...check(root, body, rig, rig.l.grip, "l", held), ...check(root, body, rig, rig.r.grip, "r", held)].join("; ")).toBe("");
+  });
+});
+
+describe("the bar, lat pulldown", () => {
+  test.each(DEPTHS)("rests in both hands, depth %s", { timeout: SLOW }, async (depth) => {
+    const root = await loadBody();
+    const pull = readPulldownRig(root);
+    const body = readBody(root);
+    const g = posePulldown(pull, depth);
+    const held = { at: g.bar, dir: new THREE.Vector3(1, 0, 0), radius: BAR_RADIUS };
+    const problems = (["l", "r"] as const).flatMap((tag) => check(root, body, pull.rig, pull[tag].grip, tag, held, false));
+    expect(problems.join("; ")).toBe("");
   });
 });
 

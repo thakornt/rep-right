@@ -93,10 +93,10 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
           }`}
         >
           {alternate && arm}
-          {phase === "down" ? "กำลังลง" : content.rising} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
+          {phase === "down" ? (content.lowering ?? "กำลังลง") : content.rising} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
         </div>
         {exercise === "hammer" && (
-          <div role="group" aria-label="รูปแบบการยก" className="absolute top-3 right-3 flex rounded-full bg-bg/80 p-1">
+          <div role="group" aria-label="รูปแบบการยก" className="absolute top-3 right-3 flex flex-col gap-1 rounded-3xl bg-bg/80 p-1">
             {(
               [
                 [false, "ยกพร้อมกัน"],

@@ -6,7 +6,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
+import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
 
@@ -189,13 +189,28 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         totalEmissiveRadiance += mapTint * 0.16;`,
       );
   };
+  const paint = (i: number, color: THREE.Color, amount: number) => {
+    tints[i].set(color.r, color.g, color.b);
+    amounts[i] = amount;
+  };
+  let teresOwn = false; // this lift calls on the teres itself
   return {
     mat,
-    clear: () => amounts.fill(0),
+    clear: () => {
+      amounts.fill(0);
+      teresOwn = false;
+    },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
-      tints[i].set(color.r, color.g, color.b);
-      amounts[i] = amount;
+      paint(i, color, amount);
+      if (i === REGION_IDS.teres) {
+        teresOwn = true;
+        paint(TERES_OVER_LATS, color, amount);
+      } else if (!teresOwn && i === REGION_IDS.upper_back) {
+        paint(REGION_IDS.teres, color, amount);
+      } else if (!teresOwn && i === REGION_IDS.lats) {
+        paint(TERES_OVER_LATS, color, amount);
+      }
     },
   };
 }

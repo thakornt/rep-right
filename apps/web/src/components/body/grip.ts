@@ -16,6 +16,15 @@ const THUMB_PAST_INDEX = 0.014; // metres the thumb's tip crosses over from the 
 const FINGER_PRESS = 0.75; // share of a finger's thickness kept outside the object: a tight fist presses the skin
 const PINKY_PRESS = 0.3; // the little finger is short, so it presses in further to close on the object
 
+// A thumbless grip, from the owner's reference photo: the thumb stays on the fingers' side
+// of the object and doesn't wrap it. Its last joint sits low behind the object, not reaching
+// up over it, and the last bone leans along the object, so only the tip shows above.
+const THUMBLESS_BESIDE = 1.5; // thumb thicknesses plus finger thicknesses from the index finger's middle to the thumb's
+const THUMBLESS_JOINT_AROUND = -65; // degrees around the object from straight past the knuckles, where the thumb's last joint sits
+const THUMBLESS_LEAN_ALONG = 10; // degrees the last bone leans along the object, from straight past the knuckles
+const THUMBLESS_OUT = 1.2; // how far the first two joints sit out from the index, against how far behind the object
+const THUMBLESS_LAST_FOLD = 47; // degrees the last bone folds in toward the object, from straight past the knuckles
+
 const FINGER_GATHER = 0.88; // fingers close up beside each other, from where the knuckles spread them
 const PINKY_WRAP = 1; // share of its thickness the little finger keeps outside a handle
 const PINKY_FOLD = 25; // degrees further the little finger's last joint folds over a handle
@@ -42,7 +51,7 @@ export const DUMBBELL_GRIP = {
 };
 
 // Call with the body at rest.
-export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0, pinkyCup = 0) {
+export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l" | "r", radius: number, diagonal = 0, intoPalm = 0, pinkyCup = 0, thumbless = false) {
   root.updateMatrixWorld(true);
   const bone = (name: string) => root.getObjectByName(`${name}_${tag}`)!;
   const hand = bone("hand");
@@ -173,9 +182,36 @@ export function readGrip(root: THREE.Object3D, skin: THREE.SkinnedMesh, tag: "l"
   }
 
   const b1Rest = new THREE.Vector3();
-  // In a fist the thumb's first joint comes up beside the object, and the rest of
-  // the thumb lies across the first fingers, not reaching up from below.
-  {
+  if (thumbless) {
+    const [b1, b2, b3] = ["01", "02", "03"].map((n) => bone(`thumb_${n}`));
+    [b1, b2, b3].forEach(keep);
+    b1Rest.copy(b1.position);
+    const thumbSize = thickness("thumb");
+    const l1 = pos(b1).distanceTo(pos(b2));
+    const l2 = pos(b2).distanceTo(pos(b3));
+    // The base stays where it is: this thumb isn't closing across the palm.
+    const base = pos(b1);
+    const w = indexW + (thumbSize + fingerSize) * THUMBLESS_BESIDE;
+    const r = radius + thumbSize; // resting on the object, not pressed into it
+    const deg = THREE.MathUtils.degToRad;
+    const joint = around(w, r, deg(THUMBLESS_JOINT_AROUND));
+    // Its middle joint bends out behind the object, on the palm's side, so the thumb passes it.
+    const span = joint.clone().sub(base);
+    const reach = Math.min(span.length(), l1 + l2 - 0.001);
+    span.normalize();
+    const along = (l1 * l1 - l2 * l2 + reach * reach) / (2 * reach);
+    const side = palmar.clone().negate().addScaledVector(across, THUMBLESS_OUT);
+    side.addScaledVector(span, -side.dot(span)).normalize();
+    const first = base.clone().addScaledVector(span, along).addScaledVector(side, Math.sqrt(Math.max(l1 * l1 - along * along, 0)));
+    point(b1, pos(b2).sub(pos(b1)), first);
+    point(b2, pos(b3).sub(pos(b2)), base.clone().addScaledVector(span, reach));
+    const lean = deg(THUMBLESS_LEAN_ALONG);
+    const fold = deg(THUMBLESS_LAST_FOLD);
+    const last = ahead.clone().multiplyScalar(Math.cos(lean)).addScaledVector(across, Math.sin(lean)).normalize().multiplyScalar(Math.cos(fold)).addScaledVector(palmar, Math.sin(fold));
+    point(b3, pos(b3).sub(pos(b2)), pos(b3).add(last));
+  } else {
+    // In a fist the thumb's first joint comes up beside the object, and the rest of
+    // the thumb lies across the first fingers, not reaching up from below.
     const [b1, b2, b3] = ["01", "02", "03"].map((n) => bone(`thumb_${n}`));
     [b1, b2, b3].forEach(keep);
     const thumbSize = thickness("thumb");

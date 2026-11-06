@@ -5,11 +5,25 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "pulldown") {
+    // Here the work is on the way down, and hardest with the bar coming into the chest.
+    const pull = phase === "down" ? 1 : 0.8;
+    return [
+      { region: "lats", role: "prime", amount: (0.45 + 0.55 * depth) * pull },
+      { region: "teres", role: "prime", amount: (0.45 + 0.55 * depth) * pull }, // the owner's call: done right, this lift should reach it
+      { region: "upper_back", role: "synergist", amount: (0.3 + 0.5 * depth) * pull }, // the shoulder blades coming down and back
+      { region: "biceps", role: "synergist", amount: (0.25 + 0.5 * depth) * pull },
+      { region: "delt_rear", role: "synergist", amount: (0.2 + 0.4 * depth) * pull },
+      { region: "forearms", role: "stabilizer", amount: 0.25 }, // the thumbless grip asks less of them
+      { region: "abs", role: "stabilizer", amount: 0.35 },
+      { region: "erectors", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "squat") {
     // The legs work hardest deep down; the weight hangs, so the back and grip just hold on.
     return [
@@ -86,8 +100,26 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
 
 export const PRESS_CONTENT: Record<
   PressExercise,
-  { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; notice: string[] }
+  { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  pulldown: {
+    cues: {
+      feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น ไม่มีช่องว่าง ช่วงล่างที่นิ่งช่วยให้ดึงได้เต็มแรง",
+      back: "ตอนบนตัวเกือบตรงและยืดให้สุด แล้วเอนหลังไปพร้อมกับการดึง อกยกขึ้น ไม่เหวี่ยงตัวเพื่อใช้น้ำหนักตัวช่วยดึง",
+      elbow: "พับศอกมาข้างหน้าแล้วกดลง ให้ปลายแขนอยู่ใกล้แนวสายเคเบิล ไม่แทงศอกไปข้างหลัง",
+      dumbbell: "จับกว้างกว่าไหล่ นิ้วโป้งอยู่ฝั่งเดียวกับนิ้วอื่น แค่แตะบาร์แล้วชี้ขึ้น ไม่ต้องโอบ ช่วยลดการใช้แขนท่อนล่าง แต่ต้องจับให้มั่นคงเสมอ",
+      core: "เกร็งท้องเบา ๆ ดึงบาร์ลงมาหาไหปลาร้าหรืออกส่วนบน แล้วปล่อยขึ้นช้า ๆ อย่าให้บาร์ดีดขึ้น",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "ดึงลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังดึงลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือและระยะที่ดึงลงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงลงเท่าที่ไหล่ยังสบายและอกยังยกอยู่ ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   incline: {
     cues: {
       feet: "เท้าทั้งฝ่าวางบนพื้นให้มั่นคง ลำตัวไม่ขยับระหว่างยก",

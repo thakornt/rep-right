@@ -6,7 +6,7 @@ import zlib from "node:zlib";
 
 import { expect, test } from "vitest";
 
-import { REGION_COUNT, REGION_IDS } from "./muscles";
+import { REGION_COUNT, REGION_IDS, TERES_OVER_LATS } from "./muscles";
 
 const CLOTH_STEP = 32; // the upper bits say shorts or shoes
 
@@ -38,6 +38,8 @@ test("the map holds every region the app can colour, and no other", () => {
     expect(counts.get(id) ?? 0, name).toBeGreaterThan(1000);
     expect(id).toBeLessThan(REGION_COUNT);
   }
-  const known = new Set<number>([0, ...Object.values(REGION_IDS)]);
+  expect(counts.get(TERES_OVER_LATS) ?? 0).toBeGreaterThan(1000);
+  expect(TERES_OVER_LATS).toBeLessThan(REGION_COUNT);
+  const known = new Set<number>([0, ...Object.values(REGION_IDS), TERES_OVER_LATS]);
   expect([...counts.keys()].filter((id) => !known.has(id))).toEqual([]);
 });
