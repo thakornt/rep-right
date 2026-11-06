@@ -11,7 +11,7 @@ import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
 import { BAR_RADIUS, worldPos } from "./pose";
-import { LAT_PULLDOWN, posePulldown, pulldownDepthAt, pulldownTimeAt, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
+import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
 const THROUGH = 0.01;
@@ -216,25 +216,6 @@ describe("lat pulldown", () => {
       // And each comes down all the way, without rising on the way.
       for (let i = 1; i < path.length; i++) expect(path[i].y).toBeLessThan(path[i - 1].y + 0.001);
     }
-  });
-
-  test("the rep goes down quickly and up slowly, as measured", () => {
-    const period = 3.6;
-    expect(pulldownDepthAt(0, period)).toBeCloseTo(0, 5);
-    let peak = 0;
-    let peakAt = 0;
-    for (let i = 0; i <= 360; i++) {
-      const d = pulldownDepthAt((i / 360) * period, period);
-      if (d > peak) {
-        peak = d;
-        peakAt = i / 360;
-      }
-    }
-    expect(peak).toBeCloseTo(1, 3);
-    expect(peakAt).toBeLessThan(0.35);
-    expect(pulldownDepthAt(period * 0.999, period)).toBeLessThan(0.01);
-    // Picking up from the slider lands at that depth, on the way down.
-    for (const d of [0.2, 0.5, 0.8]) expect(pulldownDepthAt(pulldownTimeAt(d, period), period)).toBeCloseTo(d, 5);
   });
 
   test("the elbow comes forward through the middle of the lift, then presses down", () => {

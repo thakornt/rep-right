@@ -6,9 +6,11 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
+import { shortenPalms } from "./body-proportions";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
+import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 export const MODEL = "/models/body.glb";
 const MUSCLE_MAP = "/models/muscles.png";
@@ -119,6 +121,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
+  const triceps = { value: new THREE.Vector2() }; // metres each arm's triceps gathers: left, right
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
@@ -129,20 +132,24 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     shader.uniforms.uAmt = { value: amounts };
     shader.uniforms.uMuscleMap = { value: map };
     shader.uniforms.uBiceps = biceps;
+    shader.uniforms.uTriceps = triceps;
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
         `#include <common>
         attribute float aBiceps;
+        attribute vec2 aTriceps;
         uniform vec2 uBiceps;
+        uniform vec2 uTriceps;
         varying vec2 vMapUv;`,
       )
       .replace(
         "#include <begin_vertex>",
         `#include <begin_vertex>
-        // Before skinning, so the swelling rides with the arm. Lifts without it have no
-        // aBiceps on the mesh, which reads as 0.
+        // Before skinning, so the swelling rides with the arm. Lifts without them have no
+        // aBiceps or aTriceps on the mesh, which read as 0.
         transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
+        transformed += normal * dot(aTriceps, uTriceps);
         vMapUv = uv;`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -201,6 +208,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
       teresOwn = false;
     },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
+    setTriceps: (left: number, right: number) => triceps.value.set(left, right),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
       if (i === REGION_IDS.teres) {
@@ -243,7 +251,10 @@ export const PLAY_SECONDS = 3.6;
 // body as its rest pose.
 export function useBody() {
   const { scene } = useGLTF(MODEL);
-  return useMemo(() => cloneSkinned(scene), [scene]);
+  return useMemo(() => {
+    shortenPalms(scene);
+    return cloneSkinned(scene);
+  }, [scene]);
 }
 
 function Squatter({ state, onPinMove, onFrame }: Props) {
@@ -282,9 +293,9 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     let depth = s.depth;
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
-      if (!c.wasPlaying) c.t = (Math.acos(1 - 2 * c.depth) / (Math.PI * 2)) * PLAY_SECONDS;
+      if (!c.wasPlaying) c.t = repTimeAt(c.depth, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
       c.t += dt;
-      depth = (1 - Math.cos((c.t / PLAY_SECONDS) * Math.PI * 2)) / 2;
+      depth = repDepthAt(c.t, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
     }
     c.wasPlaying = s.playing;
     if (depth > c.depth + 1e-4) c.phase = "down";

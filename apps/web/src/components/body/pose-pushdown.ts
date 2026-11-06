@@ -8,12 +8,13 @@
 // photo: the wrist comes in under the shoulder seen from the front, a little ahead of it seen from
 // the side so the fist clears the thigh, with the arm in one nearly straight line. The forearms turn the palms toward the floor and the wrists bend well back, so the
 // hands point forward. The elbow turns out by the upper arm turning in about that line, which doesn't
-// move the wrist or spread the arms. The shoulder blades stay put. The rope hangs straight from the
+// move the wrist or spread the arms. The triceps shortens, so its belly gathers: fuller in the
+// middle and slimmer toward the elbow, not simply bigger. The shoulder blades stay put. The rope hangs straight from the
 // pulley to the knot and on to the hands.
 
 import * as THREE from "three";
 
-import { deg, qx, readRig, rotateWorld, setWorldPos, worldPos, type Rig } from "./pose";
+import { deg, qx, readRig, rotateWorld, setWorldPos, worldPos, worldQuat, type Rig } from "./pose";
 import { holdArm, standFeet } from "./pose-curl";
 import { readSide, type PressSide } from "./pose-press";
 
@@ -33,8 +34,11 @@ export const ROPE_PUSHDOWN = {
   wristBack: 55, // degrees the wrists bend back at the very bottom, from the owner's photo, inside their range of 70
   squeezeFrom: 0.2, // share of the way down where the wrist starts to come in and the elbow to turn out: early, so it stays smooth
   armOutBottom: 2.5, // degrees the arm's line is out from plumb at the very bottom, bringing the wrist under the shoulder from the front
-  armForwardBottom: 2.5, // degrees it is forward of plumb then: the wrist about 5 cm ahead of the shoulder from the side, as near as the thigh allows
+  armForwardBottom: 3.5, // degrees it is forward of plumb then: the wrist about 5 cm ahead of the shoulder from the side, as near as the thigh allows
   elbowOutBottom: 50, // degrees the point of the elbow faces out from straight back at the very bottom; it holds at the turnIn angle before the squeeze
+  tricepsGather: 0.007, // metres the belly of the triceps stands out, pressed down: a little, as the owner asked
+  tricepsSlim: 0.5, // how far the part near the elbow draws in, against how far the belly stands out: the muscle shortens, it doesn't grow
+  tricepsFrom: 0.35, // share of the way down where it starts to gather
   stance: 0.13, // metres from the middle to each ankle
   toeOut: 8, // degrees
   pulleyHeight: 2.05, // metres above the floor, read off the cable's line in the video
@@ -51,23 +55,64 @@ export const ROPE_PUSHDOWN = {
 export type PushdownRig = { rig: Rig; l: PressSide; r: PressSide; hips: THREE.Vector3 };
 
 const X = new THREE.Vector3(1, 0, 0);
+const BELLY_START = 0.12; // share of the upper arm, from the shoulder, where the belly of the triceps starts
+const BELLY_END = 0.72; // and ends
+const NEAR_ELBOW_END = 1.02; // and where the slimmer part near the elbow ends
+const MIN_WEIGHT = 0.01; // below this a vertex stays still
 
 // Call once with the body at rest.
 export function readPushdownRig(root: THREE.Object3D): PushdownRig {
   const rig = readRig(root);
-  return { rig, l: readSide(root, rig, "l"), r: readSide(root, rig, "r"), hips: worldPos(rig.pelvis) };
+  const l = readSide(root, rig, "l");
+  const r = readSide(root, rig, "r");
+  readTriceps(rig, [l, r]);
+  return { rig, l, r, hips: worldPos(rig.pelvis) };
 }
+
+// How each vertex moves as the triceps gathers: out along the skin's normal over the belly, in
+// near the elbow, and nothing on the front of the arm. Kept on the mesh as the attribute aTriceps,
+// one number for each arm, which the body material multiplies by how far it has gathered.
+function readTriceps(rig: Rig, sides: PressSide[]) {
+  const { skin } = rig;
+  for (const [b, rest] of rig.rest) {
+    b.quaternion.copy(rest.q);
+    b.position.copy(rest.p);
+  }
+  rig.pelvis.parent!.updateMatrixWorld(true);
+  skin.skeleton.update();
+  const { skinIndex, skinWeight, position } = skin.geometry.attributes;
+  const bones = skin.skeleton.bones;
+  const limbs = sides.map((a) => {
+    const shoulder = worldPos(a.s.upperarm);
+    const along = worldPos(a.s.lowerarm).sub(shoulder).normalize();
+    const hinge = a.hinge.clone().applyQuaternion(worldQuat(a.s.upperarm));
+    return { bone: bones.indexOf(a.s.upperarm as THREE.Bone), shoulder, along, back: hinge.clone().cross(along).normalize(), length: a.upperLen };
+  });
+  const at = new Float32Array(position.count * 2);
+  const p = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    limbs.forEach((limb, side) => {
+      let share = 0;
+      for (let k = 0; k < 4; k++) if (skinIndex.getComponent(i, k) === limb.bone) share += skinWeight.getComponent(i, k);
+      if (share === 0) return;
+      skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld).sub(limb.shoulder);
+      const t = p.dot(limb.along) / limb.length;
+      const out = p.addScaledVector(limb.along, -p.dot(limb.along)).normalize().dot(limb.back);
+      if (out <= 0) return;
+      const belly = t > BELLY_START && t < BELLY_END ? Math.sin((Math.PI * (t - BELLY_START)) / (BELLY_END - BELLY_START)) ** 2 : 0;
+      const slim = t >= BELLY_END && t < NEAR_ELBOW_END ? Math.sin((Math.PI * (t - BELLY_END)) / (NEAR_ELBOW_END - BELLY_END)) ** 2 : 0;
+      const w = (belly - ROPE_PUSHDOWN.tricepsSlim * slim) * out ** 2 * share;
+      if (Math.abs(w) > MIN_WEIGHT) at[i * 2 + side] = w;
+    });
+  }
+  skin.geometry.setAttribute("aTriceps", new THREE.BufferAttribute(at, 2));
+  return at;
+}
+
+// Metres the belly of the triceps stands out at this depth of the lift.
+export const tricepsGather = (depth: number) => ROPE_PUSHDOWN.tricepsGather * THREE.MathUtils.smoothstep(depth, ROPE_PUSHDOWN.tricepsFrom, 1);
 
 export const pushdownPulley = () => new THREE.Vector3(0, ROPE_PUSHDOWN.pulleyHeight, ROPE_PUSHDOWN.pulleyAhead);
-
-// The rep's timing, as measured: down in about a third of it, up slowly. Depth at this time,
-// and the time on the way down at a depth, to pick up from the slider.
-const DOWN_SHARE = 0.36;
-export function pushdownDepthAt(seconds: number, period: number) {
-  const u = (((seconds % period) + period) % period) / period;
-  return u < DOWN_SHARE ? (1 - Math.cos((Math.PI * u) / DOWN_SHARE)) / 2 : (1 + Math.cos((Math.PI * (u - DOWN_SHARE)) / (1 - DOWN_SHARE))) / 2;
-}
-export const pushdownTimeAt = (depth: number, period: number) => (Math.acos(1 - 2 * depth) / Math.PI) * DOWN_SHARE * period;
 
 // Depth 0 = hands up at the chest, 1 = pressed down, as with the other lifts.
 export function posePushdown(push: PushdownRig, depth: number) {

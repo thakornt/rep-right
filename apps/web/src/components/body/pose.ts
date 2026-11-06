@@ -293,7 +293,7 @@ const BAR_DROP = 0.5; // 0 = bar where the clip's hands are, 1 = on the upper ba
 const WRIST_STRAIGHTEN = 0.85; // 0 = the clip's wrist angle, 1 = in line with the forearm
 const STANCE_DROP_UNTIL = 0.25; // depth by which the hips no longer sit lower for the stance
 const PELVIS_TILT = 26; // degrees forward the pelvis holds in a deep squat; more and the hip passes its range at the bottom
-const PELVIS_HOLD_FROM = 0.35; // depth where the pelvis starts to ease onto that tilt
+const PELVIS_HOLD_FROM = 0.3; // depth where the pelvis starts to ease onto that tilt
 const PELVIS_HOLD_FULL = 0.5; // depth where it is on it
 const TRUNK_LEAN_FROM = 0.4; // depth where the trunk starts to follow its set curve
 const TRUNK_LEAN_START = 27.6; // degrees it leans there

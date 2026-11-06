@@ -15,12 +15,12 @@ import { frame, readSide, turnTo, type PressSide } from "./pose-press";
 export const LAT_PULLDOWN = {
   gripHalf: 0.33, // metres from the middle of the bar to each fist: wider than the shoulders, not so wide the forearms leave the line of the cable
   gripDiagonal: -4, // degrees the bar turns in the palm, centring how far the wrist bends sideways through the lift
-  barTop: 1.565, // metres above the floor at the top: the arms nearly straight
+  barTop: 1.545, // metres above the floor at the top: the arms nearly straight
   barBottom: 0.98, // metres above the floor at the bottom: the collarbones. A little lower than the video by its look, but this body's arm can't fold further
   barAheadTop: 0.23, // metres the bar sits in front of the shoulders at the top, as measured
   barAheadBottom: 0.21, // and at the bottom: measured 0.19, but this body's chest needs the room
   barAheadMiddle: 0.025, // metres further through the middle, inside the measure's error, keeping the forearm near the cable
-  pulleyAhead: 0.22, // metres the pulley sits in front of the hips: the cable is near upright at the top, slanting about 12 degrees at the bottom, as measured
+  pulleyAhead: 0.235, // metres the pulley sits in front of the hips: the cable is near upright at the top, slanting about 12 degrees at the bottom, as measured
   leanTop: 3, // degrees the trunk leans back at the top, as measured
   leanBottom: 28, // and at the bottom, as measured; it grows evenly with the bar's height
   chestUp: 6, // degrees the upper back lifts the chest
@@ -106,15 +106,6 @@ export function readPulldownRig(root: THREE.Object3D): PulldownRig {
 }
 
 export const pulleyAt = () => new THREE.Vector3(0, LAT_PULLDOWN.pulleyHeight, LAT_PULLDOWN.pulleyAhead);
-
-// The rep's timing, as measured: down quickly, up slowly. Depth at this time, and the time
-// on the way down at a depth, to pick up from the slider.
-const DOWN_SHARE = 0.29;
-export function pulldownDepthAt(seconds: number, period: number) {
-  const u = (((seconds % period) + period) % period) / period;
-  return u < DOWN_SHARE ? (1 - Math.cos((Math.PI * u) / DOWN_SHARE)) / 2 : (1 + Math.cos((Math.PI * (u - DOWN_SHARE)) / (1 - DOWN_SHARE))) / 2;
-}
-export const pulldownTimeAt = (depth: number, period: number) => (Math.acos(1 - 2 * depth) / Math.PI) * DOWN_SHARE * period;
 
 export function posePulldown(pull: PulldownRig, depth: number) {
   const { rig } = pull;

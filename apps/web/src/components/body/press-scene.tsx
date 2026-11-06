@@ -9,12 +9,13 @@ import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { BAR_RADIUS, worldPos, worldQuat, type Rig } from "./pose";
 import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig, type CurlSide } from "./pose-curl";
 import { DUMBBELL_SQUAT, poseDumbbellSquat, readDumbbellSquatRig } from "./pose-dumbbell-squat";
-import { LAT_PULLDOWN, posePulldown, pulldownDepthAt, pulldownTimeAt, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
+import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
-import { posePushdown, pushdownDepthAt, pushdownPulley, pushdownTimeAt, readPushdownRig, ROPE_PUSHDOWN } from "./pose-pushdown";
+import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather } from "./pose-pushdown";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
+import { DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 // Alternating, depth is the moving arm's, `side`, and the other arm waits down.
 export type PressState = { depth: number; playing: boolean; alternate: boolean; side: CurlSide };
@@ -29,11 +30,6 @@ type Props = {
 
 const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN, pushdown: ROPE_PUSHDOWN };
 const REACH: Partial<Record<PressExercise, number>> = { raise: LATERAL_RAISE.cameraReach, pulldown: LAT_PULLDOWN.cameraReach, pushdown: ROPE_PUSHDOWN.cameraReach };
-// The lifts measured off a video keep that rep's timing: its depth at a time, and the time on the way down at a depth.
-const TIMING: Partial<Record<PressExercise, { depthAt: (seconds: number, period: number) => number; timeAt: (depth: number, period: number) => number }>> = {
-  pulldown: { depthAt: pulldownDepthAt, timeAt: pulldownTimeAt },
-  pushdown: { depthAt: pushdownDepthAt, timeAt: pushdownTimeAt },
-};
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
 
@@ -43,6 +39,7 @@ type Lift = {
   rig: Rig;
   pose: (left: number, right: number) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3 };
   biceps: (depth: number) => number;
+  triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
   rope?: boolean;
@@ -67,7 +64,7 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
   }
   if (exercise === "pushdown") {
     const push = readPushdownRig(root);
-    return { rig: push.rig, pose: (depth: number) => posePushdown(push, depth), biceps: () => 0, bench: null, rope: true };
+    return { rig: push.rig, pose: (depth: number) => posePushdown(push, depth), biceps: () => 0, triceps: tricepsGather, bench: null, rope: true };
   }
   const press = readPressRig(root, SPECS[exercise]);
   return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
@@ -334,13 +331,12 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   useFrame(({ camera, size }, dt) => {
     const s = state.current;
     const c = clock.current;
-    const timing = TIMING[exercise];
     let depth = s.depth;
     if (!s.playing) c.side = s.side;
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
       if (!c.wasPlaying || c.wasAlternate !== s.alternate) {
-        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : timing ? timing.timeAt(c.depth, PLAY_SECONDS) : (Math.acos(1 - 2 * c.depth) / (Math.PI * 2)) * PLAY_SECONDS;
+        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : repTimeAt(c.depth, PLAY_SECONDS, DOWN_SHARE[exercise]);
       }
       c.t += dt;
       if (s.alternate) {
@@ -348,7 +344,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         depth = at.depth;
         c.side = at.side;
       } else {
-        depth = timing ? timing.depthAt(c.t, PLAY_SECONDS) : (1 - Math.cos((c.t / PLAY_SECONDS) * Math.PI * 2)) / 2;
+        depth = repDepthAt(c.t, PLAY_SECONDS, DOWN_SHARE[exercise]);
       }
     }
     c.wasPlaying = s.playing;
@@ -361,6 +357,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const depthR = s.alternate && c.side === "l" ? 1 : depth;
     const g = lift.pose(depthL, depthR);
     body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
+    body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);

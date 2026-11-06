@@ -12,7 +12,7 @@ import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
-import { posePushdown, pushdownDepthAt, pushdownPulley, pushdownTimeAt, readPushdownRig, ROPE_PUSHDOWN, type PushdownRig } from "./pose-pushdown";
+import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather, type PushdownRig } from "./pose-pushdown";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
 const THROUGH = 0.01;
@@ -34,6 +34,8 @@ const MAX_SHOULDER_TURN = 30; // degrees the shoulder joint turns through the li
 const MIN_SHOULDER_TURN = 20; // and at least this, so it shows
 const MAX_ROTATION_STEP = 2; // degrees it may turn per 1% of the lift: smoothly
 const MAX_STEP = 0.012; // metres a hand may move per 1% of the lift: no swings
+const MAX_TRICEPS_GATHER = 0.01; // metres the belly of the triceps may stand out: a little, as the owner asked
+const MIN_GATHERING_VERTICES = 50; // vertices it moves on each arm, so it shows at all
 const MAX_ROPE_STRETCH = 0.001; // metres the strands may change length
 const MAX_ELBOW_OFF_SHOULDER = 0.03; // metres the elbow may be ahead of or behind the shoulder: most is 2.5, around 80% of the way down, as it turns out
 const MIN_FLARE_TURN = 30; // degrees the palms turn toward the floor near the bottom, as the owner asked
@@ -187,6 +189,36 @@ describe("rope pushdown", () => {
     expect(-left()["wrist.flexion"]).toBeGreaterThan(MIN_WRIST_BACK);
   });
 
+  test("the triceps gathers as it shortens: nothing stretched, a little pressed down, the belly out and the part near the elbow in", () => {
+    expect(tricepsGather(0)).toBe(0);
+    let last = 0;
+    for (let i = 1; i <= 100; i++) {
+      const now = tricepsGather(i / 100);
+      expect(now).toBeGreaterThanOrEqual(last);
+      last = now;
+    }
+    expect(last).toBeCloseTo(ROPE_PUSHDOWN.tricepsGather, 6);
+    expect(last).toBeLessThan(MAX_TRICEPS_GATHER);
+
+    const at = push.rig.skin.geometry.getAttribute("aTriceps");
+    const g = push.rig.skin.geometry.attributes.position;
+    expect(at.count).toBe(g.count);
+    for (const read of [(i: number) => at.getX(i), (i: number) => at.getY(i)]) {
+      let out = 0;
+      let inward = 0;
+      for (let i = 0; i < at.count; i++) {
+        const w = read(i);
+        expect(Math.abs(w)).toBeLessThanOrEqual(1);
+        if (w > 0) out++;
+        if (w < 0) inward++;
+      }
+      expect(out).toBeGreaterThan(MIN_GATHERING_VERTICES);
+      expect(inward).toBeGreaterThan(0);
+    }
+    // Each vertex belongs to one arm.
+    for (let i = 0; i < at.count; i++) expect(Math.abs(at.getX(i) * at.getY(i))).toBe(0);
+  });
+
   test("the body holds one position: the trunk at its lean, hips and feet still", () => {
     const { rig } = push;
     posePushdown(push, 0);
@@ -255,26 +287,6 @@ describe("rope pushdown", () => {
     }
     // The hand comes down all the way, without rising on the way.
     for (let i = 1; i < paths.hand.length; i++) expect(paths.hand[i].y).toBeLessThan(paths.hand[i - 1].y + 0.001);
-  });
-
-  test("the rep goes down in about a third of the time and up slowly, as measured", () => {
-    const period = 3.6;
-    expect(pushdownDepthAt(0, period)).toBeCloseTo(0, 5);
-    let peak = 0;
-    let peakAt = 0;
-    for (let i = 0; i <= 360; i++) {
-      const d = pushdownDepthAt((i / 360) * period, period);
-      if (d > peak) {
-        peak = d;
-        peakAt = i / 360;
-      }
-    }
-    expect(peak).toBeCloseTo(1, 3);
-    expect(peakAt).toBeGreaterThan(0.3);
-    expect(peakAt).toBeLessThan(0.42);
-    expect(pushdownDepthAt(period * 0.999, period)).toBeLessThan(0.01);
-    // Picking up from the slider lands at that depth, on the way down.
-    for (const d of [0.2, 0.5, 0.8]) expect(pushdownDepthAt(pushdownTimeAt(d, period), period)).toBeCloseTo(d, 5);
   });
 
   test("it moves smoothly and evenly, and both sides match", () => {

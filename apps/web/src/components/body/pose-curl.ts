@@ -8,6 +8,7 @@ import * as THREE from "three";
 
 import { aim, deg, keepHinge, readRig, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 import { frame, readSide, turnTo, type PressSide } from "./pose-press";
+import { fromBottomDepthAt, fromBottomTimeAt } from "./tempo";
 
 export const HAMMER_CURL = {
   armOut: 13, // degrees the whole arm hangs away from the trunk, in one straight line, leaving room for the dumbbell beside the thigh
@@ -157,16 +158,16 @@ export function poseCurl(curl: CurlRig, depth: number, depthR = depth) {
 
 export type CurlSide = "l" | "r";
 
-// Alternating: one arm does a whole rep, from down to the top and back, while the other
-// waits down; then they swap. `rep` is the seconds one rep takes.
+// Alternating: one arm does a whole rep, quickly from down to the top and slowly back, while
+// the other waits down; then they swap. `rep` is the seconds one rep takes.
 export function alternateAt(seconds: number, rep: number): { side: CurlSide; depth: number } {
   const cycle = ((seconds % (2 * rep)) + 2 * rep) % (2 * rep);
   const side = cycle < rep ? "l" : "r";
   const into = side === "l" ? cycle : cycle - rep;
-  return { side, depth: into === 0 ? 1 : (1 + Math.cos((into / rep) * Math.PI * 2)) / 2 };
+  return { side, depth: into === 0 ? 1 : fromBottomDepthAt(into / rep) };
 }
 
 // Where in that cycle this arm is at this depth, on its way up.
 export function alternateTime(depth: number, side: CurlSide, rep: number) {
-  return (Math.acos(2 * depth - 1) / (Math.PI * 2)) * rep + (side === "l" ? 0 : rep);
+  return fromBottomTimeAt(depth) * rep + (side === "l" ? 0 : rep);
 }
