@@ -83,6 +83,38 @@ export function bicepsBulge(depth: number) {
   return most * THREE.MathUtils.smoothstep(highBend + (lowBend - highBend) * depth, bicepsFrom, bicepsFull);
 }
 
+// Feet flat on the floor this far from the middle, which softens the knees a little.
+export function standFeet(a: PressSide, stance: number, toeOut: number) {
+  const s = a.s;
+  const ankle = new THREE.Vector3(s.sign * stance, s.ankle.y, s.ankle.z);
+  const yaw = new THREE.Quaternion().setFromAxisAngle(UP, s.sign * deg(toeOut));
+  twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, ankle, FRONT.clone().applyQuaternion(yaw));
+  keepHinge(s, ankle);
+  setWorldQuat(s.foot, yaw.clone().multiply(a.footRest));
+  setWorldQuat(s.ball, yaw.clone().multiply(a.toesRest));
+}
+
+// One arm, the wrist straight and the hand closed on its dumbbell: the upper arm
+// pointing along `upper` with the elbow's hinge along `hinge`, and the forearm bent
+// this far from `straight`, its direction with the elbow unbent. The thumb side stays
+// on the side the forearm swings toward, unless `thumbsToward` asks the forearm to
+// turn it elsewhere.
+export function holdArm(a: PressSide, upper: THREE.Vector3, hinge: THREE.Vector3, straight: THREE.Vector3, bend: number, thumbsToward?: THREE.Vector3) {
+  const s = a.s;
+  aim(s.upperarm, s.lowerarm, worldPos(s.upperarm).addScaledVector(upper, a.upperLen));
+  turnTo(s.upperarm, a.hinge, upper, hinge);
+  const swing = hinge.clone().addScaledVector(straight, -hinge.dot(straight)).normalize();
+  const fore = straight.clone().applyAxisAngle(swing, -deg(bend));
+  aim(s.lowerarm, s.hand, worldPos(s.lowerarm).addScaledVector(fore, a.foreLen));
+
+  // The thumb side stays square to the forearm.
+  const thumbs = thumbsToward ? thumbsToward.clone().addScaledVector(fore, -thumbsToward.dot(fore)).normalize() : fore.clone().cross(swing).normalize();
+  turnTo(s.lowerarm, a.radial, fore, thumbs);
+  setWorldQuat(s.hand, frame(fore, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest));
+  a.grip.close();
+  return { grip: a.grip.held(), handle: a.grip.dir() };
+}
+
 // Pose both arms with the elbows bent this far, and the upper arms this far forward.
 // The right arm matches the left unless given its own.
 export function poseCurlArms(curl: CurlRig, bendL: number, forwardL: number, bendR = bendL, forwardR = forwardL) {
@@ -97,34 +129,15 @@ export function poseCurlArms(curl: CurlRig, bendL: number, forwardL: number, ben
     const s = a.s;
     const bend = side === 0 ? bendL : bendR;
     const forward = side === 0 ? forwardL : forwardR;
-    // Feet about hip width, flat on the floor, which softens the knees a little.
-    const ankle = new THREE.Vector3(s.sign * HAMMER_CURL.stance, s.ankle.y, s.ankle.z);
-    const yaw = new THREE.Quaternion().setFromAxisAngle(UP, s.sign * deg(HAMMER_CURL.toeOut));
-    twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, ankle, FRONT.clone().applyQuaternion(yaw));
-    keepHinge(s, ankle);
-    setWorldQuat(s.foot, yaw.clone().multiply(a.footRest));
-    setWorldQuat(s.ball, yaw.clone().multiply(a.toesRest));
+    standFeet(a, HAMMER_CURL.stance, HAMMER_CURL.toeOut);
 
-    const shoulder = worldPos(s.upperarm);
     const upper = new THREE.Vector3(s.sign * Math.sin(deg(HAMMER_CURL.armOut)), -Math.cos(deg(HAMMER_CURL.armOut)), 0);
     upper.applyAxisAngle(X, -deg(forward));
-    aim(s.upperarm, s.lowerarm, shoulder.clone().addScaledVector(upper, a.upperLen));
     // The elbow's hinge runs across the body, whatever the upper arm does.
     const hinge = X.clone().addScaledVector(upper, -X.dot(upper)).normalize();
-    turnTo(s.upperarm, a.hinge, upper, hinge);
     // Straight, the forearm angles out; bending, it swings in front and back in toward the shoulder.
     const straight = upper.clone().applyAxisAngle(FRONT, s.sign * deg(HAMMER_CURL.carrying));
-    const swing = hinge.clone().addScaledVector(straight, -hinge.dot(straight)).normalize();
-    const fore = straight.applyAxisAngle(swing, -deg(bend));
-    aim(s.lowerarm, s.hand, worldPos(s.lowerarm).addScaledVector(fore, a.foreLen));
-
-    // Palm facing in: the thumb side stays square to the forearm, on the side the
-    // forearm swings toward. The wrist stays straight.
-    const thumbs = fore.clone().cross(swing).normalize();
-    turnTo(s.lowerarm, a.radial, fore, thumbs);
-    setWorldQuat(s.hand, frame(fore, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest));
-    a.grip.close();
-    return { grip: a.grip.held(), handle: a.grip.dir() };
+    return holdArm(a, upper, hinge, straight, bend);
   });
   return { l: out[0], r: out[1] };
 }

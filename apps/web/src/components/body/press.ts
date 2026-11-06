@@ -5,11 +5,26 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "raise") {
+    // Hardest at the top, with the arm level and the weight furthest out from the shoulder.
+    const load = Math.sin(((1 - depth) * Math.PI) / 2);
+    return [
+      { region: "delt_side", role: "prime", amount: (0.4 + 0.6 * load) * effort },
+      { region: "delt_front", role: "synergist", amount: (0.25 + 0.4 * load) * effort },
+      { region: "upper_back", role: "synergist", amount: (0.25 + 0.45 * load) * effort }, // rotating the shoulder blades up
+      { region: "delt_rear", role: "stabilizer", amount: 0.3 },
+      { region: "forearms", role: "stabilizer", amount: 0.4 },
+      { region: "abs", role: "stabilizer", amount: 0.35 },
+      { region: "erectors", role: "stabilizer", amount: 0.5 }, // holding the lean
+      { region: "glutes", role: "stabilizer", amount: 0.3 },
+      { region: "hamstrings", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "hammer") {
     // Hardest with the forearm level, when the weight pulls straight across it.
     const hold = Math.sin(Math.PI * Math.min(1, depth * 1.1));
@@ -90,6 +105,23 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ยกเท่าที่ศอกยังอยู่ข้างลำตัวและข้อมือยังตรง ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ข้อมือ หรือไหล่ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  raise: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงเต็มเท้า ตัวไม่โยกเพื่อช่วยยก",
+      back: "ถอยก้นไปข้างหลังแล้วโน้มลำตัวมาข้างหน้าเล็กน้อย หลังตรง ไหล่ลงไม่ยักขึ้นหาหู ค้างท่านี้ไว้ตลอดเซ็ต",
+      elbow: "งอศอกเล็กน้อยและคงมุมนี้ไว้ ให้ศอกขึ้นนำปลายแขน ยกออกข้างเยื้องมาทางหน้าเล็กน้อย จนศอกสูงประมาณระดับไหล่",
+      dumbbell: "มืออยู่ต่ำกว่าศอกเล็กน้อยตลอดทาง ฝ่ามือหันลงพื้นตอนอยู่ด้านบน ข้อมือตรง",
+      core: "เกร็งท้องเบา ๆ ให้ลำตัวนิ่งในท่าโน้ม ถ้าต้องเหวี่ยงตัวช่วย แปลว่าน้ำหนักอาจมากไป",
+    },
+    top: "ยกขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังยกขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ยกได้สบายจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ยกเท่าที่ไหล่ยังไม่ยักขึ้น ศอกยังนำมือ และตัวยังนิ่ง ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   shoulder: {

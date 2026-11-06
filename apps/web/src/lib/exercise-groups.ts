@@ -36,6 +36,7 @@ export const SLUGS_WITH_3D = new Set([
   "incline-dumbbell-press",
   "seated-dumbbell-shoulder-press",
   "hammer-curl",
+  "dumbbell-lateral-raise",
 ]);
 
 // Muscle groups by body region, for the home page.
