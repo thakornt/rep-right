@@ -54,6 +54,7 @@ export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues })
       {slug === "rope-triceps-pushdown" && <PressViewer exercise="pushdown" />}
       {slug === "push-up" && <PressViewer exercise="pushup" />}
       {slug === "overhead-dumbbell-triceps-extension" && <OverheadViewer />}
+      {slug === "crunch" && <PressViewer exercise="crunch" />}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-medium tracking-wide text-faint">จุดสำคัญของฟอร์ม</h2>

@@ -41,6 +41,7 @@ export const SLUGS_WITH_3D = new Set([
   "rope-triceps-pushdown",
   "push-up",
   "overhead-dumbbell-triceps-extension",
+  "crunch",
 ]);
 
 // Muscle groups by body region, for the home page.
