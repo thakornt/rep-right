@@ -9,11 +9,13 @@ import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { BAR_RADIUS, worldPos, worldQuat, type Rig } from "./pose";
 import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig, type CurlSide } from "./pose-curl";
 import { DUMBBELL_SQUAT, poseDumbbellSquat, readDumbbellSquatRig } from "./pose-dumbbell-squat";
-import { LAT_PULLDOWN, posePulldown, pulldownDepthAt, pulldownTimeAt, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
+import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
+import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather } from "./pose-pushdown";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
+import { DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 // Alternating, depth is the moving arm's, `side`, and the other arm waits down.
 export type PressState = { depth: number; playing: boolean; alternate: boolean; side: CurlSide };
@@ -26,19 +28,21 @@ type Props = {
   onFrame: (depth: number, phase: Phase, side: CurlSide) => void;
 };
 
-const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN };
-const REACH: Partial<Record<PressExercise, number>> = { raise: LATERAL_RAISE.cameraReach, pulldown: LAT_PULLDOWN.cameraReach };
+const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN, pushdown: ROPE_PUSHDOWN };
+const REACH: Partial<Record<PressExercise, number>> = { raise: LATERAL_RAISE.cameraReach, pulldown: LAT_PULLDOWN.cameraReach, pushdown: ROPE_PUSHDOWN.cameraReach };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
 
 // The rig, how it moves, and the bench if the lift has one.
-type Held = { grip: THREE.Vector3; handle: THREE.Vector3 };
+type Held = { grip: THREE.Vector3; handle: THREE.Vector3; enter?: THREE.Vector3; end?: THREE.Vector3 };
 type Lift = {
   rig: Rig;
-  pose: (left: number, right: number) => { l: Held; r: Held; bar?: THREE.Vector3 };
+  pose: (left: number, right: number) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3 };
   biceps: (depth: number) => number;
+  triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
+  rope?: boolean;
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
@@ -57,6 +61,10 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
   if (exercise === "pulldown") {
     const pull = readPulldownRig(root);
     return { rig: pull.rig, pose: (depth: number) => posePulldown(pull, depth), biceps: () => 0, bench: null, machine: pull };
+  }
+  if (exercise === "pushdown") {
+    const push = readPushdownRig(root);
+    return { rig: push.rig, pose: (depth: number) => posePushdown(push, depth), biceps: () => 0, triceps: tricepsGather, bench: null, rope: true };
   }
   const press = readPressRig(root, SPECS[exercise]);
   return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
@@ -216,6 +224,80 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
   );
 }
 
+// Lay a unit-long cylinder from one point to another.
+function span(mesh: THREE.Object3D | null | undefined, from: THREE.Vector3, to: THREE.Vector3) {
+  if (!mesh) return;
+  const run = to.clone().sub(from);
+  mesh.position.copy(from).addScaledVector(run, 0.5);
+  mesh.scale.set(1, run.length(), 1);
+  mesh.quaternion.setFromUnitVectors(ALONG_CABLE, run.normalize());
+}
+
+// A cable tower with its rope. A real one's column stands in front of the lifter, which would
+// hide the body, so two uprights stand wide of it with the pulley on a beam between them, as on
+// a functional trainer. The cable, knot and two strands move.
+function CableTower({ rope }: { rope: React.RefObject<THREE.Group | null> }) {
+  const frameMat = <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />;
+  const ropeMat = <meshStandardMaterial color="#14191b" roughness={0.9} />;
+  const { pulleyHeight, pulleyAhead, ropeRadius, stopperRadius } = ROPE_PUSHDOWN;
+  const WIDE = 0.95; // metres from the middle to each upright: wide enough to stay out of the 45 degree view
+  const BEHIND = 0.14; // metres the uprights stand beyond the pulley
+  const z = pulleyAhead + BEHIND;
+  const unit = <cylinderGeometry args={[ropeRadius, ropeRadius, 1, 10]} />;
+  return (
+    <group>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * WIDE, (pulleyHeight + 0.1) / 2, z]}>
+          <boxGeometry args={[0.08, pulleyHeight + 0.1, 0.08]} />
+          {frameMat}
+        </mesh>
+      ))}
+      <mesh position={[0, 0.025, z]}>
+        <boxGeometry args={[WIDE * 2, 0.05, 0.08]} />
+        {frameMat}
+      </mesh>
+      <mesh position={[0, pulleyHeight + 0.06, z]}>
+        <boxGeometry args={[WIDE * 2, 0.08, 0.08]} />
+        {frameMat}
+      </mesh>
+      <mesh position={[0, pulleyHeight + 0.06, pulleyAhead + BEHIND / 2]}>
+        <boxGeometry args={[0.08, 0.08, BEHIND]} />
+        {frameMat}
+      </mesh>
+      <mesh position={[0, pulleyHeight, pulleyAhead]} rotation-z={Math.PI / 2}>
+        <cylinderGeometry args={[0.035, 0.035, 0.03, 20]} />
+        {frameMat}
+      </mesh>
+      <group ref={rope}>
+        <mesh name="cable">
+          <cylinderGeometry args={[0.004, 0.004, 1, 8]} />
+          <meshStandardMaterial color="#c8ced1" metalness={0.6} roughness={0.4} />
+        </mesh>
+        <mesh name="clip">
+          <sphereGeometry args={[0.022, 12, 10]} />
+          <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {[0, 1].map((i) => (
+          <group key={i}>
+            <mesh name={`strand${i}`}>
+              {unit}
+              {ropeMat}
+            </mesh>
+            <mesh name={`through${i}`}>
+              {unit}
+              {ropeMat}
+            </mesh>
+            <mesh name={`stopper${i}`}>
+              <sphereGeometry args={[stopperRadius, 12, 10]} />
+              {ropeMat}
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+}
+
 function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const scene = useBody();
   const muscleMap = useMuscleMap();
@@ -235,6 +317,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const right = useRef<THREE.Group>(null);
   const barRef = useRef<THREE.Group>(null);
   const cableRef = useRef<THREE.Mesh>(null);
+  const ropeRef = useRef<THREE.Group>(null);
   const clock = useRef({ t: 0, depth: 0, wasPlaying: false, wasAlternate: false, lastReport: 0, phase: "down" as Phase, side: "l" as CurlSide });
   const colors = useMemo(
     () => ({
@@ -253,7 +336,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
       if (!c.wasPlaying || c.wasAlternate !== s.alternate) {
-        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : exercise === "pulldown" ? pulldownTimeAt(c.depth, PLAY_SECONDS) : (Math.acos(1 - 2 * c.depth) / (Math.PI * 2)) * PLAY_SECONDS;
+        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : repTimeAt(c.depth, PLAY_SECONDS, DOWN_SHARE[exercise]);
       }
       c.t += dt;
       if (s.alternate) {
@@ -261,7 +344,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         depth = at.depth;
         c.side = at.side;
       } else {
-        depth = exercise === "pulldown" ? pulldownDepthAt(c.t, PLAY_SECONDS) : (1 - Math.cos((c.t / PLAY_SECONDS) * Math.PI * 2)) / 2;
+        depth = repDepthAt(c.t, PLAY_SECONDS, DOWN_SHARE[exercise]);
       }
     }
     c.wasPlaying = s.playing;
@@ -274,6 +357,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const depthR = s.alternate && c.side === "l" ? 1 : depth;
     const g = lift.pose(depthL, depthR);
     body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
+    body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
@@ -285,6 +369,16 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       cableRef.current?.position.copy(g.bar).addScaledVector(run, 0.5);
       cableRef.current?.scale.set(1, run.length(), 1);
       cableRef.current?.quaternion.setFromUnitVectors(ALONG_CABLE, run.normalize());
+    }
+    if (g.knot) {
+      const part = (name: string) => ropeRef.current?.getObjectByName(name);
+      span(part("cable"), g.knot, pushdownPulley());
+      part("clip")?.position.copy(g.knot);
+      [g.l, g.r].forEach((hand, i) => {
+        span(part(`strand${i}`), g.knot!, hand.enter!);
+        span(part(`through${i}`), hand.enter!, hand.end!);
+        part(`stopper${i}`)?.position.copy(hand.end!);
+      });
     }
 
     body.clear();
@@ -300,7 +394,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
       elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
-      dumbbell: g.l.grip.clone().add(exercise === "raise" || exercise === "squat" || exercise === "pulldown" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand with the arms out: outside it would leave the frame
+      dumbbell: g.l.grip.clone().add(exercise === "raise" || exercise === "squat" || exercise === "pulldown" || exercise === "pushdown" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand with the arms out: outside it would leave the frame
       core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
     const facing: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
@@ -328,7 +422,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     <group>
       <primitive object={scene} />
       {lift.bench && <Bench layout={lift.bench} />}
-      {lift.machine ? (
+      {lift.rope ? (
+        <CableTower rope={ropeRef} />
+      ) : lift.machine ? (
         <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} />
       ) : (
         <>

@@ -11,6 +11,7 @@ import { DUMBBELL_GRIP } from "./grip";
 import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
 import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, poseCurlArms, readCurlRig, type CurlRig } from "./pose-curl";
+import { DOWN_SHARE } from "./tempo";
 import { DUMBBELL } from "./pose-press";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but real overlap
@@ -181,16 +182,17 @@ describe("dumbbell hammer curl", () => {
 
   test("alternating, one arm finishes its rep while the other waits down", () => {
     const T = 3;
+    const up = 1 - DOWN_SHARE.hammer; // the quick way up
     // The left arm's rep: from down, to the top, back down, with the right arm waiting.
     expect(alternateAt(0, T)).toEqual({ side: "l", depth: 1 });
-    expect(alternateAt(T / 2, T).side).toBe("l");
-    expect(alternateAt(T / 2, T).depth).toBeCloseTo(0, 5);
+    expect(alternateAt(T * up, T).side).toBe("l");
+    expect(alternateAt(T * up, T).depth).toBeCloseTo(0, 5);
     expect(alternateAt(T * 0.99, T).side).toBe("l");
     expect(alternateAt(T * 0.99, T).depth).toBeGreaterThan(0.99);
     // Only then the right arm's.
     expect(alternateAt(T, T)).toEqual({ side: "r", depth: 1 });
-    expect(alternateAt(T * 1.5, T).side).toBe("r");
-    expect(alternateAt(T * 1.5, T).depth).toBeCloseTo(0, 5);
+    expect(alternateAt(T * (1 + up), T).side).toBe("r");
+    expect(alternateAt(T * (1 + up), T).depth).toBeCloseTo(0, 5);
     expect(alternateAt(T * 2, T)).toEqual({ side: "l", depth: 1 });
     // Picking up from the slider lands on the same arm, on its way up.
     for (const side of ["l", "r"] as const) {

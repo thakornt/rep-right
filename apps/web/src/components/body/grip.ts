@@ -9,7 +9,7 @@ const SKIN_GIVE = 0.002; // metres the palm presses in where it holds the object
 const THUMB_JOINT_AROUND = 125; // degrees around the object from straight past the knuckles, where the thumb's last joint sits
 const THUMB_TIP_AROUND = 112; // and its tip, lying across the fingers
 const THUMB_JOINT_BESIDE = 0.009; // metres the last joint sits to the thumb side of the index finger
-const THUMB_ON_FINGERS = 0.8; // share of the thumb's thickness between its centre and the fingers' skin
+const THUMB_ON_FINGERS = 0.7; // share of the thumb's thickness between its centre and the fingers' skin
 const THUMB_BASE_AHEAD = 0.012; // metres the thumb's base moves toward the fingers in a fist
 const THUMB_BASE_OUT = 0.01; // and out of the palm
 const THUMB_PAST_INDEX = 0.014; // metres the thumb's tip crosses over from the index finger toward the middle
@@ -20,10 +20,10 @@ const PINKY_PRESS = 0.3; // the little finger is short, so it presses in further
 // of the object and doesn't wrap it. Its last joint sits low behind the object, not reaching
 // up over it, and the last bone leans along the object, so only the tip shows above.
 const THUMBLESS_BESIDE = 1.5; // thumb thicknesses plus finger thicknesses from the index finger's middle to the thumb's
-const THUMBLESS_JOINT_AROUND = -65; // degrees around the object from straight past the knuckles, where the thumb's last joint sits
+const THUMBLESS_JOINT_AROUND = -50; // degrees around the object from straight past the knuckles, where the thumb's last joint sits
 const THUMBLESS_LEAN_ALONG = 10; // degrees the last bone leans along the object, from straight past the knuckles
 const THUMBLESS_OUT = 1.2; // how far the first two joints sit out from the index, against how far behind the object
-const THUMBLESS_LAST_FOLD = 47; // degrees the last bone folds in toward the object, from straight past the knuckles
+const THUMBLESS_LAST_FOLD = 37; // degrees the last bone folds in toward the object, from straight past the knuckles
 
 const FINGER_GATHER = 0.88; // fingers close up beside each other, from where the knuckles spread them
 const PINKY_WRAP = 1; // share of its thickness the little finger keeps outside a handle

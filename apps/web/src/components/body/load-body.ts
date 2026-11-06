@@ -6,8 +6,13 @@ import path from "node:path";
 import type * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+import { shortenPalms } from "./body-proportions";
+
 export function loadBody(): Promise<THREE.Object3D> {
   const buf = fs.readFileSync(path.join(__dirname, "../../../public/models/body.glb"));
   const data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-  return new Promise((resolve, reject) => new GLTFLoader().parse(data, "", (g) => resolve(g.scene), reject));
+  return new Promise((resolve, reject) => new GLTFLoader().parse(data, "", (g) => {
+    shortenPalms(g.scene);
+    resolve(g.scene);
+  }, reject));
 }

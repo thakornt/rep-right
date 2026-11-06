@@ -12,6 +12,7 @@ import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, type Rig } from "./pos
 import { DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { poseDumbbellSquat, readDumbbellSquatRig } from "./pose-dumbbell-squat";
 import { posePulldown, readPulldownRig } from "./pose-pulldown";
+import { posePushdown, readPushdownRig, ROPE_PUSHDOWN } from "./pose-pushdown";
 import { poseRaise, readRaiseRig } from "./pose-raise";
 import { NO_FAULTS } from "./squat";
 
@@ -110,6 +111,19 @@ describe("the bar, lat pulldown", () => {
     const g = posePulldown(pull, depth);
     const held = { at: g.bar, dir: new THREE.Vector3(1, 0, 0), radius: BAR_RADIUS };
     const problems = (["l", "r"] as const).flatMap((tag) => check(root, body, pull.rig, pull[tag].grip, tag, held, false));
+    expect(problems.join("; ")).toBe("");
+  });
+});
+
+describe("the rope, rope pushdown", () => {
+  test.each(DEPTHS)("rests in the fists, depth %s", { timeout: SLOW }, async (depth) => {
+    const root = await loadBody();
+    const push = readPushdownRig(root);
+    const body = readBody(root);
+    const g = posePushdown(push, depth);
+    const problems = (["l", "r"] as const).flatMap((tag) =>
+      check(root, body, push.rig, push[tag].grip, tag, { at: g[tag].grip, dir: g[tag].handle, radius: ROPE_PUSHDOWN.ropeRadius }),
+    );
     expect(problems.join("; ")).toBe("");
   });
 });
