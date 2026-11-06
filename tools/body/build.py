@@ -51,7 +51,15 @@ MUSCLES = {
     "chest_lower": 17,
     "delt_side": 18,
     "delt_rear": 19,
+    "teres": 20,
+    "teres_over_lats": 21,  # the teres where it lies over lats; follows lats in lifts that don't call on it
 }
+
+# The teres on the back, from the shoulder blade's lower corner up and out to the back of
+# the armpit: an ellipse, in |x| and height at rest.
+TERES_FROM = (0.09, 1.17)
+TERES_TO = (0.19, 1.31)
+TERES_HALF_WIDTH = 0.04
 
 MAP_SIZE = 2048  # region ids are hard edges; at 1024 a shallow hem shows the pixel steps
 RELIEF_SIZE = 1024
@@ -374,6 +382,16 @@ def paint_map(mesh, muscle, bases, limbs):
     region[cap & ((a > 130) | (a < -130))] = m["delt_rear"]
     # Across the back of the shoulder, a line rather than the border between bones.
     region[np.isin(base, ["upperarm", "clavicle"]) & (nor[:, 1] > 0) & (x < 0.15) & (z > 1.24)] = m["upper_back"]
+
+    # Teres: an ellipse over the lower corner of the upper back and the top of lats.
+    middle_x, middle_z = (TERES_FROM[0] + TERES_TO[0]) / 2, (TERES_FROM[1] + TERES_TO[1]) / 2
+    run_x, run_z = TERES_TO[0] - TERES_FROM[0], TERES_TO[1] - TERES_FROM[1]
+    run = np.hypot(run_x, run_z)
+    along = ((x - middle_x) * run_x + (z - middle_z) * run_z) / run / (run / 2)
+    across = (-(x - middle_x) * run_z + (z - middle_z) * run_x) / run / TERES_HALF_WIDTH
+    teres = (along**2 + across**2 <= 1) & (nor[:, 1] > -0.2)
+    region[teres & (region == m["lats"])] = m["teres_over_lats"]
+    region[teres & (region == m["upper_back"])] = m["teres"]
 
     image = np.zeros((MAP_SIZE, MAP_SIZE), np.uint8)
     inside = (px >= 0) & (px < MAP_SIZE) & (py >= 0) & (py < MAP_SIZE)
