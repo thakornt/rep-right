@@ -84,11 +84,14 @@ export function bicepsBulge(depth: number) {
 }
 
 // Feet flat on the floor this far from the middle, which softens the knees a little.
-export function standFeet(a: PressSide, stance: number, toeOut: number) {
+// `kneeOut` is degrees the knee is aimed outside the toes' line, to bring a deeply bent
+// knee over the toes when the hips sit between the feet.
+export function standFeet(a: PressSide, stance: number, toeOut: number, kneeOut = 0) {
   const s = a.s;
   const ankle = new THREE.Vector3(s.sign * stance, s.ankle.y, s.ankle.z);
   const yaw = new THREE.Quaternion().setFromAxisAngle(UP, s.sign * deg(toeOut));
-  twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, ankle, FRONT.clone().applyQuaternion(yaw));
+  const aimKnee = FRONT.clone().applyAxisAngle(UP, s.sign * deg(toeOut + kneeOut));
+  twoBoneIK(s.thigh, s.calf, s.foot, s.thighLen, s.shinLen, ankle, aimKnee);
   keepHinge(s, ankle);
   setWorldQuat(s.foot, yaw.clone().multiply(a.footRest));
   setWorldQuat(s.ball, yaw.clone().multiply(a.toesRest));

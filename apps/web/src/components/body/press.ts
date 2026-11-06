@@ -5,11 +5,26 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "squat") {
+    // The legs work hardest deep down; the weight hangs, so the back and grip just hold on.
+    return [
+      { region: "quads", role: "prime", amount: (0.35 + 0.65 * depth) * effort },
+      { region: "glutes", role: "prime", amount: (0.2 + 0.8 * depth * depth) * effort },
+      { region: "adductors", role: "synergist", amount: (0.15 + 0.75 * depth) * effort },
+      { region: "hamstrings", role: "synergist", amount: 0.15 + 0.3 * depth },
+      { region: "calves", role: "stabilizer", amount: 0.35 },
+      { region: "erectors", role: "stabilizer", amount: 0.35 + 0.2 * depth },
+      { region: "abs", role: "stabilizer", amount: 0.45 },
+      { region: "obliques", role: "stabilizer", amount: 0.35 },
+      { region: "upper_back", role: "stabilizer", amount: 0.5 }, // holding the shoulders down under the weight
+      { region: "forearms", role: "stabilizer", amount: 0.5 }, // the grip
+    ];
+  }
   if (exercise === "raise") {
     // Hardest at the top, with the arm level and the weight furthest out from the shoulder.
     const load = Math.sin(((1 - depth) * Math.PI) / 2);
@@ -105,6 +120,23 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ยกเท่าที่ศอกยังอยู่ข้างลำตัวและข้อมือยังตรง ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ข้อมือ หรือไหล่ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  squat: {
+    cues: {
+      feet: "เท้ากว้างประมาณช่วงไหล่ ปลายเท้าเปิดออกเล็กน้อย ส้นเท้าติดพื้นตลอด เข่าชี้ตามปลายเท้า ไม่บีบเข้าใน",
+      back: "หลังตรง อกผาย มองไปข้างหน้า โน้มลำตัวลงเล็กน้อยตอนนั่ง ไม่ปล่อยหลังงอ",
+      elbow: "ปล่อยแขนห้อยสบาย ๆ เหมือนตะขอเกี่ยวดัมเบล ไม่ต้องงอศอกหรือยกช่วย",
+      dumbbell: "ฝ่ามือหันเข้าหาลำตัว ดัมเบลขึ้นลงเป็นเส้นตรงข้างขา ลงจนสะโพกต่ำกว่าเข่าเล็กน้อย หรือเท่าที่หลังยังตรงและส้นเท้ายังติดพื้น",
+      core: "เกร็งท้องก่อนลง แล้วดันพื้นขึ้นทั้งฝ่าเท้าจนยืนตรง",
+    },
+    top: "ยืนขึ้นสุด",
+    bottom: "นั่งลงสุด",
+    rising: "กำลังลุกขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างเท้าและความลึกจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ลงลึกเท่าที่หลังยังตรงและส้นเท้ายังติดพื้น ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า สะโพก หรือหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   raise: {
