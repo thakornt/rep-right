@@ -39,6 +39,7 @@ export const SLUGS_WITH_3D = new Set([
   "dumbbell-lateral-raise",
   "dumbbell-squat",
   "lat-pulldown",
+  "rope-triceps-pushdown",
 ]);
 
 // Muscle groups by body region, for the home page.

@@ -5,11 +5,23 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "pushdown") {
+    // Here the work is on the way down, hardest pressing the arm straight.
+    const press = phase === "down" ? 1 : 0.8;
+    return [
+      { region: "triceps", role: "prime", amount: (0.55 + 0.45 * depth) * press },
+      { region: "forearms", role: "stabilizer", amount: 0.4 }, // the grip on the rope
+      { region: "lats", role: "stabilizer", amount: 0.3 }, // holding the upper arm still by the ribs
+      { region: "delt_rear", role: "stabilizer", amount: 0.2 },
+      { region: "abs", role: "stabilizer", amount: 0.4 }, // holding the trunk still under the pull
+      { region: "erectors", role: "stabilizer", amount: 0.25 },
+    ];
+  }
   if (exercise === "pulldown") {
     // Here the work is on the way down, and hardest with the bar coming into the chest.
     const pull = phase === "down" ? 1 : 0.8;
@@ -102,6 +114,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  pushdown: {
+    cues: {
+      feet: "ยืนหันหน้าเข้าหาเครื่อง เท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงเต็มเท้า",
+      back: "โน้มลำตัวมาข้างหน้าเล็กน้อย หลังตรง ไหล่ลงไม่ยักขึ้นหาหู ค้างท่านี้ไว้ตลอดเซ็ต ไม่ใช้น้ำหนักตัวกด",
+      elbow: "ต้นแขนห้อยนิ่ง ศอกอยู่ใต้ไหล่เป็นจุดหมุน ไม่ขยับไปหน้าหรือหลัง กดลงจนแขนเกือบเหยียดเป็นแนวเดียวจากไหล่ถึงข้อมือ แบบควบคุม ไม่กระแทกศอก ให้ข้อมืออยู่ใต้ไหล่ แขนไม่กางออก แล้วบิดให้ศอกหันออกนอกลำตัวเล็กน้อย",
+      dumbbell: "กำเชือกเหนือปลายเชือก นิ้วโป้งอยู่ด้านบน ตอนใกล้กดลงสุดให้คว่ำมือและหงายข้อมือขึ้นเยอะ ๆ เท่าที่ข้อมือยังสบาย เพื่อบีบหลังแขนอีกนิด ตอนขึ้นให้มือกลับมาชิดกันระดับอก",
+      core: "เกร็งท้องเบา ๆ ให้ลำตัวนิ่ง กดลงให้เร็วกว่าตอนขึ้น แล้วปล่อยขึ้นช้า ๆ โดยศอกอยู่ที่เดิม",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "กดลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังกดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่มือขึ้นถึงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ปล่อยขึ้นเท่าที่ศอกยังอยู่ที่เดิม ถ้าศอกเริ่มเลื่อนไปข้างหน้า ตรงนั้นคือจุดที่ควรหยุดขึ้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ข้อมือ หรือไหล่ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   pulldown: {
     cues: {
       feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น ไม่มีช่องว่าง ช่วงล่างที่นิ่งช่วยให้ดึงได้เต็มแรง",
