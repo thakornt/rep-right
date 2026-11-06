@@ -1,7 +1,8 @@
 // Floor crunch. The body lies on its back, knees bent and feet flat. The hips and the lower back
 // stay down, and the spine curls from the top: the upper back does most of it, so the shoulder
 // blades come off the floor while the lower back doesn't. The neck follows only a little, and
-// the fingertips rest beside the head, elbows out, so the hands don't pull on it.
+// the fingertips rest lightly on the temples, palms toward the face and the elbows open 45 degrees
+// forward of the body, as the owner asked, so the hands don't pull on it.
 
 import * as THREE from "three";
 
@@ -18,13 +19,14 @@ export const CRUNCH = {
   kneeAhead: 0.47, // metres the ankles sit toward the feet from the hips
   stance: 0.13, // metres from the middle to each ankle
   toeOut: 4, // degrees
-  wristBeside: 0.22, // metres the wrist sits to the side of the neck
-  wristAlong: 0.05, // metres past the neck, toward the top of the head
-  wristFront: 0.02, // metres to the face's side of the neck
-  tipBeside: 0.06, // metres the fingertips sit to the side of the neck: on the side of the head
-  tipAlong: 0.15, // metres past the neck
-  tipFront: 0.02, // metres to the face's side of the neck
-  fingerCurl: 16, // degrees each finger joint bends: relaxed, not a fist
+  wristBeside: 0.2, // metres the wrist sits to the side of the neck
+  wristAlong: 0.06, // metres past the neck, toward the top of the head
+  wristFront: 0.09, // metres to the face's side of the neck
+  tipBeside: 0.128, // metres to the side of the neck the hand aims: the palm stands off the head and only the fingertips reach it, from the owner's photo
+  tipAlong: 0.2, // metres past the neck
+  tipFront: 0.1, // metres to the face's side of the neck
+  elbowForward: 45, // degrees the elbow opens forward of straight out to the side, as the owner asked
+  fingerCurl: 10, // degrees each finger joint bends: nearly straight, as in the owner's photo
   matTop: 0.012, // metres the mat's top sits above the floor
   matWidth: 0.7, // metres
   matLength: 1.9, // metres
@@ -108,14 +110,15 @@ export function poseCrunch(crunch: CrunchRig, depth: number) {
     const length = reach.length();
     const line = reach.clone().normalize();
     const toElbow = (a.upperLen ** 2 - a.foreLen ** 2 + length ** 2) / (2 * length);
-    const faces = X.clone().multiplyScalar(s.sign);
+    const faces = X.clone().multiplyScalar(s.sign * Math.cos(deg(P.elbowForward))).addScaledVector(facing, Math.sin(deg(P.elbowForward)));
     faces.addScaledVector(line, -faces.dot(line)).normalize();
     const elbow = line.clone().multiplyScalar(toElbow).addScaledVector(faces, Math.sqrt(a.upperLen ** 2 - toElbow ** 2));
     const upper = elbow.clone().normalize();
     const fore = reach.clone().sub(elbow).normalize();
     const hinge = fore.clone().cross(upper).normalize();
     const bend = THREE.MathUtils.radToDeg(upper.angleTo(fore));
-    const thumbs = along.clone().negate();
+    // The palm toward the face, so the thumb side points back past the ear.
+    const thumbs = facing.clone().negate();
     holdArm(a, upper, hinge, upper, bend, thumbs);
 
     // holdArm closes the hand for a handle. Here it stays open and points at the side of the
@@ -127,7 +130,7 @@ export function poseCrunch(crunch: CrunchRig, depth: number) {
       .addScaledVector(facing, P.tipFront);
     const long = tip.sub(worldPos(s.hand)).normalize();
     setWorldQuat(s.hand, frame(long, thumbs).multiply(a.handFrame.clone().invert()).multiply(a.handRest));
-    const palm = long.clone().cross(thumbs.clone().addScaledVector(long, -thumbs.dot(long)).normalize()).normalize();
+    const palm = long.clone().cross(thumbs.clone().addScaledVector(long, -thumbs.dot(long)).normalize()).normalize().multiplyScalar(s.sign);
     const relax = new THREE.Quaternion().setFromAxisAngle(long.clone().cross(palm).normalize(), deg(P.fingerCurl));
     for (const f of ["thumb", "index", "middle", "ring", "pinky"]) {
       for (const n of ["01", "02", "03"]) {
