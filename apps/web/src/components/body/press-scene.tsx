@@ -9,6 +9,7 @@ import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { worldPos, worldQuat } from "./pose";
 import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig, type CurlSide } from "./pose-curl";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
+import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 
@@ -23,7 +24,7 @@ type Props = {
   onFrame: (depth: number, phase: Phase, side: CurlSide) => void;
 };
 
-const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL };
+const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE };
 const ALONG = new THREE.Vector3(1, 0, 0);
 
 // The rig, how it moves, and the bench if the lift has one.
@@ -31,6 +32,10 @@ function readLift(root: THREE.Object3D, exercise: PressExercise) {
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
     return { rig: curl.rig, pose: (left: number, right: number) => poseCurl(curl, left, right), biceps: bicepsBulge, bench: null };
+  }
+  if (exercise === "raise") {
+    const raise = readRaiseRig(root);
+    return { rig: raise.rig, pose: (depth: number) => poseRaise(raise, depth), biceps: () => 0, bench: null };
   }
   const press = readPressRig(root, SPECS[exercise]);
   return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
@@ -51,7 +56,7 @@ export default memo(function PressScene(props: Props) {
       <directionalLight position={[-3, 2, -2]} intensity={0.8} />
       <Floor />
       <Presser {...props} />
-      <CameraRig view={props.view} target={target} />
+      <CameraRig view={props.view} target={target} reach={props.exercise === "raise" ? LATERAL_RAISE.cameraReach : 0} />
     </Canvas>
   );
 });
@@ -185,7 +190,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
       elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
-      dumbbell: g.l.grip.clone().add(new THREE.Vector3(0.1, 0.08, 0)),
+      dumbbell: g.l.grip.clone().add(exercise === "raise" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand in a raise: outside it would leave the frame
       core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
     const facing: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {

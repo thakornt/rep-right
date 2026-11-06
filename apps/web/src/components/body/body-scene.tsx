@@ -74,14 +74,22 @@ const CAMERA: Record<View, [number, number, number]> = {
 // High enough that the head stays in frame when standing.
 const TARGET = new THREE.Vector3(0, 0.82, 0);
 
-export function CameraRig({ view, target = TARGET }: { view: View; target?: THREE.Vector3 }) {
+// `reach`: metres either side of the middle that must stay in frame, for a lift that
+// holds its arms out. A narrow screen moves the camera back to fit them, except from
+// the side, where the arms point along the view.
+export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; target?: THREE.Vector3; reach?: number }) {
   const camera = useThree((s) => s.camera);
+  const aspect = useThree((s) => s.size.width / s.size.height);
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const goal = useRef<THREE.Vector3 | null>(null);
 
+  const fov = (camera as THREE.PerspectiveCamera).fov;
+  const from = new THREE.Vector3(...CAMERA[view]).distanceTo(target);
+  const fit = view === "side" ? 1 : Math.max(1, reach / (Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect) / from);
+
   useEffect(() => {
-    goal.current = new THREE.Vector3(...CAMERA[view]);
-  }, [view]);
+    goal.current = new THREE.Vector3(...CAMERA[view]).sub(target).multiplyScalar(fit).add(target);
+  }, [view, fit, target]);
 
   useFrame(() => {
     if (!goal.current) return;

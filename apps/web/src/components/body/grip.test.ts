@@ -10,6 +10,7 @@ import type { Grip } from "./grip";
 import { loadBody } from "./load-body";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, type Rig } from "./pose";
 import { DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
+import { poseRaise, readRaiseRig } from "./pose-raise";
 import { NO_FAULTS } from "./squat";
 
 const DEPTHS = [0, 0.25, 0.5, 0.75, 1];
@@ -93,6 +94,19 @@ describe("the bar", () => {
     const j = pose(rig, depth, NO_FAULTS);
     const held = { at: j.bar, dir: j.barDir, radius: BAR_RADIUS };
     expect([...check(root, body, rig, rig.l.grip, "l", held), ...check(root, body, rig, rig.r.grip, "r", held)].join("; ")).toBe("");
+  });
+});
+
+describe("the dumbbells, lateral raise", () => {
+  test.each(DEPTHS)("rest in the fists, depth %s", { timeout: SLOW }, async (depth) => {
+    const root = await loadBody();
+    const raise = readRaiseRig(root);
+    const body = readBody(root);
+    const g = poseRaise(raise, depth);
+    const problems = (["l", "r"] as const).flatMap((tag) =>
+      check(root, body, raise.rig, raise[tag].grip, tag, { at: g[tag].grip, dir: g[tag].handle, radius: DUMBBELL.handleRadius }),
+    );
+    expect(problems.join("; ")).toBe("");
   });
 });
 
