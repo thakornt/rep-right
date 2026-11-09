@@ -18,7 +18,7 @@ export function Nav() {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-20 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-20 bg-bg/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] backdrop-blur-md"
     >
       <ul className="mx-auto grid max-w-xl grid-cols-5">
         {links.map(({ href, label, Icon }) => {
@@ -28,11 +28,14 @@ export function Nav() {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-16 flex-col items-center justify-center gap-1 text-[0.72rem] transition-colors ${
-                  active ? "text-primary" : "text-muted hover:text-fg"
+                className={`relative flex h-16 flex-col items-center justify-center gap-1 text-[0.72rem] transition-colors ${
+                  active ? "font-semibold text-fg" : "text-faint hover:text-fg"
                 }`}
               >
-                <Icon aria-hidden size={22} strokeWidth={active ? 2.25 : 1.75} />
+                {active && (
+                  <span aria-hidden className="absolute inset-x-[30%] top-0 h-0.5 rounded-full bg-primary" />
+                )}
+                <Icon aria-hidden size={22} strokeWidth={active ? 2.25 : 1.75} className={active ? "text-primary" : ""} />
                 {label}
               </Link>
             </li>

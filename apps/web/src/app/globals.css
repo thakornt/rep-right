@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
 /*
- * Health-tech dark theme: calm cyan + health green on deep teal-black.
- * Depth comes from surface tones (bg < surface < raised) and inset fields,
- * not from borders. Status colours are used as solid fills or text, never as
- * tinted boxes with coloured outlines.
+ * Two-tone dark theme: deep navy with one orange accent.
+ * Depth comes from surface tones (bg < surface < raised < hover) and inset
+ * fields, not from borders. Text on orange is always navy: white on #f7941d
+ * is only 2.3:1. Status colours are solid fills or text, never tinted boxes
+ * with coloured outlines. The 3D badge keeps --health.
  */
 :root {
   color-scheme: dark;
 
-  --bg: #0a1114;
-  --surface: #111b1f;
-  --raised: #182529;
-  --inset: #0c1518;
-  --line: #1f2f34; /* hairline dividers only */
+  --bg: #0d1426;
+  --surface: #152038;
+  --raised: #1f2b4d;
+  --hover: #283760;
+  --inset: #0a1020;
+  --line: #22304f; /* hairline dividers only */
 
-  --fg: #e4eef0;
-  --muted: #8ba2a8;
-  --faint: #5d7378;
+  --fg: #eef1f7;
+  --muted: #a3adc4;
+  --faint: #6f7a96;
 
-  --primary: #22d3ee;
-  --primary-fg: #04252c;
+  --primary: #f7941d;
+  --primary-fg: #0d1426;
+  --primary-hi: #ffb35c;
+  --primary-lo: #e5700c;
   --health: #34d399;
   --health-fg: #042a1d;
   --warn: #fbbf24;
@@ -34,6 +38,7 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-raised: var(--raised);
+  --color-hover: var(--hover);
   --color-inset: var(--inset);
   --color-line: var(--line);
   --color-fg: var(--fg);
@@ -52,7 +57,7 @@
   --color-background: var(--bg);
   --color-foreground: var(--fg);
 
-  --font-sans: var(--font-figtree), var(--font-noto-sans-thai), system-ui, sans-serif;
+  --font-sans: var(--font-manrope), var(--font-noto-sans-thai), system-ui, sans-serif;
 
   --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.02);
   --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
@@ -104,5 +109,17 @@ body {
   }
   .field:focus-visible {
     outline-offset: 0;
+  }
+
+  /* Long filled call-to-action buttons: a warm orange gradient, navy text. */
+  .btn-fill {
+    background: linear-gradient(135deg, var(--primary-hi) 0%, var(--primary) 48%, var(--primary-lo) 100%);
+    color: var(--primary-fg);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      0 10px 24px -14px rgb(247 148 29 / 0.7);
+  }
+  .btn-fill:hover {
+    filter: brightness(1.06) saturate(1.05);
   }
 }

@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Noto_Sans_Thai } from "next/font/google";
+import { Dumbbell } from "lucide-react";
+import { Manrope, Noto_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 
 import "./globals.css";
 import { Nav } from "./nav";
 
-// Figtree for Latin and numbers, Noto Sans Thai for Thai (the health-tech preset).
-const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
+// Manrope for Latin and numbers, Noto Sans Thai for Thai (the navy + orange preset).
+const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
 const notoSansThai = Noto_Sans_Thai({ variable: "--font-noto-sans-thai", subsets: ["thai"] });
 
 export const metadata: Metadata = {
@@ -18,18 +19,21 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0a1114",
+  themeColor: "#0d1426",
   viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="th" className={`${figtree.variable} ${notoSansThai.variable} h-full antialiased`}>
+    <html lang="th" className={`${manrope.variable} ${notoSansThai.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
         <header className="mx-auto flex w-full max-w-xl items-center px-4 pt-4">
           <Link href="/" className="flex items-center gap-2 text-[0.95rem] font-semibold tracking-tight">
-            <span aria-hidden className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-fg">
-              rr
+            <span
+              aria-hidden
+              className="grid h-8 w-8 place-items-center rounded-[0.6rem] bg-raised text-primary shadow-[inset_0_0_0_1px_#34446f]"
+            >
+              <Dumbbell size={18} strokeWidth={2.25} />
             </span>
             rep-right
           </Link>
