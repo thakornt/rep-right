@@ -98,6 +98,41 @@ MUSCLE_TARGETS = {
 }
 
 
+TRUNK = ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle", "neck_01"]
+NECK_TOP = 1.49  # metres, where the trapezius meets the skull
+ERECTORS_X = 0.05  # metres from the spine, the outer edge of the erector columns
+
+
+def abs_edge(z):
+    """The outer edge of the abs: narrow at the waistband, widest under the ribs."""
+    return 0.06 + 0.025 * ramp(z, 0.97, 1.07)
+
+
+def traps_edge(x):
+    """Lower edge of the trapezius, from mid-back up and out to the shoulder blade."""
+    return 1.12 + 1.3 * x
+
+
+def blade_edge(x):
+    """Lower edge of the muscles on the shoulder blade, where lats begin."""
+    return 1.24 - 0.45 * x
+
+
+def lats_low(x):
+    """Lower edge of lats, rising from the hip bone out to the flank."""
+    return WAIST + 0.9 * np.maximum(x - 0.07, 0)
+
+
+def obliques_top(x):
+    """Top of the obliques, meeting the chest by the abs and sloping down to the flank."""
+    return 1.2 - 0.6 * np.maximum(x - 0.09, 0)
+
+
+def delto_pec(z):
+    """The groove between chest and deltoid, from the collarbone down and out to the arm."""
+    return 0.105 + 0.5 * np.maximum(1.38 - z, 0)
+
+
 def args():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     if not argv:
@@ -288,7 +323,7 @@ def wrap(angle):
 
 def cloth_of(base, z):
     cloth = np.zeros(len(z), np.uint8)
-    cloth[np.isin(base, ["pelvis", "thigh", "calf", "spine_01"]) & (z > 0.6) & (z < WAIST)] = 1
+    cloth[np.isin(base, ["pelvis", "thigh", "calf", "spine_01", "spine_02"]) & (z > 0.6) & (z < WAIST)] = 1
     cloth[np.isin(base, ["foot", "ball", "calf"]) & (z < 0.1)] = 2
     return cloth
 
@@ -307,81 +342,91 @@ def paint_map(mesh, muscle, bases, limbs):
     # Around each upper arm: t along the bone, a around it (0 front, +90 outside).
     t, a = limb_coords(pos, limbs, "upperarm")
 
-    # Trunk.
+    # Chest outline: a fan of fibres converging on the upper arm, so the heads divide
+    # along lines from that point rather than across the body.
+    INSERT_X, INSERT_Z = 0.175, 1.30
+    spoke = np.degrees(np.arctan2(z - INSERT_Z, np.maximum(INSERT_X - x, 1e-4)))
+    pec_top = 1.385 - 0.05 * x
+    pec_bottom = 1.17 + 0.13 * (x / INSERT_X) ** 2
+
+    # Trunk, from where the pixel is rather than which bone it follows, so edges run
+    # along the grooves carved in carve_relief() instead of the bones' borders.
     pelvis = base == "pelvis"
-    spine = np.isin(base, ["spine_01", "spine_02", "spine_03"])
-    belly = np.where(x < 0.07, m["abs"], m["obliques"])
-    region[pelvis | spine] = 0
-    region[pelvis & (z > 0.93)] = m["obliques"]
-    region[pelvis & front & (z > 0.9)] = belly[pelvis & front & (z > 0.9)]
+    trunk = np.isin(base, TRUNK)
+    region[trunk] = 0
+    shown = z >= WAIST  # the shorts cover the rest
+    ahead = trunk & front & shown & (z < pec_bottom)
+    region[ahead & (x < abs_edge(z))] = m["abs"]
+    region[ahead & (x >= abs_edge(z)) & (z < obliques_top(x))] = m["obliques"]
+    behind = trunk & ~front & shown & (z < NECK_TOP)
+    # The flank: lats from the hip bone at the back, reaching further forward as they
+    # rise to the armpit; obliques in front of them up to the ribs.
+    lat = (z > lats_low(x)) & (z > 0.98 + 0.33 * (0.6 - nor[:, 1]))
+    region[behind] = np.where(lat[behind], m["lats"], np.where(z[behind] < obliques_top(x[behind]), m["obliques"], 0))
+    region[behind & back & (x < ERECTORS_X)] = m["erectors"]
+    blade = back & (z > blade_edge(x)) & (x > 0.07) & (x < 0.17)
+    region[behind & blade] = m["upper_back"]  # the muscles on the shoulder blade
+    traps = (behind | (trunk & (nor[:, 2] > 0.5) & ~front)) & (z > traps_edge(x)) & (z < NECK_TOP)
+    neck = np.isin(base, ["neck_01", "head"]) & (nor[:, 1] > -0.1) & (nor[:, 2] > -0.3) & (z < NECK_TOP)
+    region[traps | neck] = m["upper_back"]
     rear = pelvis & (back | (y > 0.03))
-    region[rear] = np.where(z[rear] < WAIST, m["glutes"], m["erectors"])
-    side = spine & ~front & ~back
-    region[side] = np.where(z[side] > 1.05, m["lats"], m["obliques"])
-    ahead = spine & front
-    region[ahead & (z > 0.92)] = belly[ahead & (z > 0.92)]
-    region[ahead & (z > 1.17)] = m["chest_mid"]
-    behind = spine & back
-    region[behind] = np.where(x[behind] < 0.09, m["erectors"], m["obliques"])
-    region[behind & (z < WAIST)] = m["glutes"]
-    region[behind & (z > 1.04) & (x >= 0.06)] = m["lats"]
-    region[behind & (z > 1.24)] = m["upper_back"]
 
     # Legs. The hip crease and the knee are lines on the body, not bone borders.
     tt, ta = limb_coords(pos, limbs, "thigh")
+    ct, ca = limb_coords(pos, limbs, "calf")
     crease = np.clip(0.8 + 0.93 * (x - 0.03), 0.8, 0.93)  # from the crotch up and out to the hip
     legs = np.isin(base, ["thigh", "calf"])
     thigh = (legs & (tt < 1) & (z < crease)) | (pelvis & ~rear & (z < crease))
     calf = legs & (tt >= 1)
-    hip = (base == "thigh") & (z >= crease)
-    region[base == "thigh"] = 0
-    region[calf] = 0
-    region[thigh] = m["quads"]
+    hip = np.isin(base, ["pelvis", "thigh"]) & (z >= crease) & ~shown
+    region[legs | hip] = 0
+    # Quads stop above the kneecap, lower on the inside; hamstrings part at the back of
+    # the knee, where the calf's two heads begin.
+    quads_end = 0.97 - 0.08 * np.cos(np.radians(np.clip(ta, -90, 90))) ** 2
+    region[thigh & (tt < quads_end) & (np.abs(ta) <= 125)] = m["quads"]
     region[thigh & (ta >= -125) & (ta < -55) & (tt < 0.75)] = m["adductors"]
-    region[thigh & (np.abs(ta) > 125)] = m["hamstrings"]
+    region[thigh & (np.abs(ta) > 125) & (tt < 1 - 0.15 * ramp(np.abs(ta), 140, 175))] = m["hamstrings"]
     region[thigh & (tt < 0.22) & (np.abs(ta) > 115)] = m["glutes"]
-    region[hip] = np.where(np.abs(ta[hip]) > 115, m["glutes"], np.where(z[hip] > 0.9, belly[hip], 0))
+    region[hip & (np.abs(ta) > 115)] = m["glutes"]
     # The side of the hip and under the seat, not left over from the rules above.
-    region[(pelvis | hip) & ~front & (z < WAIST) & (x > 0.03)] = m["glutes"]
+    region[(pelvis | hip) & ~front & ~shown & (x > 0.03)] = m["glutes"]
     region[pelvis & ~front & (z < 0.85)] = m["glutes"]
-    region[np.isin(base, ["pelvis", "thigh"]) & (y > 0) & (x < 0.05) & (z < 0.85) & (tt < 0.22)] = m["glutes"]
-    ct, ca = limb_coords(pos, limbs, "calf")
-    region[calf & (ct < 0.72) & (np.abs(ca) > 95)] = m["calves"]
-    region[calf & (ct < 0.08) & (np.abs(ca) < 60)] = m["quads"]
+    region[(pelvis | legs) & (y > 0) & (x < 0.05) & (z < 0.85) & (tt < 0.22)] = m["glutes"]
+    region[(rear | (trunk & ~front)) & ~shown] = m["glutes"]
+    region[calf & (ct < 0.72) & (np.abs(ca) > 95) & (ct > 0.08 * ramp(np.abs(ca), 140, 175))] = m["calves"]
 
-    # Forearm, down to the wrist.
-    ft, _ = limb_coords(pos, limbs, "lowerarm")
-    fore = np.isin(base, ["lowerarm", "hand"]) | ((base == "upperarm") & (t >= 1))
-    region[fore] = 0
-    region[fore & (ft < 0.85)] = m["forearms"]
+    # Elbow: one plane across the joint rather than the bones' border, which zigzags
+    # through the crease. The forearm muscles start below the bony tip at the back.
+    ft, fa = limb_coords(pos, limbs, "lowerarm")
+    limb = np.isin(base, ["upperarm", "lowerarm", "hand"])
+    region[limb] = 0
+    fore = limb & (ft >= 0)
+    region[fore & (ft < 0.85) & (ft > 0.12 * ramp(np.abs(fa), 100, 150))] = m["forearms"]
 
     # Upper arm: biceps in front, triceps behind.
-    arm = (base == "upperarm") & (t < 1)
+    arm = limb & (ft < 0) & (base != "hand")
     region[arm & (np.abs(a) < 90)] = m["biceps"]
     region[arm & (np.abs(a) >= 90)] = m["triceps"]
     region[arm & (np.abs(a) >= 90) & (t < 0.22)] = m["lats"]  # behind the armpit, where arm and trunk skin mix
 
-    # Chest: a fan of fibres converging on the upper arm, so the heads divide
-    # along lines from that point rather than across the body.
-    INSERT_X, INSERT_Z = 0.175, 1.30
-    spoke = np.degrees(np.arctan2(z - INSERT_Z, np.maximum(INSERT_X - x, 1e-4)))
-    top = 1.385 - 0.05 * x
-    bottom = 1.17 + 0.13 * (x / INSERT_X) ** 2
-    trunk = np.isin(base, ["spine_01", "spine_02", "spine_03", "clavicle"])
-    pec = trunk & (nor[:, 1] < -0.1) & (x < INSERT_X + 0.01) & (z < top) & (z > bottom)
-    region[(region == m["chest_mid"]) & ~pec] = 0
+    # Chest, inside the outline above.
+    pec = trunk & (nor[:, 1] < -0.1) & (x < delto_pec(z)) & (z < pec_top) & (z > pec_bottom)
     region[pec] = m["chest_mid"]
     region[pec & (spoke > 14)] = m["chest_upper"]
     region[pec & (spoke < -32)] = m["chest_lower"]
 
-    # Deltoid: wraps the shoulder and tapers to a point halfway down the arm.
+    # Deltoid: wraps the shoulder and tapers to a point halfway down the arm. On the
+    # trunk it ends at the groove beside the chest in front, and at the shoulder
+    # blade behind, both slanting out as they go down.
     wrapped = np.abs(wrap(a - 90))
-    cap = (arm | ((base == "clavicle") & (x > 0.135))) & (t < 0.5) & (wrapped < 150 - 230 * np.maximum(t, 0))
+    edge = np.where(nor[:, 1] < 0, delto_pec(z), 0.155 + 0.3 * np.maximum(1.38 - z, 0))
+    shoulder = trunk & (x > edge) & (z > 1.2)
+    cap = (arm | shoulder) & (t < 0.5) & (wrapped < 150 - 230 * np.maximum(t, 0))
     region[cap] = m["delt_side"]
     region[cap & (a < 50) & (a > -130)] = m["delt_front"]
     region[cap & ((a > 130) | (a < -130))] = m["delt_rear"]
-    # Across the back of the shoulder, a line rather than the border between bones.
-    region[np.isin(base, ["upperarm", "clavicle"]) & (nor[:, 1] > 0) & (x < 0.15) & (z > 1.24)] = m["upper_back"]
+    # Across the back of the shoulder, the trapezius rather than the border between bones.
+    region[(base == "upperarm") & (nor[:, 1] > 0) & (x < 0.15) & (z > traps_edge(x))] = m["upper_back"]
 
     # Teres: an ellipse over the lower corner of the upper back and the top of lats.
     middle_x, middle_z = (TERES_FROM[0] + TERES_TO[0]) / 2, (TERES_FROM[1] + TERES_TO[1]) / 2
@@ -467,16 +512,16 @@ def carve_relief(mesh, bases, limbs):
     # Abs: midline, side edge, and three tendon lines across.
     abdomen = trunk & (front > 0) & (z < 1.19) & (z > 0.93)
     carve(abdomen, 0.85 * groove(x, 0.006) * front)
-    carve(abdomen, 0.7 * groove(x - 0.085, 0.008) * front)
+    carve(abdomen, 0.7 * groove(x - abs_edge(z), 0.008) * front)
     for level in (1.135, 1.075, 1.015):
-        carve(abdomen, 0.45 * groove(z - level - 0.15 * x * x, 0.006) * (1 - ramp(x, 0.07, 0.085)) * front)
+        carve(abdomen, 0.45 * groove(z - level - 0.15 * x * x, 0.006) * (1 - ramp(x, abs_edge(z) - 0.015, abs_edge(z))) * front)
 
     # Back: spine, erector columns, lower edge of the traps, lats under the shoulder blade.
     rear = trunk & (back > 0)
     carve(rear, 0.8 * groove(x, 0.009) * between(z, 0.95, 1.45, 0.03) * back)
-    carve(rear, 0.45 * groove(x - 0.05, 0.01) * between(z, 0.97, 1.2, 0.04) * back)
-    carve(rear, 0.6 * groove(z - (1.12 + 1.3 * x), 0.009) * between(x, 0.02, 0.17, 0.02) * back)
-    carve(rear, 0.5 * groove(z - (1.34 - 0.45 * x) + 0.1, 0.01) * between(x, 0.07, 0.19, 0.02) * back)
+    carve(rear, 0.45 * groove(x - ERECTORS_X, 0.01) * between(z, 0.97, 1.2, 0.04) * back)
+    carve(rear, 0.6 * groove(z - traps_edge(x), 0.009) * between(x, 0.02, 0.17, 0.02) * back)
+    carve(rear, 0.5 * groove(z - blade_edge(x), 0.01) * between(x, 0.07, 0.19, 0.02) * back)
 
     def wrap_groove(a, at, width):
         return groove(wrap(a - at), width)
@@ -566,53 +611,67 @@ def export(out):
     )
 
 
-PALETTE = [
+# One clear colour per region for the debug renders; 0 (none) stays skin grey.
+PALETTE = np.array([
     (0.75, 0.75, 0.75), (0.9, 0.2, 0.2), (0.2, 0.6, 0.9), (0.9, 0.8, 0.2), (0.9, 0.4, 0.8),
     (0.2, 0.8, 0.4), (0.95, 0.55, 0.1), (0.5, 0.3, 0.9), (0.1, 0.8, 0.8), (0.6, 0.9, 0.2),
     (0.9, 0.3, 0.5), (0.95, 0.1, 0.1), (0.3, 0.3, 0.9), (0.2, 0.9, 0.9), (0.9, 0.6, 0.6), (0.6, 0.4, 0.2),
-]
+    (1.0, 0.45, 0.45), (0.55, 0.1, 0.1), (0.1, 0.4, 0.7), (0.4, 0.2, 0.5), (1.0, 1.0, 0.5), (0.4, 0.6, 0.1),
+])
 
 
-def render(mesh, muscle, render_dir):
-    """Debug renders with one flat color per region, from four sides."""
-    colors = mesh.data.color_attributes.new("debug", "FLOAT_COLOR", "POINT")
-    for i, r in enumerate(muscle):
-        colors.data[i].color = (*PALETTE[r], 1.0)
+def render(mesh, image, render_dir):
+    """Debug renders of the painted map, one flat colour per region, from four sides."""
+    rgb = PALETTE[image % CLOTH_STEP]
+    rgb[image // CLOTH_STEP > 0] *= 0.55  # shorts and shoes darker
+    img = bpy.data.images.new("regions", MAP_SIZE, MAP_SIZE)
+    img.pixels.foreach_set(np.concatenate([rgb, np.ones((*image.shape, 1))], axis=2).astype(np.float32).ravel())
+    mat = bpy.data.materials.new("regions")
+    mat.use_nodes = True
+    tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    tex.interpolation = "Closest"
+    mat.node_tree.links.new(tex.outputs["Color"], mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    mesh.data.materials.clear()
+    mesh.data.materials.append(mat)
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
-    scene.display.shading.color_type = "VERTEX"
+    scene.display.shading.color_type = "TEXTURE"
     scene.display.shading.light = "STUDIO"
-    scene.render.resolution_x, scene.render.resolution_y = 600, 900
+    scene.render.resolution_x, scene.render.resolution_y = 900, 1200
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = 1.9
     cam = bpy.data.objects.new("cam", cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam
-    for name, loc, rot in (
-        ("front", (0, -4, 0.85), (90, 0, 0)),
-        ("back", (0, 4, 0.85), (90, 0, 180)),
-        ("side", (4, 0, 0.85), (90, 0, 90)),
-        ("top", (0, -3, 3.5), (40, 0, 0)),
+    for name, loc, rot, scale in (
+        ("front", (0, -4, 1.0), (90, 0, 0), 1.3),
+        ("back", (0, 4, 1.0), (90, 0, 180), 1.3),
+        ("side", (4, 0, 1.0), (90, 0, 90), 1.3),
+        ("angle", (2.8, 2.8, 1.15), (90, 0, 135), 1.3),
+        ("arm", (1.2, -2.0, 1.25), (90, 0, 30), 0.7),
+        ("arm_back", (1.2, 2.0, 1.25), (90, 0, 150), 0.7),
     ):
+        cam_data.ortho_scale = scale
         cam.location = loc
         cam.rotation_euler = [math.radians(a) for a in rot]
         scene.render.filepath = os.path.join(render_dir, f"{name}.png")
         bpy.ops.render.render(write_still=True)
-    mesh.data.color_attributes.remove(colors)
+    mesh.data.materials.clear()
 
 
 def main():
     out, render_dir = args()
     mesh, rig = make_human()
     muscle, bases, limbs = classify(mesh, rig)
-    write_png(os.path.join(os.path.dirname(out), "muscles.png"), paint_map(mesh, muscle, bases, limbs))
+    painted = paint_map(mesh, muscle, bases, limbs)
+    write_png(os.path.join(os.path.dirname(out), "muscles.png"), painted)
     write_png(os.path.join(os.path.dirname(out), "relief.png"), carve_relief(mesh, bases, limbs))
-    if render_dir:
-        render(mesh, muscle, render_dir)
     export(out)
-    counts = {k: muscle.count(v) for k, v in MUSCLES.items()}
-    print("REGIONS", counts, "none", muscle.count(0), "verts", len(muscle))
+    if render_dir:
+        render(mesh, painted, render_dir)
+    counts = {k: int((painted % CLOTH_STEP == v).sum()) for k, v in MUSCLES.items()}
+    print("REGIONS (pixels)", counts)
 
 
 if __name__ == "__main__":
