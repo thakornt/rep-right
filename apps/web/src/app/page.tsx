@@ -41,7 +41,7 @@ export default function Home() {
 
       <section className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-lift)]">
         <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-health/15 text-health">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
             <ClipboardPen aria-hidden size={20} />
           </span>
           <div>
@@ -51,7 +51,7 @@ export default function Home() {
         </div>
         <Link
           href="/log"
-          className="inline-flex h-13 items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-fg transition-[filter] hover:brightness-110"
+          className="btn-fill inline-flex h-13 items-center justify-center rounded-2xl text-base font-semibold transition-[filter,transform] active:scale-[0.98]"
         >
           เริ่มบันทึก
         </Link>

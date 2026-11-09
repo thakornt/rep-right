@@ -112,7 +112,7 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
                   setAlternate(value);
                 }}
                 className={`h-9 cursor-pointer rounded-full px-3 text-sm transition-colors ${
-                  alternate === value ? "bg-primary font-semibold text-primary-fg" : "text-fg hover:bg-[#1f3035]"
+                  alternate === value ? "bg-primary font-semibold text-primary-fg" : "text-fg hover:bg-hover"
                 }`}
               >
                 {label}
@@ -135,7 +135,7 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
             type="button"
             onClick={() => setView(v)}
             className={`h-10 shrink-0 cursor-pointer rounded-full px-4 text-sm transition-colors ${
-              view === v ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-[#1f3035]"
+              view === v ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
             }`}
           >
             {label}
@@ -148,7 +148,7 @@ export function PressViewer({ exercise }: { exercise: PressExercise }) {
           type="button"
           onClick={togglePlay}
           aria-label={playing ? "หยุด" : "เล่น"}
-          className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full bg-raised text-fg hover:bg-[#1f3035]"
+          className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full bg-raised text-fg hover:bg-hover"
         >
           {playing ? <Pause size={20} /> : <Play size={20} />}
         </button>

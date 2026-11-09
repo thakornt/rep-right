@@ -1,12 +1,18 @@
 "use client";
 
-import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 
 import type { Exercise } from "@/lib/api";
 import { CATEGORIES, MUSCLES, SLUGS_WITH_3D, muscleLabel } from "@/lib/exercise-groups";
 
+import { Badge3D } from "./badge-3d";
 import { btnPrimary, btnQuiet } from "./ui";
+
+const muscleChip =
+  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.92rem] transition-[background-color,transform] duration-150 active:scale-[0.97] cursor-pointer";
+const chipOn = "bg-primary font-semibold text-primary-fg";
+const chipOff = "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised";
 
 const normalize = (s: string) => s.toLowerCase().replace(/[\s-]+/g, "");
 
@@ -53,15 +59,15 @@ export function ExercisePicker({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ค้นหาท่า เช่น เบนช์ หรือ curl"
             aria-label="ค้นหาท่า"
-            className="field pl-10"
+            className="field bg-surface pl-10 shadow-[inset_0_0_0_1px_var(--line)]"
           />
         </label>
         <button
           type="button"
           onClick={() => sheet.current?.showModal()}
           aria-label={`กรองตามกล้ามเนื้อ${muscles.size ? ` (เลือกอยู่ ${muscles.size})` : ""}`}
-          className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-xl transition-colors cursor-pointer ${
-            muscles.size ? "bg-primary text-primary-fg" : "bg-raised text-fg hover:bg-[#1f3035]"
+          className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-xl transition-[background-color,transform] active:scale-95 cursor-pointer ${
+            muscles.size ? "bg-primary text-primary-fg" : "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised"
           }`}
         >
           <SlidersHorizontal aria-hidden size={20} />
@@ -73,54 +79,59 @@ export function ExercisePicker({
         </button>
       </div>
 
-      {muscles.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {MUSCLES.filter(([m]) => muscles.has(m)).map(([m, label]) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => toggle(m)}
-              className="inline-flex h-9 items-center gap-1 rounded-full bg-primary/15 pr-2 pl-3 text-sm text-primary cursor-pointer"
-            >
-              {label} <X aria-label="เอาออก" size={14} />
+      {/* Quick muscle filter: always in view, scrolls sideways on a phone. */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        <button
+          type="button"
+          aria-pressed={muscles.size === 0}
+          onClick={() => setMuscles(new Set())}
+          className={`${muscleChip} ${muscles.size === 0 ? chipOn : chipOff}`}
+        >
+          ทั้งหมด
+        </button>
+        {MUSCLES.map(([m, label]) => {
+          const count = exercises.filter((e) => e.muscles.includes(m)).length;
+          if (count === 0) return null;
+          const on = muscles.has(m);
+          return (
+            <button key={m} type="button" aria-pressed={on} onClick={() => toggle(m)} className={`${muscleChip} ${on ? chipOn : chipOff}`}>
+              {label}
+              <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
             </button>
-          ))}
-          <button type="button" onClick={() => setMuscles(new Set())} className="h-9 px-2 text-sm text-muted cursor-pointer">
-            ล้างทั้งหมด
-          </button>
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {shown.length === 0 && <p className="py-6 text-center text-sm text-muted">ไม่พบท่าที่ตรงกับคำค้นหรือตัวกรอง</p>}
       {CATEGORIES.map(([cat, label]) => {
         const list = shown.filter((e) => e.category === cat);
         if (list.length === 0) return null;
         return (
-          <section key={cat} className="flex flex-col">
-            <h3 className="pb-1.5 text-xs font-medium tracking-wide text-faint">{label}</h3>
+          <section key={cat} className="flex flex-col pt-2">
+            <h3 className="flex items-baseline justify-between px-0.5 pb-2 text-[0.82rem] font-semibold text-fg">
+              {label}
+              <span className="num text-xs font-normal text-faint">{list.length} ท่า</span>
+            </h3>
             <ul className="overflow-hidden rounded-2xl bg-surface">
               {list.map((e, i) => (
                 <li key={e.id} className={i > 0 ? "shadow-[0_-1px_0_var(--line)]" : ""}>
                   <button
                     type="button"
                     onClick={() => onPick(e)}
-                    className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-raised cursor-pointer"
+                    className="group flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-raised cursor-pointer"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[0.98rem] font-medium">{e.name_th}</span>
+                      <span className="block text-base font-medium">{e.name_th}</span>
                       <span className="block truncate text-xs text-faint">
                         {e.name_en} · {e.muscles.map(muscleLabel).join(", ")}
                       </span>
                     </span>
-                    {mark3d && SLUGS_WITH_3D.has(e.slug) && (
-                      <span
-                        title="มีภาพ 3D"
-                        className="num grid h-6 w-6 shrink-0 place-items-center rounded-full bg-health text-xs font-bold text-health-fg"
-                      >
-                        3D
-                      </span>
-                    )}
-                    <ChevronRight aria-hidden size={18} className="shrink-0 text-faint" />
+                    {mark3d && SLUGS_WITH_3D.has(e.slug) && <Badge3D />}
+                    <ChevronRight
+                      aria-hidden
+                      size={18}
+                      className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-fg"
+                    />
                   </button>
                 </li>
               ))}
@@ -133,7 +144,7 @@ export function ExercisePicker({
       <dialog
         ref={sheet}
         aria-label="กรองตามกล้ามเนื้อ"
-        className="mx-auto mt-auto mb-0 w-full max-w-xl rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-black/70 sm:m-auto sm:max-w-md sm:rounded-3xl"
+        className="mx-auto mt-auto mb-0 w-full max-w-xl rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-[#050914]/75 sm:m-auto sm:max-w-md sm:rounded-3xl"
         onClick={(e) => {
           if (e.target === sheet.current) sheet.current.close(); // tap outside closes
         }}
@@ -153,7 +164,7 @@ export function ExercisePicker({
                 disabled={count === 0}
                 onClick={() => toggle(m)}
                 className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[0.95rem] transition-colors disabled:opacity-30 cursor-pointer ${
-                  on ? "bg-primary text-primary-fg" : "bg-raised text-fg hover:bg-[#1f3035]"
+                  on ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
                 }`}
               >
                 {label}
