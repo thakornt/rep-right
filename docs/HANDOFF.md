@@ -62,9 +62,8 @@
 
 1. เจ้าของยังไม่ได้บอกว่า hammer curl ผ่านหรือไม่ แม้จะสั่ง merge เพื่อย้ายงานแล้ว ให้ถือว่ายังแก้ได้
 2. เจ้าของยังไม่ได้ตอบว่า incline ควรมี `pushOut` แบบ shoulder press ด้วยไหม อย่าเปลี่ยนเองก่อนถาม
-3. สีกล้ามปลายแขนลามถึงปุ่มศอก มีขอบหยักตรงข้อพับ (แผนที่ `muscles.png` จาก `tools/body/build.py`)
-4. สีหน้าท้องเป็นสี่เหลี่ยมทับขอบกางเกง และสีหลังบนมีขอบเป็นขั้นบันได เห็นชัดในท่ายืน
-5. บน localhost ชื่อท่าด้านบนขึ้น "…" เพราะไม่ได้ตั้ง `NEXT_PUBLIC_API_URL` ถ้าตั้ง ต้องดู `ALLOWED_ORIGINS`
+3. แผนที่สีกล้ามยังมีขอบหยักเล็กน้อยที่ข้างคอใต้ขากรรไกรและด้านนอกเข่า (น่าจะเป็นตะเข็บ UV ยังไม่ได้ยืนยัน)
+4. บน localhost ชื่อท่าด้านบนขึ้น "…" เพราะไม่ได้ตั้ง `NEXT_PUBLIC_API_URL` ถ้าตั้ง ต้องดู `ALLOWED_ORIGINS`
    ของ API ด้วย ค่าใน `.env.example` อนุญาตพอร์ต 3000 ส่วน dev server ใน `.claude/launch.json` ใช้ 3100
 
 ## เครื่องมือ
@@ -73,7 +72,10 @@
 - ถ่ายภาพตรวจ: `tools/body/shots.mjs` วิธีใช้อยู่หัวไฟล์
 - Test: `npm test` ใน `apps/web` และ lint ด้วย `npm run lint`
 - สร้างตัวโมเดลใหม่ (ต้องมี Blender 4.5):
-  `blender --background --python tools/body/build.py -- apps/web/public/models/body.glb`
+  `blender --background --python tools/body/build.py -- apps/web/public/models/body.glb [render_dir]`
+  ใส่ `render_dir` เพื่อได้ภาพแผนที่กล้ามทั้งตัว 1 สีต่อ 1 กล้าม ไว้ตรวจขอบสี
+  ขอบสีบนลำตัว ศอก และเข่า กำหนดจากตำแหน่งบนตัว (ฟังก์ชัน `abs_edge`, `traps_edge`, `delto_pec` ฯลฯ)
+  และใช้ร่วมกับร่องกล้ามใน `relief.png` แก้ที่เดียวทั้งสีและร่องตามกัน
 - ค่ากล้ามเนื้อปัจจุบัน: `MACRO` muscle 0.9, pectoral 0.4, dorsi 0.5, upperarm 0.7, shoulder 1.0, lowerleg 0.2
 - `tools/body/out/` ไม่อยู่ใน git เพราะมีไฟล์ Mixamo ดิบ repo เป็น public ห้ามเผยแพร่ไฟล์เหล่านี้
   ไฟล์ชุดนี้ยังอยู่บน Mac ถ้าจะ bake ท่า Mixamo ใหม่ต้องหาไฟล์ต้นทางมาใหม่
