@@ -191,6 +191,19 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ```
 
-## 14. งานที่ทำค้างไว้
+## 14. การรันบนเครื่อง (local)
+
+ให้มี rep-right รันอยู่ **ฝั่งละ port เดียว**: เว็บ 3100 (`.claude/launch.json` ชื่อ `web`), API 8080 และ Postgres 55432 (Docker Compose)
+
+ทุกครั้งที่จะรัน local:
+1. เช็คก่อนว่ามีของ project นี้รันอยู่ไหม: `scripts/stop-dev.sh --list`
+2. ถ้ามี ให้หยุดของเดิมทั้งหมดก่อน (รวมที่รันจาก worktree ใต้ `.claude/worktrees`): `scripts/stop-dev.sh`
+   สคริปต์หยุดเฉพาะ process ที่ทำงานอยู่ในโฟลเดอร์ของ project นี้ ไม่แตะ project อื่นและไม่แตะ container
+3. แล้วค่อยรันใหม่: `docker compose up -d --build` (API + DB) และเปิดเว็บด้วย `preview_start` ชื่อ `web`
+   ถ้าไม่มี `GOOGLE_CLIENT_ID` ใน `.env` API จะไม่ยอมเริ่ม ใส่ค่าชั่วคราวได้ถ้าไม่ต้องล็อกอิน
+4. session ใน worktree ห้ามเปิด dev server พอร์ตอื่นเพิ่ม (เช่น 3200, 8081) ถ้าต้องดูงานของ worktree
+   ให้หยุดตัวเดิมแล้วรันจาก worktree นั้นที่พอร์ตเดิมแทน
+
+## 15. งานที่ทำค้างไว้
 
 ก่อนแตะงาน 3D อ่าน `docs/HANDOFF.md` (วิธีทำงานกับเจ้าของ การกำดัมเบลที่อนุมัติแล้ว และเรื่องที่ค้างอยู่)
