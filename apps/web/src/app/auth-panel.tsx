@@ -177,7 +177,7 @@ export function AuthPanel() {
 type ButtonProps = { icon: ReactNode; label: string; disabled: boolean; onClick: () => void };
 
 /**
- * Both providers share one outlined button in the primary colour, told apart by
+ * Both providers share one outlined button with the primary gradient border, told apart by
  * its mark and label. The marks are our own one-colour drawings, not the
  * providers' official logos: the owner chose the app's look over Google's
  * and LINE's button guidelines (white/dark Google button, LINE green).
@@ -188,7 +188,7 @@ function SignInButton({ icon, label, disabled, onClick }: ButtonProps) {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-13 w-full items-center justify-center gap-3 rounded-2xl border-[1.5px] border-primary bg-transparent px-6 text-base font-semibold text-primary transition-[background-color,transform] duration-150 hover:bg-primary/10 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+      className="inline-flex h-13 w-full items-center justify-center gap-3 btn-outline-grad rounded-2xl px-6 text-base font-semibold transition-transform duration-150 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
     >
       {icon}
       {label}
