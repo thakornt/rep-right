@@ -17,23 +17,33 @@
 import * as THREE from "three";
 
 import { enableArmTwist } from "./arm-twist";
+import { readBody } from "./contact";
 import { aim, deg, readRig, rotateWorld, setWorldQuat, twoBoneIK, worldPos, type Rig } from "./pose";
 import { holdArm, standFeet } from "./pose-curl";
 import { DUMBBELL, frame, readSide, turnTo, type PressSide } from "./pose-press";
 
 export const OVERHEAD_ONE = {
-  armOut: 6, // degrees the upper arm leans out from straight up, seen from the front
-  armForward: 4, // degrees it leans forward, seen from the side
+  armOut: 12, // degrees the upper arm leans out from straight up, seen from the front or behind: the elbow a little outside the shoulder, as in the owner's photo
+  armForward: 10, // degrees it leans forward, seen from the side; less and the shoulder turns out past its range
   across: 35, // degrees the forearm's way down turns from straight back toward the other side
   topBend: 6, // degrees the elbow stays bent at the top: not locked
   lowBend: 125, // degrees at the bottom: the dumbbell 3 cm off the base of the neck
-  shoulderRise: 14, // degrees the clavicle rises with the arm overhead: the shoulder blade rotating up
   stance: 0.12, // metres from the middle to each ankle
   toeOut: 8, // degrees
   cameraTarget: [0, 1.22, 0] as [number, number, number],
 };
 
 export type OverheadRig = { rig: Rig; l: PressSide; r: PressSide; waist: { l: THREE.Vector3; r: THREE.Vector3 } };
+
+// With the arm overhead the shoulder blade turns up about 60 degrees, mostly from the clavicle
+// rolling back about its own length (about 30) and partly from it rising, so the shoulder comes up
+// and in toward the neck and presses into the upper trapezius, which shortens and thickens. The
+// owner compared this with the clavicle rising alone and picked it (2026-11-10).
+export const SHOULDER_GIRDLE = {
+  rise: 28, // degrees the clavicle rises with the arm overhead
+  rollBack: 30, // degrees it rolls back about its own length
+  trapsBulge: 0.016, // metres the upper trapezius stands up at most
+};
 
 const UP = new THREE.Vector3(0, 1, 0);
 const X = new THREE.Vector3(1, 0, 0);
@@ -61,12 +71,52 @@ export function readOverheadRig(root: THREE.Object3D): OverheadRig {
     side = p.x;
     z = p.z;
   }
+  readTraps(rig);
   return {
     rig,
     l: readSide(root, rig, "l"),
     r: readSide(root, rig, "r"),
     waist: { l: new THREE.Vector3(side, y, z), r: new THREE.Vector3(-side, y, z) },
   };
+}
+
+// The clavicle carrying the raised arm: it rises, then rolls back.
+function raiseClavicle(s: Rig["l"]) {
+  const clavicle = s.upperarm.parent!;
+  rotateWorld(clavicle, new THREE.Quaternion().setFromAxisAngle(Z, s.sign * deg(SHOULDER_GIRDLE.rise)));
+  // About its own length, so the shoulder joint stays where the rise put it; the top rolls back.
+  const along = worldPos(s.upperarm).sub(worldPos(clavicle)).normalize();
+  rotateWorld(clavicle, new THREE.Quaternion().setFromAxisAngle(along, -s.sign * deg(SHOULDER_GIRDLE.rollBack)));
+}
+
+// How much each vertex of the upper trapezius and the top of the shoulder stands up when the
+// shoulder presses in under it, up to 1: most halfway from the neck to the shoulder joint, reaching
+// over the top of the shoulder to the front where the raised arm meets it, none at the edges.
+// Kept on the mesh as aTraps (left, right).
+function readTraps(rig: Rig) {
+  toRest(rig);
+  const { skin } = rig;
+  const { position, normal } = skin.geometry.attributes;
+  const neck = worldPos(rig.neck);
+  const span = Math.abs(worldPos(rig.l.upperarm).x) * 1.05;
+  const parts = readBody(skin.parent ?? skin).part;
+  const at = new Float32Array(position.count * 2);
+  const p = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const toWorld = new THREE.Matrix3().getNormalMatrix(skin.matrixWorld);
+  for (let i = 0; i < position.count; i++) {
+    if (parts[i] !== "core" && parts[i] !== "none") continue;
+    skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld);
+    n.fromBufferAttribute(normal, i).applyMatrix3(toWorld).normalize();
+    const u = (Math.abs(p.x) - 0.045) / (span - 0.045);
+    const v = (p.y - (neck.y - 0.12)) / 0.18;
+    const across = (neck.z + 0.12 - p.z) / 0.3; // from the front of the shoulder to the back
+    if (u <= 0 || u >= 1 || v <= 0 || v >= 1 || across <= 0 || across >= 1) continue;
+    const facing = Math.min(1, Math.max(0, 0.9 * n.y + 0.2 * Math.abs(n.x)));
+    const w = Math.sin(Math.PI * u) ** 0.7 * Math.sin(Math.PI * v) * Math.sin(Math.PI * across) ** 0.6 * facing;
+    if (w > 0.02) at[i * 2 + (p.x > 0 ? 0 : 1)] = Math.min(1, w * 1.5);
+  }
+  skin.geometry.setAttribute("aTraps", new THREE.BufferAttribute(at, 2));
 }
 
 function toRest(rig: Rig) {
@@ -105,14 +155,14 @@ function handOnHip(a: PressSide, waist: THREE.Vector3) {
 
 // One arm, the right: depth 0 = arm up, 1 = dumbbell lowered behind the head.
 export function poseOverheadOne(o: OverheadRig, depth: number) {
-  const { armOut, armForward, across, topBend, lowBend, shoulderRise, stance, toeOut } = OVERHEAD_ONE;
+  const { armOut, armForward, across, topBend, lowBend, stance, toeOut } = OVERHEAD_ONE;
   const { rig } = o;
   toRest(rig);
   const a = o.r;
   const s = a.s;
   standFeet(o.l, stance, toeOut);
   standFeet(o.r, stance, toeOut);
-  rotateWorld(s.upperarm.parent!, new THREE.Quaternion().setFromAxisAngle(Z, s.sign * deg(shoulderRise)));
+  raiseClavicle(s);
 
   const upper = upward(s.sign, armOut, armForward);
   // The forearm folds toward behind the head and across to the other side.
@@ -127,13 +177,12 @@ export function poseOverheadOne(o: OverheadRig, depth: number) {
 }
 
 export const OVERHEAD_TWO = {
-  armInTop: 2, // degrees each upper arm leans in from straight up at the top, seen from the front, bringing the hands together
-  armInLow: 0, // and at the bottom
+  armInTop: 0, // degrees each upper arm leans in from straight up at the top, seen from the front, bringing the hands together
+  armInLow: -6, // and at the bottom: leaning out, the elbows a little outside the shoulders
   armForward: 18, // degrees it leans forward, seen from the side: the elbows high and a little forward
   topBend: 35, // degrees the elbow stays bent at the top: with the hands together, the arm doesn't come straight
   lowBend: 130, // degrees at the bottom: the dumbbell 3 cm off the back of the neck
   handsApart: 0.045, // metres from the middle to each wrist's line: the hands side by side round the handle
-  shoulderRise: 22, // degrees the clavicles rise with the arms overhead
   palmSkin: 0.012, // metres from the palm's bones to its skin, where the dumbbell's head rests
   fingerYaw: 0, // degrees the fingers turn about the handle from pointing back, toward the middle, at the top
   fingerYawLow: -40, // and at the bottom
@@ -246,7 +295,7 @@ function foreTo(elbow: THREE.Vector3, upper: THREE.Vector3, foreLen: number, ben
 
 // Both hands under the dumbbell's top head: depth 0 = arms up, 1 = lowered behind the head.
 export function poseOverheadTwo(o: OverheadRig, depth: number) {
-  const { armInTop, armInLow, armForward, topBend, lowBend, handsApart, shoulderRise, palmSkin, stance, toeOut } = OVERHEAD_TWO;
+  const { armInTop, armInLow, armForward, topBend, lowBend, handsApart, palmSkin, stance, toeOut } = OVERHEAD_TWO;
   const { rig } = o;
   toRest(rig);
   const bend = topBend + (lowBend - topBend) * depth;
@@ -257,7 +306,7 @@ export function poseOverheadTwo(o: OverheadRig, depth: number) {
   for (const a of [o.l, o.r]) {
     const s = a.s;
     standFeet(a, stance, toeOut);
-    rotateWorld(s.upperarm.parent!, new THREE.Quaternion().setFromAxisAngle(Z, s.sign * deg(shoulderRise)));
+    raiseClavicle(s);
     const shoulder = worldPos(s.upperarm);
     const upper = upward(s.sign, -(armInTop + (armInLow - armInTop) * depth), armForward);
     const elbow = shoulder.clone().addScaledVector(upper, a.upperLen);

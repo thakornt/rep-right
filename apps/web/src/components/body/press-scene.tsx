@@ -13,7 +13,7 @@ import { DUMBBELL_SQUAT, poseDumbbellSquat, readDumbbellSquatRig } from "./pose-
 import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather } from "./pose-pushdown";
-import { OVERHEAD_ONE, OVERHEAD_TWO, poseOverheadOne, poseOverheadTwo, readOverheadRig } from "./pose-overhead";
+import { OVERHEAD_ONE, OVERHEAD_TWO, SHOULDER_GIRDLE, poseOverheadOne, poseOverheadTwo, readOverheadRig } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
@@ -388,6 +388,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const g = lift.pose(depthL, depthR);
     body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
     body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
+    // The upper trapezius thickens on the side whose arm is overhead.
+    const traps = exercise === "overheadOne" || exercise === "overheadTwo" ? SHOULDER_GIRDLE.trapsBulge : 0;
+    body.setTraps(exercise === "overheadOne" ? 0 : traps, traps);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
