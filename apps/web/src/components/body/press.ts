@@ -5,11 +5,24 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "overheadOne" || exercise === "overheadTwo") {
+    // The back of the arm straightens the elbow against the weight, its long head stretched most
+    // with the dumbbell low behind the head; the shoulder holds the arm up meanwhile.
+    return [
+      { region: "triceps", role: "prime", amount: (0.6 + 0.4 * depth) * effort },
+      { region: "delt_front", role: "stabilizer", amount: 0.35 }, // holding the upper arm up
+      { region: "delt_side", role: "stabilizer", amount: 0.3 },
+      { region: "upper_back", role: "stabilizer", amount: 0.4 }, // the shoulder blade turned up under the arm
+      { region: "forearms", role: "stabilizer", amount: exercise === "overheadOne" ? 0.4 : 0.3 },
+      { region: "abs", role: "stabilizer", amount: 0.45 }, // keeping the ribs down, the lower back from arching
+      { region: "obliques", role: "stabilizer", amount: exercise === "overheadOne" ? 0.4 : 0.3 }, // one arm loaded pulls the trunk to one side
+    ];
+  }
   if (exercise === "pushup") {
     // The chest and the back of the arm press the body up, hardest near the bottom; the trunk and
     // legs hold the body in one straight line throughout.
@@ -131,6 +144,42 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  overheadOne: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงเต็มเท้า มือข้างที่ว่างเท้าเอวไว้ช่วยให้ลำตัวนิ่ง",
+      back: "ยืนตัวตรง ไม่แอ่นหลังล่างตอนดันขึ้น ไม่เอียงตัวไปข้างที่ยก",
+      elbow: "ต้นแขนตั้งขึ้นให้แนวไหล่กับศอกตรงที่สุดเท่าที่ไหล่ทำได้ ถ้าไหล่ตึงให้ศอกเอียงออกได้เล็กน้อย ศอกอยู่ที่เดิมเป็นจุดหมุน ขึ้นสุดแขนเกือบตรงแต่ไม่ล็อกศอก",
+      dumbbell: "ลดดัมเบลลงเฉียงไปข้างหลังฝั่งตรงข้าม ยกแขนขวาให้ลดไปทางหลังซ้าย ลงเท่าที่ดัมเบลยังไม่แตะต้นคอหรือหลัง",
+      core: "เกร็งท้องเบา ๆ ซี่โครงไม่บานออก ดันขึ้นให้เร็วกว่าตอนลง แล้วลดลงช้า ๆ",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ไหล่ยกตรงได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและไหล่ยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  overheadTwo: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงเต็มเท้า ตัวไม่โยกเพื่อช่วยดัน",
+      back: "ยืนตัวตรง ไม่แอ่นหลังล่างตอนดันขึ้น ศีรษะตั้งตรง ไม่ก้มหลบดัมเบล",
+      elbow: "ศอกยกสูง เฉียงไปข้างหน้าตามธรรมชาติ ไม่กางออกกว้าง ศอกอยู่ที่เดิมเป็นจุดหมุน ขึ้นสุดแขนไม่ต้องตรงเป๊ะ",
+      dumbbell: "ใช้อุ้งมือสองข้างประสานกันประคองแผ่นดัมเบลด้านบนจากข้างใน ให้ด้ามสอดอยู่ระหว่างนิ้วโป้งกับนิ้วชี้ของสองมือ ลดลงหลังหัวให้ลึกเท่าที่ทำได้ ระวังอย่าให้ดัมเบลชนท้ายทอยหรือต้นคอ",
+      core: "เกร็งท้องเบา ๆ ซี่โครงไม่บานออก ดันขึ้นให้เร็วกว่าตอนลง แล้วลดลงช้า ๆ",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอและไหล่ยกได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและดัมเบลยังห่างท้ายทอย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   pushup: {
     cues: {
       feet: "ปลายเท้าจิกพื้น เท้ากว้างประมาณช่วงสะโพก ขาเหยียดตรง",

@@ -155,9 +155,15 @@ describe("dumbbell hammer curl", () => {
     let swelling = [0, 0];
     at.forEach((w, i) => {
       if (w === 0) return;
-      const bones = [0, 1, 2, 3].filter((k) => skin.geometry.attributes.skinWeight.getComponent(i, k) > 0.5).map((k) => names[skin.geometry.attributes.skinIndex.getComponent(i, k)]);
-      expect(bones.join()).toMatch(/upperarm_[lr]/);
-      swelling[bones[0].endsWith("_l") ? 0 : 1]++;
+      // Skin on the upper arm: on the arm's bone and its twist bones together, more than half.
+      const share = { l: 0, r: 0 };
+      for (const k of [0, 1, 2, 3]) {
+        const bone = names[skin.geometry.attributes.skinIndex.getComponent(i, k)];
+        const m = /^upperarm_(?:twist\d_)?([lr])$/.exec(bone);
+        if (m) share[m[1] as "l" | "r"] += skin.geometry.attributes.skinWeight.getComponent(i, k);
+      }
+      expect(Math.max(share.l, share.r)).toBeGreaterThan(0.5);
+      swelling[share.l > share.r ? 0 : 1]++;
     });
     expect(swelling[0]).toBeGreaterThan(20);
     expect(swelling[0]).toBe(swelling[1]);

@@ -6,6 +6,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
+import { addArmTwist, followArmTwist } from "./arm-twist";
 import { shortenPalms } from "./body-proportions";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
@@ -254,7 +255,10 @@ export function useBody() {
   const { scene } = useGLTF(MODEL);
   return useMemo(() => {
     shortenPalms(scene);
-    return cloneSkinned(scene);
+    addArmTwist(scene);
+    const body = cloneSkinned(scene);
+    followArmTwist(body);
+    return body;
   }, [scene]);
 }
 
