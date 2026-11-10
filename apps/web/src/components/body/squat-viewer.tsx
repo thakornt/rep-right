@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 
 import type { SquatState, View } from "./body-scene";
+import { useDismissOnTap } from "./use-dismiss-on-tap";
 import { REGION_LABELS, ROLE_COLORS, ROLE_LABELS, type Role } from "./muscles";
 import { NO_FAULTS, SQUAT_PINS, squatActivation, type Phase, type SquatFaults } from "./squat";
 
@@ -72,6 +73,8 @@ export function SquatViewer() {
   }, []);
 
   const onPin = useCallback((id: string) => setActivePin((cur) => (cur === id ? null : id)), []);
+  const closePin = useCallback(() => setActivePin(null), []);
+  const popup = useDismissOnTap(activePin !== null, closePin);
 
   const onPinMove = useCallback((id: string, x: number, y: number, visible: boolean, front: boolean) => {
     const el = pinEls.current[id];
@@ -115,6 +118,7 @@ export function SquatViewer() {
               key={p.id}
               ref={(el) => void (pinEls.current[p.id] = el)}
               type="button"
+              data-pin
               onClick={() => onPin(p.id)}
               aria-label={`จุดจัดท่าที่ ${i + 1}`}
               style={{ visibility: "hidden" }}
@@ -130,7 +134,7 @@ export function SquatViewer() {
           {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
         </div>
         {activePin && (
-          <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
+          <div ref={popup} className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
             <span className="font-semibold text-primary">{SQUAT_PINS.findIndex((p) => p.id === activePin) + 1}. </span>
             {CUES[activePin]}
           </div>
