@@ -8,6 +8,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 
 import { shortenPalms } from "./body-proportions";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
+import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
 import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
@@ -329,14 +330,6 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     midfootRing.current?.position.copy(joints.midfoot).setY(0.002);
 
     const fwd = (o: THREE.Object3D, z: number) => new THREE.Vector3(0, 0, z).applyQuaternion(worldQuat(o));
-    // Which way each pin's spot on the body faces; pins on the far side dim.
-    const facing: Record<string, THREE.Vector3> = {
-      feet: new THREE.Vector3(0, 0.5, 1),
-      knee: new THREE.Vector3(0, 0, 1),
-      core: fwd(rig.spine2, 1),
-      back: fwd(rig.spine1, -1),
-      bar: fwd(rig.spine3, -1).add(new THREE.Vector3(0, 1, 0)),
-    };
     const at = {
       feet: worldPos(rig.l.ball).setY(0.03),
       knee: worldPos(rig.l.calf).add(new THREE.Vector3(0.03, 0.02, 0.07)),
@@ -344,12 +337,12 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
       back: worldPos(rig.spine1).add(new THREE.Vector3(0, 0, -0.14).applyQuaternion(worldQuat(rig.spine1))),
       bar: joints.bar.clone().add(new THREE.Vector3(0, 0.07, -0.05)),
     } as Record<string, THREE.Vector3>;
-    for (const p of SQUAT_PINS) {
-      const toCamera = camera.position.clone().sub(at[p.id]);
-      const front = facing[p.id].dot(toCamera) > 0;
+    // A pin turns see-through where it sits over the body, so the body stays in view.
+    const over = overBody(rig, camera as THREE.PerspectiveCamera, SQUAT_PINS.map((p) => at[p.id]), PIN_RADIUS, size.height);
+    SQUAT_PINS.forEach((p, i) => {
       const v = at[p.id].project(camera);
-      onPinMove(p.id, ((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height, v.z < 1, front);
-    }
+      onPinMove(p.id, ((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height, v.z < 1, !over[i]);
+    });
 
     const now = performance.now();
     if (now - c.lastReport > 90) {
