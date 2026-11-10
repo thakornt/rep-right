@@ -57,7 +57,8 @@ const CUES: Record<string, string> = {
 
 const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
 
-export function SquatViewer() {
+// `steps`, the form's key points, sit above the muscles.
+export function SquatViewer({ steps }: { steps?: React.ReactNode }) {
   const state = useRef<SquatState>({ depth: 0.55, playing: true, faults: NO_FAULTS });
   const [view, setView] = useState<View>("angle");
   const [faults, setFaults] = useState<SquatFaults>(NO_FAULTS);
@@ -225,6 +226,8 @@ export function SquatViewer() {
           </p>
         ))}
       </section>
+
+      {steps}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium tracking-wide text-faint">กล้ามเนื้อที่ทำงาน</h2>

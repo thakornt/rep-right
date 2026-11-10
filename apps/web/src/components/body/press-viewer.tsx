@@ -43,13 +43,16 @@ const CURL_WAYS = [
   [true, "สลับข้าง"],
 ] as const;
 
-// `switcher` picks another way of doing the lift, shown above the 3D view.
+// `switcher` picks another way of doing the lift, shown above the 3D view; `steps`, the form's
+// key points, sit under the view's controls, above the muscles.
 export function PressViewer({
   exercise,
   switcher,
+  steps,
 }: {
   exercise: PressExercise;
   switcher?: React.ReactNode;
+  steps?: React.ReactNode;
 }) {
   const content = PRESS_CONTENT[exercise];
   const state = useRef<PressState>({
@@ -213,6 +216,8 @@ export function PressViewer({
           </span>
         </label>
       </div>
+
+      {steps}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium tracking-wide text-faint">
