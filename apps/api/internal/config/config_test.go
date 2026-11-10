@@ -70,3 +70,20 @@ func TestValidateServe(t *testing.T) {
 		t.Fatalf("ValidateServe: %v", err)
 	}
 }
+
+func TestValidateServeNeedsBothLineSettings(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("GOOGLE_CLIENT_ID", "id.apps.googleusercontent.com")
+	t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
+	t.Setenv("LINE_CHANNEL_ID", "1650000000")
+	t.Setenv("LINE_CHANNEL_SECRET", "")
+	cfg, _ := Load()
+	if err := cfg.ValidateServe(); err == nil {
+		t.Error("LINE_CHANNEL_ID without LINE_CHANNEL_SECRET should be rejected")
+	}
+	t.Setenv("LINE_CHANNEL_SECRET", "s")
+	cfg, _ = Load()
+	if err := cfg.ValidateServe(); err != nil {
+		t.Errorf("both LINE settings: %v", err)
+	}
+}

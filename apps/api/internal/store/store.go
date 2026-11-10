@@ -30,7 +30,7 @@ func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 
 // Migrate runs a goose command ("up", "down", "status", ...) against the
 // embedded migrations.
-func Migrate(ctx context.Context, pool *pgxpool.Pool, command string, log *slog.Logger) error {
+func Migrate(ctx context.Context, pool *pgxpool.Pool, command string, log *slog.Logger, args ...string) error {
 	sqlDB := stdlib.OpenDBFromPool(pool)
 	defer func(d *sql.DB) { _ = d.Close() }(sqlDB)
 
@@ -39,7 +39,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, command string, log *slog.
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
-	if err := goose.RunContext(ctx, command, sqlDB, "migrations"); err != nil {
+	if err := goose.RunContext(ctx, command, sqlDB, "migrations", args...); err != nil {
 		return fmt.Errorf("goose %s: %w", command, err)
 	}
 	return nil

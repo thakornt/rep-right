@@ -70,11 +70,20 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		authSvc, err := auth.NewService(auth.Options{
+		opts := auth.Options{
 			Store:    store.NewAuthStore(pool),
 			Verifier: verifier,
 			Secret:   []byte(cfg.JWTSecret),
-		})
+		}
+		if cfg.GoogleClientSecret != "" {
+			opts.GoogleCode = auth.NewGoogleCodeExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret)
+		}
+		if cfg.LineChannelID != "" {
+			opts.Line = auth.NewLineClient(cfg.LineChannelID, cfg.LineChannelSecret)
+		}
+		log.Info("sign-in providers",
+			slog.Bool("google_code", opts.GoogleCode != nil), slog.Bool("line", opts.Line != nil))
+		authSvc, err := auth.NewService(opts)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
-// Package auth implements Google sign-in and our own sessions: a short-lived
-// JWT access token plus a rotating refresh token whose hash is stored so it
-// can be revoked.
+// Package auth implements sign-in with Google and LINE and our own sessions:
+// a short-lived JWT access token plus a rotating refresh token whose hash is
+// stored so it can be revoked. Whatever the provider, a sign-in ends in the
+// same kind of session.
 package auth
 
 import (
@@ -22,7 +23,11 @@ const (
 )
 
 var (
-	ErrInvalidGoogleToken  = errors.New("invalid google id token")
+	ErrInvalidGoogleToken = errors.New("invalid google id token")
+	ErrInvalidLineLogin   = errors.New("invalid line login")
+	// ErrProviderDisabled means the server has no credentials for that
+	// sign-in method (e.g. LINE_CHANNEL_ID unset).
+	ErrProviderDisabled    = errors.New("sign-in provider not configured")
 	ErrInvalidAccessToken  = errors.New("invalid access token")
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 	ErrUserNotFound        = errors.New("user not found")
@@ -32,17 +37,24 @@ var (
 
 type User struct {
 	ID          uuid.UUID
-	GoogleSub   string
 	Email       string
 	DisplayName string
 	CreatedAt   time.Time
 }
 
-// GoogleIdentity is what we keep from a verified Google ID token.
-type GoogleIdentity struct {
-	Subject string
-	Email   string
-	Name    string
+const (
+	ProviderGoogle = "google"
+	ProviderLine   = "line"
+)
+
+// Identity is what we keep from a verified provider ID token. A user is found
+// by (Provider, Subject) only, never by email, so a LINE account cannot take
+// over a Google account that happens to share an address.
+type Identity struct {
+	Provider string
+	Subject  string
+	Email    string // may be empty for LINE
+	Name     string
 }
 
 type Session struct {
@@ -61,11 +73,26 @@ type RefreshRecord struct {
 }
 
 type GoogleVerifier interface {
-	Verify(ctx context.Context, idToken string) (GoogleIdentity, error)
+	Verify(ctx context.Context, idToken string) (Identity, error)
+}
+
+// GoogleCodeExchanger turns an authorization code from the GIS code client
+// (popup mode) into a Google ID token, which is then checked by GoogleVerifier.
+type GoogleCodeExchanger interface {
+	ExchangeCode(ctx context.Context, code string) (idToken string, err error)
+}
+
+// LineClient is LINE Login (OpenID Connect, authorization code flow).
+type LineClient interface {
+	AuthURL(redirectURI, state, nonce string) string
+	// Login exchanges the code and verifies the ID token, including its nonce.
+	Login(ctx context.Context, code, redirectURI, nonce string) (Identity, error)
 }
 
 type Store interface {
-	UpsertGoogleUser(ctx context.Context, id GoogleIdentity) (User, error)
+	// UpsertIdentity finds the user of this provider account, creating the
+	// user on first sign-in, and refreshes email and name from the provider.
+	UpsertIdentity(ctx context.Context, id Identity) (User, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error) // ErrUserNotFound
 	DeleteUser(ctx context.Context, id uuid.UUID) error      // cascades to tokens
 	InsertRefreshToken(ctx context.Context, userID uuid.UUID, hash []byte, expiresAt time.Time) error
@@ -87,15 +114,27 @@ type TxStore interface {
 type Options struct {
 	Store    Store
 	Verifier GoogleVerifier
-	Secret   []byte           // HMAC key for access tokens, at least 32 bytes
-	Now      func() time.Time // defaults to time.Now
+	// GoogleCode enables sign-in with an authorization code (our own button);
+	// nil leaves only ID tokens from Google's rendered button.
+	GoogleCode GoogleCodeExchanger
+	Line       LineClient       // nil = LINE Login off
+	Secret     []byte           // HMAC key for access tokens, at least 32 bytes
+	Now        func() time.Time // defaults to time.Now
 }
 
 type Service struct {
-	store    Store
-	verifier GoogleVerifier
-	secret   []byte
-	now      func() time.Time
+	store      Store
+	verifier   GoogleVerifier
+	googleCode GoogleCodeExchanger
+	line       LineClient
+	secret     []byte
+	now        func() time.Time
+}
+
+// Providers says which sign-in methods this server can accept.
+type Providers struct {
+	GoogleCode bool
+	Line       bool
 }
 
 func NewService(o Options) (*Service, error) {
@@ -108,7 +147,14 @@ func NewService(o Options) (*Service, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	return &Service{store: o.Store, verifier: o.Verifier, secret: o.Secret, now: o.Now}, nil
+	return &Service{
+		store: o.Store, verifier: o.Verifier, googleCode: o.GoogleCode, line: o.Line,
+		secret: o.Secret, now: o.Now,
+	}, nil
+}
+
+func (s *Service) Providers() Providers {
+	return Providers{GoogleCode: s.googleCode != nil, Line: s.line != nil}
 }
 
 // LoginWithGoogle verifies a Google ID token, finds or creates the user by
@@ -118,7 +164,60 @@ func (s *Service) LoginWithGoogle(ctx context.Context, idToken string) (User, Se
 	if err != nil {
 		return User{}, Session{}, fmt.Errorf("%w: %w", ErrInvalidGoogleToken, err)
 	}
-	u, err := s.store.UpsertGoogleUser(ctx, id)
+	return s.login(ctx, id)
+}
+
+// LoginWithGoogleCode exchanges a GIS authorization code for an ID token and
+// signs in with it exactly like LoginWithGoogle.
+func (s *Service) LoginWithGoogleCode(ctx context.Context, code string) (User, Session, error) {
+	if s.googleCode == nil {
+		return User{}, Session{}, ErrProviderDisabled
+	}
+	idToken, err := s.googleCode.ExchangeCode(ctx, code)
+	if err != nil {
+		return User{}, Session{}, fmt.Errorf("%w: %w", ErrInvalidGoogleToken, err)
+	}
+	return s.LoginWithGoogle(ctx, idToken)
+}
+
+// LineStart is where to send the browser for LINE Login. State and Nonce must
+// be kept (in a short-lived httpOnly cookie) to check the callback.
+type LineStart struct {
+	URL   string
+	State string
+	Nonce string
+}
+
+func (s *Service) StartLine(redirectURI string) (LineStart, error) {
+	if s.line == nil {
+		return LineStart{}, ErrProviderDisabled
+	}
+	state, err := randomToken()
+	if err != nil {
+		return LineStart{}, err
+	}
+	nonce, err := randomToken()
+	if err != nil {
+		return LineStart{}, err
+	}
+	return LineStart{URL: s.line.AuthURL(redirectURI, state, nonce), State: state, Nonce: nonce}, nil
+}
+
+// LoginWithLine finishes LINE Login: the caller has already matched the
+// callback's state; nonce is the one StartLine returned.
+func (s *Service) LoginWithLine(ctx context.Context, code, redirectURI, nonce string) (User, Session, error) {
+	if s.line == nil {
+		return User{}, Session{}, ErrProviderDisabled
+	}
+	id, err := s.line.Login(ctx, code, redirectURI, nonce)
+	if err != nil {
+		return User{}, Session{}, fmt.Errorf("%w: %w", ErrInvalidLineLogin, err)
+	}
+	return s.login(ctx, id)
+}
+
+func (s *Service) login(ctx context.Context, id Identity) (User, Session, error) {
+	u, err := s.store.UpsertIdentity(ctx, id)
 	if err != nil {
 		return User{}, Session{}, fmt.Errorf("upsert user: %w", err)
 	}

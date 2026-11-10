@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -12,28 +13,33 @@ import (
 // memStore is an in-memory Store for tests. InTx holds the mutex for the whole
 // callback, which gives the same serialisation a row lock gives in Postgres.
 type memStore struct {
-	mu     sync.Mutex
-	users  map[uuid.UUID]User
-	tokens []*RefreshRecord
-	hashes map[uuid.UUID][]byte
+	mu         sync.Mutex
+	users      map[uuid.UUID]User
+	identities map[[2]string]uuid.UUID // (provider, subject) -> user
+	tokens     []*RefreshRecord
+	hashes     map[uuid.UUID][]byte
 }
 
 func newMemStore() *memStore {
-	return &memStore{users: map[uuid.UUID]User{}, hashes: map[uuid.UUID][]byte{}}
+	return &memStore{users: map[uuid.UUID]User{}, identities: map[[2]string]uuid.UUID{}, hashes: map[uuid.UUID][]byte{}}
 }
 
-func (m *memStore) UpsertGoogleUser(_ context.Context, id GoogleIdentity) (User, error) {
+func (m *memStore) UpsertIdentity(_ context.Context, id Identity) (User, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for k, u := range m.users {
-		if u.GoogleSub == id.Subject {
-			u.Email, u.DisplayName = id.Email, id.Name
-			m.users[k] = u
-			return u, nil
+	key := [2]string{id.Provider, id.Subject}
+	if uid, ok := m.identities[key]; ok {
+		u := m.users[uid]
+		if id.Email != "" {
+			u.Email = id.Email
 		}
+		u.DisplayName = id.Name
+		m.users[uid] = u
+		return u, nil
 	}
-	u := User{ID: uuid.New(), GoogleSub: id.Subject, Email: id.Email, DisplayName: id.Name, CreatedAt: time.Now()}
+	u := User{ID: uuid.New(), Email: id.Email, DisplayName: id.Name, CreatedAt: time.Now()}
 	m.users[u.ID] = u
+	m.identities[key] = u.ID
 	return u, nil
 }
 
@@ -51,6 +57,11 @@ func (m *memStore) DeleteUser(_ context.Context, id uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.users, id)
+	for k, uid := range m.identities {
+		if uid == id {
+			delete(m.identities, k)
+		}
+	}
 	kept := m.tokens[:0]
 	for _, t := range m.tokens {
 		if t.UserID != id {
@@ -145,11 +156,35 @@ func (tx memTx) RevokeAllForUser(_ context.Context, userID uuid.UUID, now time.T
 }
 
 type fakeVerifier struct {
-	id  GoogleIdentity
+	id  Identity
 	err error
 }
 
-func (f fakeVerifier) Verify(context.Context, string) (GoogleIdentity, error) { return f.id, f.err }
+func (f fakeVerifier) Verify(context.Context, string) (Identity, error) { return f.id, f.err }
+
+// fakeCode turns code "c1" into the ID token the fakeVerifier accepts.
+type fakeCode struct{}
+
+func (fakeCode) ExchangeCode(_ context.Context, code string) (string, error) {
+	if code != "c1" {
+		return "", errors.New("invalid_grant")
+	}
+	return "id-token", nil
+}
+
+// fakeLine accepts code "l1" with nonce "n1" and redirect "https://app/cb".
+type fakeLine struct{ id Identity }
+
+func (fakeLine) AuthURL(redirectURI, state, nonce string) string {
+	return "https://line.test/authorize?redirect_uri=" + redirectURI + "&state=" + state + "&nonce=" + nonce
+}
+
+func (f fakeLine) Login(_ context.Context, code, redirectURI, nonce string) (Identity, error) {
+	if code != "l1" || nonce != "n1" || redirectURI != "https://app/cb" {
+		return Identity{}, errors.New("rejected")
+	}
+	return f.id, nil
+}
 
 // clock is a settable time source.
 type clock struct{ t time.Time }

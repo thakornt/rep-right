@@ -26,9 +26,38 @@ func NewAuthStore(pool *pgxpool.Pool) *AuthStore {
 
 var _ auth.Store = (*AuthStore)(nil)
 
-func (s *AuthStore) UpsertGoogleUser(ctx context.Context, id auth.GoogleIdentity) (auth.User, error) {
-	u, err := s.q.UpsertUserByGoogleSub(ctx, dbgen.UpsertUserByGoogleSubParams{
-		GoogleSub: id.Subject, Email: id.Email, DisplayName: id.Name,
+func (s *AuthStore) UpsertIdentity(ctx context.Context, id auth.Identity) (auth.User, error) {
+	var u dbgen.User
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		if err := q.LockIdentity(ctx, dbgen.LockIdentityParams{Provider: id.Provider, Subject: id.Subject}); err != nil {
+			return fmt.Errorf("lock identity: %w", err)
+		}
+		existing, err := q.GetUserByIdentity(ctx, dbgen.GetUserByIdentityParams{Provider: id.Provider, Subject: id.Subject})
+		switch {
+		case err == nil:
+			if id.Email != "" {
+				if err := q.UpdateIdentityEmail(ctx, dbgen.UpdateIdentityEmailParams{
+					Provider: id.Provider, Subject: id.Subject, Email: id.Email,
+				}); err != nil {
+					return fmt.Errorf("update identity: %w", err)
+				}
+			}
+			u, err = q.UpdateUserProfile(ctx, dbgen.UpdateUserProfileParams{
+				ID: existing.ID, Email: id.Email, DisplayName: id.Name,
+			})
+			return err
+		case errors.Is(err, pgx.ErrNoRows):
+			u, err = q.CreateUser(ctx, dbgen.CreateUserParams{Email: id.Email, DisplayName: id.Name})
+			if err != nil {
+				return fmt.Errorf("create user: %w", err)
+			}
+			return q.InsertIdentity(ctx, dbgen.InsertIdentityParams{
+				Provider: id.Provider, Subject: id.Subject, UserID: u.ID, Email: id.Email,
+			})
+		default:
+			return fmt.Errorf("find identity: %w", err)
+		}
 	})
 	return toAuthUser(u), err
 }
@@ -90,5 +119,5 @@ func (t authTx) RevokeAllForUser(ctx context.Context, userID uuid.UUID, now time
 }
 
 func toAuthUser(u dbgen.User) auth.User {
-	return auth.User{ID: u.ID, GoogleSub: u.GoogleSub, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt}
+	return auth.User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt}
 }

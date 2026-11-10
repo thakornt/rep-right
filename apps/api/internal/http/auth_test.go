@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -26,6 +27,9 @@ type fakeAuth struct {
 	deleted   uuid.UUID
 	meErr     error
 	err       error // forced internal error
+
+	noProviders             bool
+	lineRedirect, lineNonce string
 }
 
 func (f *fakeAuth) session(refresh string) auth.Session {
@@ -41,6 +45,36 @@ func (f *fakeAuth) LoginWithGoogle(_ context.Context, idToken string) (auth.User
 	}
 	if idToken != "good" {
 		return auth.User{}, auth.Session{}, auth.ErrInvalidGoogleToken
+	}
+	return testUser, f.session("r1"), nil
+}
+
+func (f *fakeAuth) Providers() auth.Providers {
+	return auth.Providers{GoogleCode: !f.noProviders, Line: !f.noProviders}
+}
+
+func (f *fakeAuth) LoginWithGoogleCode(_ context.Context, code string) (auth.User, auth.Session, error) {
+	switch {
+	case f.noProviders:
+		return auth.User{}, auth.Session{}, auth.ErrProviderDisabled
+	case code != "gc":
+		return auth.User{}, auth.Session{}, auth.ErrInvalidGoogleToken
+	}
+	return testUser, f.session("r1"), nil
+}
+
+func (f *fakeAuth) StartLine(redirectURI string) (auth.LineStart, error) {
+	if f.noProviders {
+		return auth.LineStart{}, auth.ErrProviderDisabled
+	}
+	return auth.LineStart{URL: "https://access.line.me/authorize?redirect_uri=" + redirectURI, State: "st", Nonce: "no"}, nil
+}
+
+// LoginWithLine accepts code "lc" and records what it was given.
+func (f *fakeAuth) LoginWithLine(_ context.Context, code, redirectURI, nonce string) (auth.User, auth.Session, error) {
+	f.lineRedirect, f.lineNonce = redirectURI, nonce
+	if code != "lc" {
+		return auth.User{}, auth.Session{}, auth.ErrInvalidLineLogin
 	}
 	return testUser, f.session("r1"), nil
 }
@@ -239,5 +273,124 @@ func TestDeleteMe(t *testing.T) {
 	}
 	if c := refreshCookieOf(t, w); c.MaxAge >= 0 {
 		t.Errorf("cookie should be cleared: %+v", c)
+	}
+}
+
+func cookieNamed(w *httptest.ResponseRecorder, name string) *http.Cookie {
+	for _, c := range w.Result().Cookies() {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+func TestProvidersEndpoint(t *testing.T) {
+	w := send(newAuthRouter(&fakeAuth{}), http.MethodGet, "/v1/auth/providers", "", nil)
+	if w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != `{"google_code":true,"line":true}` {
+		t.Errorf("got %d %s", w.Code, w.Body)
+	}
+}
+
+func TestGoogleCodeLogin(t *testing.T) {
+	r := newAuthRouter(&fakeAuth{})
+	w := send(r, http.MethodPost, "/v1/auth/google", `{"code":"gc"}`, nil)
+	if w.Code != http.StatusOK || refreshCookieOf(t, w).Value != "r1" {
+		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+	for body, want := range map[string]string{
+		`{"code":"bad"}`:                  CodeInvalidGoogleToken,
+		`{"code":"gc","id_token":"good"}`: CodeInvalidRequest,
+	} {
+		if got := decodeError(t, send(r, http.MethodPost, "/v1/auth/google", body, nil)).Code; got != want {
+			t.Errorf("%s: code = %s, want %s", body, got, want)
+		}
+	}
+	w = send(newAuthRouter(&fakeAuth{noProviders: true}), http.MethodPost, "/v1/auth/google", `{"code":"gc"}`, nil)
+	if w.Code != http.StatusNotFound || decodeError(t, w).Code != CodeProviderDisabled {
+		t.Errorf("disabled: got %d %s", w.Code, w.Body)
+	}
+}
+
+func TestLineStartSetsStateCookie(t *testing.T) {
+	w := send(newAuthRouter(&fakeAuth{}), http.MethodPost, "/v1/auth/line/start",
+		`{"redirect_uri":"http://localhost:3000/auth/line/callback"}`, nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "access.line.me") {
+		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+	c := cookieNamed(w, lineCookie)
+	if c == nil || !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteLaxMode || c.MaxAge != 600 {
+		t.Fatalf("line cookie = %+v", c)
+	}
+	state, nonce, redirect, ok := parseLineCookie(c.Value)
+	if !ok || state != "st" || nonce != "no" || redirect != "http://localhost:3000/auth/line/callback" {
+		t.Errorf("cookie holds %q %q %q %v", state, nonce, redirect, ok)
+	}
+}
+
+func TestLineStartRejectsForeignRedirects(t *testing.T) {
+	r := newAuthRouter(&fakeAuth{})
+	for _, uri := range []string{
+		"https://evil.example/auth/line/callback",
+		"http://localhost:3000/other",
+		"http://localhost:3000/auth/line/callback?next=https://evil.example",
+		"http://user@localhost:3000/auth/line/callback",
+		"",
+	} {
+		w := send(r, http.MethodPost, "/v1/auth/line/start", `{"redirect_uri":"`+uri+`"}`, nil)
+		if w.Code != http.StatusBadRequest || cookieNamed(w, lineCookie) != nil {
+			t.Errorf("%q: got %d, cookie set = %v", uri, w.Code, cookieNamed(w, lineCookie) != nil)
+		}
+	}
+	w := send(newAuthRouter(&fakeAuth{noProviders: true}), http.MethodPost, "/v1/auth/line/start",
+		`{"redirect_uri":"http://localhost:3000/auth/line/callback"}`, nil)
+	if w.Code != http.StatusNotFound || decodeError(t, w).Code != CodeProviderDisabled {
+		t.Errorf("disabled: got %d %s", w.Code, w.Body)
+	}
+}
+
+func lineCookieHeader(state string) http.Header {
+	v := state + "~no~" + base64.RawURLEncoding.EncodeToString([]byte("http://localhost:3000/auth/line/callback"))
+	return http.Header{"Cookie": {lineCookie + "=" + v}}
+}
+
+func TestLineCallbackIssuesSession(t *testing.T) {
+	f := &fakeAuth{}
+	w := send(newAuthRouter(f), http.MethodPost, "/v1/auth/line", `{"code":"lc","state":"st"}`, lineCookieHeader("st"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+	if c := refreshCookieOf(t, w); c.Value != "r1" || c.SameSite != http.SameSiteStrictMode || !c.HttpOnly {
+		t.Errorf("refresh cookie = %+v", c)
+	}
+	if c := cookieNamed(w, lineCookie); c == nil || c.MaxAge >= 0 {
+		t.Errorf("line cookie should be cleared: %+v", c)
+	}
+	if f.lineNonce != "no" || f.lineRedirect != "http://localhost:3000/auth/line/callback" {
+		t.Errorf("service got nonce %q redirect %q", f.lineNonce, f.lineRedirect)
+	}
+}
+
+func TestLineCallbackRejects(t *testing.T) {
+	cases := []struct {
+		name   string
+		body   string
+		header http.Header
+		status int
+		code   string
+	}{
+		{"no cookie", `{"code":"lc","state":"st"}`, nil, http.StatusBadRequest, CodeInvalidLineLogin},
+		{"state mismatch (CSRF)", `{"code":"lc","state":"attacker"}`, lineCookieHeader("st"), http.StatusBadRequest, CodeInvalidLineLogin},
+		{"bad code", `{"code":"zz","state":"st"}`, lineCookieHeader("st"), http.StatusUnauthorized, CodeInvalidLineLogin},
+		{"missing fields", `{"code":"lc"}`, lineCookieHeader("st"), http.StatusBadRequest, CodeInvalidRequest},
+	}
+	for _, tc := range cases {
+		w := send(newAuthRouter(&fakeAuth{}), http.MethodPost, "/v1/auth/line", tc.body, tc.header)
+		if w.Code != tc.status || decodeError(t, w).Code != tc.code {
+			t.Errorf("%s: got %d %s", tc.name, w.Code, w.Body)
+		}
+		if cookieNamed(w, refreshCookie) != nil {
+			t.Errorf("%s: must not start a session", tc.name)
+		}
 	}
 }

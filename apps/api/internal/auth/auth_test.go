@@ -20,7 +20,7 @@ func newTestService(t *testing.T) (*Service, *memStore, *clock) {
 	clk := &clock{t: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)}
 	svc, err := NewService(Options{
 		Store:    st,
-		Verifier: fakeVerifier{id: GoogleIdentity{Subject: "g-1", Email: "a@example.com", Name: "A"}},
+		Verifier: fakeVerifier{id: Identity{Provider: ProviderGoogle, Subject: "g-1", Email: "a@example.com", Name: "A"}},
 		Secret:   secret,
 		Now:      clk.now,
 	})
@@ -44,7 +44,7 @@ func TestLoginWithGoogleIssuesSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.Email != "a@example.com" || u.GoogleSub != "g-1" {
+	if u.Email != "a@example.com" || st.identities[[2]string{ProviderGoogle, "g-1"}] != u.ID {
 		t.Errorf("user = %+v", u)
 	}
 	if !s.AccessExpiresAt.Equal(clk.t.Add(15 * time.Minute)) {

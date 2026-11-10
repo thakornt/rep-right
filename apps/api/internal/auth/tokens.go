@@ -54,12 +54,20 @@ func (s *Service) ParseAccessToken(raw string) (uuid.UUID, error) {
 
 // newRefreshToken returns a random opaque token and its SHA-256 hash.
 func newRefreshToken() (raw string, hash []byte, err error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	raw, err = randomToken()
+	if err != nil {
 		return "", nil, fmt.Errorf("generate refresh token: %w", err)
 	}
-	raw = base64.RawURLEncoding.EncodeToString(b)
 	return raw, HashRefreshToken(raw), nil
+}
+
+// randomToken returns 256 random bits, base64url encoded.
+func randomToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("random token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // HashRefreshToken is the value stored in refresh_tokens.token_hash. A plain

@@ -11,6 +11,30 @@ import (
 	"github.com/google/uuid"
 )
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, display_name)
+VALUES ($1, $2)
+RETURNING id, email, display_name, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	Email       string
+	DisplayName string
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.DisplayName)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1
 `
@@ -21,7 +45,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, google_sub, email, display_name, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, display_name, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -29,7 +53,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.GoogleSub,
 		&i.Email,
 		&i.DisplayName,
 		&i.CreatedAt,
@@ -38,28 +61,106 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
-const upsertUserByGoogleSub = `-- name: UpsertUserByGoogleSub :one
-INSERT INTO users (google_sub, email, display_name)
-VALUES ($1, $2, $3)
-ON CONFLICT (google_sub) DO UPDATE
-SET email = EXCLUDED.email,
-    display_name = EXCLUDED.display_name,
-    updated_at = now()
-RETURNING id, google_sub, email, display_name, created_at, updated_at
+const getUserByIdentity = `-- name: GetUserByIdentity :one
+SELECT u.id, u.email, u.display_name, u.created_at, u.updated_at FROM users u
+JOIN user_identities i ON i.user_id = u.id
+WHERE i.provider = $1 AND i.subject = $2
 `
 
-type UpsertUserByGoogleSubParams struct {
-	GoogleSub   string
-	Email       string
-	DisplayName string
+type GetUserByIdentityParams struct {
+	Provider string
+	Subject  string
 }
 
-func (q *Queries) UpsertUserByGoogleSub(ctx context.Context, arg UpsertUserByGoogleSubParams) (User, error) {
-	row := q.db.QueryRow(ctx, upsertUserByGoogleSub, arg.GoogleSub, arg.Email, arg.DisplayName)
+func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIdentity, arg.Provider, arg.Subject)
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.GoogleSub,
+		&i.Email,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertIdentity = `-- name: InsertIdentity :exec
+INSERT INTO user_identities (provider, subject, user_id, email)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertIdentityParams struct {
+	Provider string
+	Subject  string
+	UserID   uuid.UUID
+	Email    string
+}
+
+func (q *Queries) InsertIdentity(ctx context.Context, arg InsertIdentityParams) error {
+	_, err := q.db.Exec(ctx, insertIdentity,
+		arg.Provider,
+		arg.Subject,
+		arg.UserID,
+		arg.Email,
+	)
+	return err
+}
+
+const lockIdentity = `-- name: LockIdentity :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))
+`
+
+type LockIdentityParams struct {
+	Provider string
+	Subject  string
+}
+
+// Serialises sign-ins of one provider account so two at once cannot create
+// two users.
+func (q *Queries) LockIdentity(ctx context.Context, arg LockIdentityParams) error {
+	_, err := q.db.Exec(ctx, lockIdentity, arg.Provider, arg.Subject)
+	return err
+}
+
+const updateIdentityEmail = `-- name: UpdateIdentityEmail :exec
+UPDATE user_identities SET email = $3
+WHERE provider = $1 AND subject = $2
+`
+
+type UpdateIdentityEmailParams struct {
+	Provider string
+	Subject  string
+	Email    string
+}
+
+func (q *Queries) UpdateIdentityEmail(ctx context.Context, arg UpdateIdentityEmailParams) error {
+	_, err := q.db.Exec(ctx, updateIdentityEmail, arg.Provider, arg.Subject, arg.Email)
+	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET email = CASE WHEN $1::text = '' THEN email ELSE $1::text END,
+    display_name = $2,
+    updated_at = now()
+WHERE id = $3
+RETURNING id, email, display_name, created_at, updated_at
+`
+
+type UpdateUserProfileParams struct {
+	Email       string
+	DisplayName string
+	ID          uuid.UUID
+}
+
+// Refreshes what the provider says at each sign-in. An empty email (LINE
+// without email permission) keeps the one we have.
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.Email, arg.DisplayName, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
 		&i.Email,
 		&i.DisplayName,
 		&i.CreatedAt,

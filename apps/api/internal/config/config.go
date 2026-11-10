@@ -20,8 +20,14 @@ type Config struct {
 	Version string
 
 	GoogleClientID string
-	JWTSecret      string
-	CookieDomain   string // empty = host-only cookie (recommended)
+	// GoogleClientSecret enables our own Google button (GIS code client);
+	// without it the web falls back to Google's rendered button.
+	GoogleClientSecret string
+	// LINE Login channel; both empty = LINE sign-in off (button hidden).
+	LineChannelID     string
+	LineChannelSecret string
+	JWTSecret         string
+	CookieDomain      string // empty = host-only cookie (recommended)
 }
 
 // Load reads configuration from the environment and fails fast when a
@@ -37,9 +43,12 @@ func Load() (Config, error) {
 		// Render sets RENDER_GIT_COMMIT; APP_VERSION works on any other host.
 		Version: getenv("APP_VERSION", getenv("RENDER_GIT_COMMIT", "dev")),
 
-		GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
-		JWTSecret:      os.Getenv("JWT_SECRET"),
-		CookieDomain:   os.Getenv("COOKIE_DOMAIN"),
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		LineChannelID:      os.Getenv("LINE_CHANNEL_ID"),
+		LineChannelSecret:  os.Getenv("LINE_CHANNEL_SECRET"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
+		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
 	}
 
 	var errs []error
@@ -63,6 +72,9 @@ func (c Config) ValidateServe() error {
 	var errs []error
 	if c.GoogleClientID == "" {
 		errs = append(errs, errors.New("GOOGLE_CLIENT_ID is required"))
+	}
+	if (c.LineChannelID == "") != (c.LineChannelSecret == "") {
+		errs = append(errs, errors.New("set both LINE_CHANNEL_ID and LINE_CHANNEL_SECRET, or neither"))
 	}
 	if len(c.JWTSecret) < 32 {
 		errs = append(errs, errors.New("JWT_SECRET must be at least 32 characters (openssl rand -base64 48)"))

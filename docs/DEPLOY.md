@@ -90,10 +90,30 @@ https://github.com/thakornt/rep-right/settings/environments
 5. **Clients** → **Create client** → Application type: **Web application**
    - Name: `rep-right web`
    - Authorized JavaScript origins: `http://localhost:3000` (เพิ่ม domain ของ Vercel ใน Step 6)
-   - Authorized redirect URIs: ไม่ต้องใส่ เพราะใช้ Google Identity Services แบบ ID token
+   - Authorized redirect URIs: ไม่ต้องใส่ ปุ่ม Google ใช้ popup ของ Google Identity Services (redirect แบบ `postmessage`)
 6. copy **Client ID** (ลงท้ายด้วย `.apps.googleusercontent.com`)
    - ไม่ใช่ความลับ ใส่ได้ทั้ง Render, Vercel และ `.env`
-   - **Client secret ไม่ได้ใช้** ห้ามใส่ไว้ที่ไหน
+7. copy **Client secret** ของ client เดียวกัน
+   - **เป็นความลับ** ใส่ที่ Render env `GOOGLE_CLIENT_SECRET` (และ `.env` ในเครื่อง) เท่านั้น ห้ามใส่ Vercel ห้าม commit
+   - ใช้แลกรหัสจากปุ่ม Google ของแอปเป็น ID token ถ้ายังไม่ใส่ เว็บจะกลับไปใช้ปุ่มสำเร็จรูปของ Google ให้เอง
+
+## Step 3.5 LINE Login (ไม่บังคับ ถ้าไม่ตั้ง ปุ่ม LINE จะซ่อนเอง)
+
+1. https://developers.line.biz/console/ → login ด้วยบัญชี LINE → **Create a new provider** เช่นชื่อ `rep-right`
+2. ใน provider → **Create a new channel** → **LINE Login**
+   - Region: Thailand, App types: **Web app**
+   - Channel name / description / icon: ตามแอป (ผู้ใช้จะเห็นตอนกดเข้าสู่ระบบ)
+   - Privacy policy URL: `https://<domain>/privacy`, Terms of use URL: `https://<domain>/terms`
+3. แท็บ **LINE Login** → **Callback URL** ใส่ทีละบรรทัด
+   - `https://<domain ของ Vercel>/auth/line/callback`
+   - `http://localhost:3000/auth/line/callback` (ทดสอบในเครื่อง)
+   - origin เดียวกันต้องอยู่ใน Render env `ALLOWED_ORIGINS` ด้วย ไม่งั้น API จะปฏิเสธ
+4. (ถ้าอยากได้อีเมล) แท็บ **Basic settings** → **OpenID Connect → Email address permission → Apply**
+   ต้องแนบภาพหน้าจอที่บอกผู้ใช้ว่าเก็บอีเมลไปทำอะไร ใช้ภาพหน้า `/privacy` ได้ ถ้าไม่ขอ ผู้ใช้ LINE จะไม่มีอีเมลในบัญชี (ใช้งานได้ตามปกติ)
+5. copy **Channel ID** และ **Channel secret** (แท็บ Basic settings)
+   - ใส่ Render env `LINE_CHANNEL_ID` และ `LINE_CHANNEL_SECRET` (secret เป็นความลับ ห้ามใส่ Vercel ห้าม commit)
+   - เว็บ (Vercel) ไม่ต้องตั้งอะไรเพิ่ม API เป็นคนสร้างลิงก์ไป LINE
+6. channel ใหม่อยู่ในสถานะ **Developing** มีแค่ admin/tester ของ channel ที่ login ได้ พร้อมเปิดให้ทุกคนเมื่อไรกด **Publish** ที่หัวหน้า channel
 
 ## Step 4. Render (API)
 
@@ -122,6 +142,9 @@ https://github.com/thakornt/rep-right/settings/environments
 | `JWT_SECRET` | ผลจาก `openssl rand -base64 48` | ความลับ ห้ามใช้ซ้ำกับ dev |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | เปลี่ยนเป็น domain ของ Vercel ใน Step 6 |
 | `GOOGLE_CLIENT_ID` | จาก Step 3 | ถ้าไม่มี API จะไม่ start |
+| `GOOGLE_CLIENT_SECRET` | จาก Step 3.7 | ความลับ ไม่บังคับ ถ้าไม่มีเว็บใช้ปุ่มสำเร็จรูปของ Google |
+| `LINE_CHANNEL_ID` | จาก Step 3.5 | ไม่บังคับ ต้องใส่คู่กับ secret |
+| `LINE_CHANNEL_SECRET` | จาก Step 3.5 | ความลับ ไม่บังคับ |
 | `LOG_LEVEL` | `info` | |
 
 > **ไม่ต้องตั้ง `PORT`** Render กำหนดให้เอง และโค้ดอ่านค่าจาก `PORT` อยู่แล้ว
@@ -178,9 +201,10 @@ https://github.com/thakornt/rep-right/settings/variables/actions → **New repos
 4. Settings → Build and Deployment
    - Root Directory → **Skip deployments when there are no changes to the root directory** ต้องเปิด (Enabled) ไว้ แก้แค่ API แล้วเว็บจะไม่ build ใหม่
    - **Ignored Build Step** → Behavior: **Automatic** ไม่ต้องใส่ command (ถ้าใช้ Custom ให้ระวังว่าคำสั่งรันใน `apps/web` ใส่ `-- apps/web` แล้วจะข้ามการ build ทุกครั้ง)
-5. ได้ domain มาแล้ว (เช่น `https://rep-right.vercel.app`) ให้กลับไปอัปเดต 2 ที่:
+5. ได้ domain มาแล้ว (เช่น `https://rep-right.vercel.app`) ให้กลับไปอัปเดต 3 ที่:
    - Render env `ALLOWED_ORIGINS`
    - Google OAuth → Clients → Authorized JavaScript origins
+   - LINE Login channel → Callback URL (`https://<domain>/auth/line/callback`) ถ้าใช้ LINE
 
 > Preview deployment แต่ละ PR ได้ URL ใหม่ จึง login Google ไม่ได้ ให้ทดสอบ login บน production หรือ localhost แทน
 
@@ -231,6 +255,9 @@ API เป็น stateless และไม่มีอะไรเก็บไ�
 | Neon direct URL | Step 2 | GitHub env secret `NEON_DIRECT_URL` | ✅ |
 | JWT secret | `openssl rand -base64 48` | Render `JWT_SECRET` | ✅ |
 | Google Client ID | Step 3 | Render `GOOGLE_CLIENT_ID`, Vercel, `.env` | ❌ |
+| Google Client secret | Step 3.7 | Render `GOOGLE_CLIENT_SECRET`, `.env` | ✅ |
+| LINE Channel ID | Step 3.5 | Render `LINE_CHANNEL_ID`, `.env` | ❌ |
+| LINE Channel secret | Step 3.5 | Render `LINE_CHANNEL_SECRET`, `.env` | ✅ |
 | Render URL | Step 4 | GitHub var `API_URL`, Vercel `API_ORIGIN` | ❌ |
 | Render Deploy Hook | Step 4.7 | GitHub env secret `RENDER_DEPLOY_HOOK_URL` | ✅ |
-| Vercel domain | Step 6 | Render `ALLOWED_ORIGINS`, Google OAuth origins | ❌ |
+| Vercel domain | Step 6 | Render `ALLOWED_ORIGINS`, Google OAuth origins, LINE Callback URL | ❌ |

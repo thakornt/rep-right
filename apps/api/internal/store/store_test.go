@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/thakornt/rep-right/apps/api/internal/auth"
 	"github.com/thakornt/rep-right/apps/api/internal/store/dbgen"
 )
 
@@ -41,20 +42,34 @@ func TestMigrationsAndUserQueries(t *testing.T) {
 	}
 
 	q := dbgen.New(pool)
-	u, err := q.UpsertUserByGoogleSub(ctx, dbgen.UpsertUserByGoogleSubParams{
-		GoogleSub: "sub-123", Email: "a@example.com", DisplayName: "A",
-	})
+	st := NewAuthStore(pool)
+	au, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderGoogle, Subject: "sub-123", Email: "a@example.com", Name: "A"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	u2, err := q.UpsertUserByGoogleSub(ctx, dbgen.UpsertUserByGoogleSubParams{
-		GoogleSub: "sub-123", Email: "b@example.com", DisplayName: "B",
-	})
+	au2, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderGoogle, Subject: "sub-123", Email: "b@example.com", Name: "B"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u2.ID != u.ID || u2.Email != "b@example.com" {
-		t.Errorf("upsert should update the same user, got %+v", u2)
+	if au2.ID != au.ID || au2.Email != "b@example.com" || au2.DisplayName != "B" {
+		t.Errorf("upsert should update the same user, got %+v", au2)
+	}
+	// Same subject from another provider is another person.
+	line, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderLine, Subject: "sub-123", Name: "L"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line.ID == au.ID || line.Email != "" {
+		t.Errorf("LINE identity with the same subject attached to %v (email %q)", line.ID, line.Email)
+	}
+	// LINE without email permission must not blank the email we have.
+	au3, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderGoogle, Subject: "sub-123", Email: "", Name: "B"})
+	if err != nil || au3.Email != "b@example.com" {
+		t.Errorf("empty email overwrote the stored one: %+v, %v", au3, err)
+	}
+	u, err := q.GetUserByID(ctx, au.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if _, err := pool.Exec(ctx,
@@ -74,5 +89,46 @@ func TestMigrationsAndUserQueries(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("refresh tokens not cascaded on user delete: %d left", n)
+	}
+}
+
+// TestIdentityMigrationKeepsGoogleUsers checks 00006 against data shaped like
+// production before it: users keyed by google_sub.
+func TestIdentityMigrationKeepsGoogleUsers(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	pool, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	t.Cleanup(func() { _ = Migrate(context.Background(), pool, "up", log) })
+
+	if err := Migrate(ctx, pool, "up", log); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool, "down-to", log, "5"); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (google_sub, email, display_name) VALUES ('legacy-sub', 'old@example.com', 'Old') RETURNING id`,
+	).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool, "up", log); err != nil {
+		t.Fatal(err)
+	}
+	u, err := NewAuthStore(pool).UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderGoogle, Subject: "legacy-sub", Email: "old@example.com", Name: "Old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dbgen.New(pool).DeleteUser(context.Background(), u.ID) })
+	if u.ID.String() != id {
+		t.Errorf("existing Google user got a new account %v, want %v", u.ID, id)
 	}
 }

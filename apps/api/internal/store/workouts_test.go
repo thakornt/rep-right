@@ -32,7 +32,7 @@ func TestWorkoutStore(t *testing.T) {
 
 	q := dbgen.New(pool)
 	newUser := func() uuid.UUID {
-		u, err := q.UpsertUserByGoogleSub(ctx, dbgen.UpsertUserByGoogleSubParams{GoogleSub: uuid.NewString(), Email: "w@example.com"})
+		u, err := q.CreateUser(ctx, dbgen.CreateUserParams{Email: "w@example.com"})
 		if err != nil {
 			t.Fatal(err)
 		}
