@@ -82,6 +82,12 @@ const TARGET = new THREE.Vector3(0, 0.82, 0);
 // `reach`: metres either side of the middle that must stay in frame, for a lift that
 // holds its arms out. A narrow screen moves the camera back to fit them, except from
 // the side, where the arms point along the view.
+// One finger turns the view; two fingers zoom and slide it. A mouse drags to turn it, drags with
+// the right button to slide it, and its wheel zooms.
+const TOUCHES = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+const PAN_LIMIT = 0.12; // how far the view may slide from where it looks at the body, per metre of the camera's distance, so zoomed in it slides less
+
 export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; target?: THREE.Vector3; reach?: number }) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / s.size.height);
@@ -104,11 +110,27 @@ export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; ta
     if (camera.position.distanceTo(goal.current) < 0.01) goal.current = null;
   });
 
+  // Two fingers moving apart or together zoom; moving the same way, they slide the camera up, down
+  // or sideways, without turning it. Not far: the body stays in view.
+  const keepNear = () => {
+    const c = controls.current;
+    if (!c) return;
+    const off = c.target.clone().sub(target);
+    const most = PAN_LIMIT * camera.position.distanceTo(c.target);
+    if (off.length() <= most) return;
+    const back = off.clone().setLength(off.length() - most);
+    c.target.sub(back);
+    camera.position.sub(back);
+  };
+
   return (
     <OrbitControls
       ref={controls}
       target={target}
-      enablePan={false}
+      enablePan
+      mouseButtons={MOUSE_BUTTONS}
+      touches={TOUCHES}
+      onChange={keepNear}
       minDistance={0.9}
       maxDistance={6}
       maxPolarAngle={Math.PI * 0.62}
