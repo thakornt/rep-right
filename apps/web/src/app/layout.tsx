@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Dumbbell } from "lucide-react";
 import { Manrope, Noto_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 
@@ -33,7 +32,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               aria-hidden
               className="grid h-8 w-8 place-items-center rounded-[0.6rem] bg-raised text-primary shadow-[inset_0_0_0_1px_#34446f]"
             >
-              <Dumbbell size={18} strokeWidth={2.25} />
+              {/* The Rep Right figure from app/icon.svg, cropped tighter to fit the small tile. */}
+              <svg viewBox="-330 -40 1260 1460" className="h-[1.3rem] w-[1.3rem]" fill="currentColor">
+                <circle cx="360" cy="150" r="110" />
+                <path
+                  d="M140 360 L580 360 L480 700 L240 700 L440 870 L205 1380 L225 960 L20 800 Z"
+                  stroke="currentColor"
+                  strokeWidth="28"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </span>
             rep-right
           </Link>
