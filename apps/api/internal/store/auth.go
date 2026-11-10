@@ -44,11 +44,11 @@ func (s *AuthStore) UpsertIdentity(ctx context.Context, id auth.Identity) (auth.
 				}
 			}
 			u, err = q.UpdateUserProfile(ctx, dbgen.UpdateUserProfileParams{
-				ID: existing.ID, Email: id.Email, DisplayName: id.Name,
+				ID: existing.ID, Email: id.Email, DisplayName: id.Name, PictureUrl: id.Picture,
 			})
 			return err
 		case errors.Is(err, pgx.ErrNoRows):
-			u, err = q.CreateUser(ctx, dbgen.CreateUserParams{Email: id.Email, DisplayName: id.Name})
+			u, err = q.CreateUser(ctx, dbgen.CreateUserParams{Email: id.Email, DisplayName: id.Name, PictureUrl: id.Picture})
 			if err != nil {
 				return fmt.Errorf("create user: %w", err)
 			}
@@ -59,7 +59,10 @@ func (s *AuthStore) UpsertIdentity(ctx context.Context, id auth.Identity) (auth.
 			return fmt.Errorf("find identity: %w", err)
 		}
 	})
-	return toAuthUser(u), err
+	if err != nil {
+		return auth.User{}, err
+	}
+	return s.withProviders(ctx, u)
 }
 
 func (s *AuthStore) GetUser(ctx context.Context, id uuid.UUID) (auth.User, error) {
@@ -67,7 +70,31 @@ func (s *AuthStore) GetUser(ctx context.Context, id uuid.UUID) (auth.User, error
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth.User{}, auth.ErrUserNotFound
 	}
-	return toAuthUser(u), err
+	if err != nil {
+		return auth.User{}, err
+	}
+	return s.withProviders(ctx, u)
+}
+
+func (s *AuthStore) SetDisplayName(ctx context.Context, id uuid.UUID, name string) (auth.User, error) {
+	u, err := s.q.SetDisplayName(ctx, dbgen.SetDisplayNameParams{ID: id, DisplayName: name})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return auth.User{}, auth.ErrUserNotFound
+	}
+	if err != nil {
+		return auth.User{}, err
+	}
+	return s.withProviders(ctx, u)
+}
+
+func (s *AuthStore) withProviders(ctx context.Context, u dbgen.User) (auth.User, error) {
+	providers, err := s.q.ListProviders(ctx, u.ID)
+	if err != nil {
+		return auth.User{}, fmt.Errorf("list providers: %w", err)
+	}
+	au := toAuthUser(u)
+	au.Providers = providers
+	return au, nil
 }
 
 func (s *AuthStore) DeleteUser(ctx context.Context, id uuid.UUID) error {
@@ -119,5 +146,5 @@ func (t authTx) RevokeAllForUser(ctx context.Context, userID uuid.UUID, now time
 }
 
 func toAuthUser(u dbgen.User) auth.User {
-	return auth.User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt}
+	return auth.User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, PictureURL: u.PictureUrl, CreatedAt: u.CreatedAt}
 }

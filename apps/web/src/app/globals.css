@@ -122,4 +122,19 @@ body {
   .btn-fill:hover {
     filter: brightness(1.06) saturate(1.05);
   }
+  /* Outlined button whose 1.5px border is the btn-fill gradient. The inner
+     layer must match the card it sits on (--surface). */
+  .btn-outline-grad {
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(135deg, var(--primary-hi) 0%, var(--primary) 48%, var(--primary-lo) 100%) border-box;
+    color: var(--primary);
+  }
+  .btn-outline-grad:hover {
+    background:
+      linear-gradient(rgb(247 148 29 / 0.1), rgb(247 148 29 / 0.1)) padding-box,
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(135deg, var(--primary-hi) 0%, var(--primary) 48%, var(--primary-lo) 100%) border-box;
+  }
 }

@@ -12,8 +12,8 @@ JOIN user_identities i ON i.user_id = u.id
 WHERE i.provider = $1 AND i.subject = $2;
 
 -- name: CreateUser :one
-INSERT INTO users (email, display_name)
-VALUES ($1, $2)
+INSERT INTO users (email, display_name, picture_url)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: InsertIdentity :exec
@@ -25,14 +25,25 @@ UPDATE user_identities SET email = $3
 WHERE provider = $1 AND subject = $2;
 
 -- Refreshes what the provider says at each sign-in. An empty email (LINE
--- without email permission) keeps the one we have.
+-- without email permission) keeps the one we have. The display name is the
+-- user's own once set (PATCH /v1/me), so it is only filled when empty.
 -- name: UpdateUserProfile :one
 UPDATE users
 SET email = CASE WHEN sqlc.arg(email)::text = '' THEN email ELSE sqlc.arg(email)::text END,
-    display_name = sqlc.arg(display_name),
+    display_name = CASE WHEN display_name = '' THEN sqlc.arg(display_name)::text ELSE display_name END,
+    picture_url = sqlc.arg(picture_url),
     updated_at = now()
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+-- name: SetDisplayName :one
+UPDATE users SET display_name = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ListProviders :many
+SELECT provider FROM user_identities
+WHERE user_id = $1 ORDER BY created_at, provider;
 
 -- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1;

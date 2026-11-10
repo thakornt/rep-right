@@ -54,6 +54,7 @@ func NewRouter(d Deps) *gin.Engine {
 
 		me := v1.Group("/me", h.requireUser)
 		me.GET("", h.me)
+		me.PATCH("", h.patchMe)
 		me.DELETE("", h.deleteMe)
 
 		if d.Workouts != nil {

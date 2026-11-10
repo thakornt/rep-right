@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { getAuthProviders, startLineLogin, type AuthProviders } from "@/lib/api";
 import { signIn, signInFailed, signOut, useAuth } from "@/lib/auth";
+
+import { Avatar } from "./avatar";
 
 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 type GoogleId = {
   initialize(opts: { client_id: string; callback: (r: { credential: string }) => void }): void;
-  renderButton(el: HTMLElement, opts: Record<string, string | number>): void;
+  prompt(listener?: (n: PromptMoment) => void): void;
   disableAutoSelect(): void;
 };
 
 type CodeClient = { requestCode(): void };
+
+type PromptMoment = { isNotDisplayed?: () => boolean; isSkippedMoment?: () => boolean };
 
 type GoogleOAuth2 = {
   initCodeClient(cfg: {
@@ -42,7 +46,6 @@ export function AuthPanel() {
   const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [pending, setPending] = useState<"google" | "line" | null>(null);
   const codeClient = useRef<CodeClient | null>(null);
-  const fallbackRef = useRef<HTMLDivElement>(null);
 
   const signedOut = state.kind === "signed-out";
 
@@ -54,8 +57,8 @@ export function AuthPanel() {
     const google = window.google?.accounts;
     if (!gisReady || !google || !clientId || !signedOut || !providers) return;
     if (providers.google_code) {
-      // Our own button: GIS opens Google's account chooser in a popup and
-      // returns a one-time code; the API swaps it for a verified ID token.
+      // GIS opens Google's account chooser in a popup and returns a one-time
+      // code; the API swaps it for a verified ID token.
       codeClient.current = google.oauth2.initCodeClient({
         client_id: clientId,
         scope: "openid email profile",
@@ -69,18 +72,32 @@ export function AuthPanel() {
       });
       return;
     }
-    // API without GOOGLE_CLIENT_SECRET: fall back to Google's rendered button.
-    if (!fallbackRef.current) return;
-    google.id.initialize({ client_id: clientId, callback: ({ credential }) => signIn({ id_token: credential }) });
-    google.id.renderButton(fallbackRef.current, {
-      theme: "filled_black",
-      size: "large",
-      shape: "pill",
-      text: "signin_with",
-      locale: "th",
-      width: Math.min(400, fallbackRef.current.clientWidth),
+    // API without GOOGLE_CLIENT_SECRET: our button opens Google's own
+    // account prompt (One Tap), which hands back an ID token directly.
+    google.id.initialize({
+      client_id: clientId,
+      callback: async ({ credential }) => {
+        await signIn({ id_token: credential });
+        setPending(null);
+      },
     });
   }, [gisReady, signedOut, providers]);
+
+  function startGoogle() {
+    const google = window.google?.accounts;
+    if (!google) return;
+    setPending("google");
+    if (codeClient.current) {
+      codeClient.current.requestCode();
+      return;
+    }
+    google.id.prompt((n) => {
+      if (n.isNotDisplayed?.() || n.isSkippedMoment?.()) {
+        setPending(null);
+        signInFailed("เปิดหน้าต่าง Google ไม่ได้ ลองใหม่อีกครั้ง หรือรีเฟรชหน้า");
+      }
+    });
+  }
 
   async function startLine() {
     setPending("line");
@@ -99,20 +116,20 @@ export function AuthPanel() {
       {state.kind === "signed-out" && (
         <>
           <p className="text-sm text-muted">เข้าสู่ระบบเพื่อเก็บประวัติและรับคำเตือน (ดูท่าและวิธีทำได้โดยไม่ต้องเข้าสู่ระบบ)</p>
-          {providers?.google_code ? (
-            <GoogleButton
-              disabled={!gisReady || pending !== null}
-              busy={pending === "google"}
-              onClick={() => {
-                setPending("google");
-                codeClient.current?.requestCode();
-              }}
+          <SignInButton
+            icon={<GoogleMark />}
+            label={pending === "google" ? "กำลังเปิด Google…" : "เข้าสู่ระบบด้วย Google"}
+            disabled={!gisReady || !providers || !clientId || pending !== null}
+            onClick={startGoogle}
+          />
+          {providers?.line && (
+            <SignInButton
+              icon={<LineMark />}
+              label={pending === "line" ? "กำลังไปที่ LINE…" : "เข้าสู่ระบบด้วย LINE"}
+              disabled={pending !== null}
+              onClick={startLine}
             />
-          ) : (
-            // GIS buttons are at most 400px wide, so center it instead of leaving a gap.
-            <div ref={fallbackRef} className="flex min-h-11 w-full justify-center" />
           )}
-          {providers?.line && <LineButton disabled={pending !== null} busy={pending === "line"} onClick={startLine} />}
           <p className="text-xs leading-relaxed text-faint">
             เมื่อเข้าสู่ระบบ จะมีให้อ่านและยอมรับ{" "}
             <Link href="/terms" className="underline underline-offset-4 hover:text-fg">
@@ -134,16 +151,11 @@ export function AuthPanel() {
       )}
       {state.kind === "signed-in" && (
         <div className="flex items-center gap-3 pt-1">
-          <span
-            aria-hidden
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-raised text-sm font-semibold text-primary"
-          >
-            {(state.user.display_name || state.user.email).slice(0, 1).toUpperCase()}
-          </span>
+          <Avatar user={state.user} size="sm" />
           <div className="min-w-0 flex-1 text-sm">
             <p className="truncate font-medium">{state.user.display_name || state.user.email}</p>
             <Link href="/account" className="text-muted hover:text-fg">
-              บัญชีและความเป็นส่วนตัว
+              โปรไฟล์และความเป็นส่วนตัว
             </Link>
           </div>
           <button
@@ -162,85 +174,63 @@ export function AuthPanel() {
   );
 }
 
-type ButtonProps = { disabled: boolean; busy: boolean; onClick: () => void };
-
-// Shared shape: same height and corners as the app's primary buttons.
-const signInBtn =
-  "relative inline-flex h-13 w-full items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold transition-[filter,transform] duration-150 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 cursor-pointer";
+type ButtonProps = { icon: ReactNode; label: string; disabled: boolean; onClick: () => void };
 
 /**
- * Google's branding rules: the "G" in its own four colours, unaltered, on a
- * white, #131314 or #F2F2F2 button. We use the white ("light") theme with
- * Google's #747775 border and #1F1F1F text; only the shape is ours.
+ * Both providers share one outlined button with the primary gradient border, told apart by
+ * its mark and label. The marks are our own one-colour drawings, not the
+ * providers' official logos: the owner chose the app's look over Google's
+ * and LINE's button guidelines (white/dark Google button, LINE green).
  */
-function GoogleButton({ disabled, busy, onClick }: ButtonProps) {
+function SignInButton({ icon, label, disabled, onClick }: ButtonProps) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`${signInBtn} border border-[#747775] bg-white text-[#1F1F1F] hover:brightness-95`}
+      className="inline-flex h-13 w-full items-center justify-center gap-3 btn-outline-grad rounded-2xl px-6 text-base font-semibold transition-transform duration-150 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
     >
-      <GoogleG />
-      {busy ? "กำลังเปิด Google…" : "เข้าสู่ระบบด้วย Google"}
+      {icon}
+      {label}
     </button>
   );
 }
 
-/**
- * LINE's branding rules: LINE green #06C755 with the white LINE icon, a thin
- * divider after the icon, and a darker overlay on hover/press.
- */
-function LineButton({ disabled, busy, onClick }: ButtonProps) {
+/** A "G" drawn as an open ring with a bar, in the button's text colour. */
+function GoogleMark() {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`${signInBtn} bg-[#06C755] text-white hover:brightness-90 active:brightness-75`}
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="h-6 w-6 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.6}
+      strokeLinecap="round"
     >
-      <span className="flex items-center gap-3">
-        <LineIcon />
-        <span aria-hidden className="h-6 w-px bg-black/10" />
-      </span>
-      {busy ? "กำลังไปที่ LINE…" : "เข้าสู่ระบบด้วย LINE"}
-    </button>
-  );
-}
-
-function GoogleG() {
-  return (
-    <svg aria-hidden viewBox="0 0 48 48" className="h-5 w-5 shrink-0">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M12.5 12h7" />
     </svg>
   );
 }
 
-// Stand-in for LINE's official button icon: swap in the asset from LINE's
-// Login button guidelines before launch.
-function LineIcon() {
+/** A speech bubble with "LINE" knocked out, in the button's text colour. */
+function LineMark() {
   return (
-    <svg aria-hidden viewBox="0 0 40 40" className="h-7 w-7 shrink-0">
+    <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0">
       <path
-        fill="#fff"
-        d="M20 4C10.6 4 3 10.1 3 17.7c0 6.8 6 12.5 14.2 13.5.6.1 1.3.4 1.5.9.2.4.1 1.1.1 1.6l-.2 1.5c-.1.4-.3 1.7 1.5.9 1.8-.8 9.8-5.8 13.4-9.9C36 23.5 37 20.7 37 17.7 37 10.1 29.4 4 20 4z"
+        fill="currentColor"
+        d="M12 2.5c-5.8 0-10.5 3.8-10.5 8.5 0 4.2 3.7 7.7 8.8 8.4.4.1.8.3.9.6.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.6 1.1-.5 6-3.6 8.2-6.1 1.5-1.7 2.3-3.4 2.3-5.4 0-4.7-4.7-8.5-10.5-8.5Z"
       />
-      <text x="20" y="21.5" textAnchor="middle" fontSize="8.5" fontWeight="800" fill="#06C755" fontFamily="system-ui, sans-serif">
+      <text
+        x="12"
+        y="13.4"
+        textAnchor="middle"
+        fontSize="5.2"
+        fontWeight="800"
+        fill="var(--surface)"
+        fontFamily="system-ui, sans-serif"
+      >
         LINE
       </text>
     </svg>

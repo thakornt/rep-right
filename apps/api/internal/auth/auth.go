@@ -8,7 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -28,6 +32,7 @@ var (
 	// ErrProviderDisabled means the server has no credentials for that
 	// sign-in method (e.g. LINE_CHANNEL_ID unset).
 	ErrProviderDisabled    = errors.New("sign-in provider not configured")
+	ErrInvalidDisplayName  = errors.New("invalid display name")
 	ErrInvalidAccessToken  = errors.New("invalid access token")
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 	ErrUserNotFound        = errors.New("user not found")
@@ -39,8 +44,14 @@ type User struct {
 	ID          uuid.UUID
 	Email       string
 	DisplayName string
+	PictureURL  string   // from the provider at the last sign-in; "" = none
+	Providers   []string // linked sign-in providers, oldest first
 	CreatedAt   time.Time
 }
+
+// MaxDisplayNameLen is in characters (runes), not bytes: Thai names are
+// three bytes per character.
+const MaxDisplayNameLen = 50
 
 const (
 	ProviderGoogle = "google"
@@ -55,6 +66,7 @@ type Identity struct {
 	Subject  string
 	Email    string // may be empty for LINE
 	Name     string
+	Picture  string // profile picture URL; may be empty
 }
 
 type Session struct {
@@ -91,10 +103,12 @@ type LineClient interface {
 
 type Store interface {
 	// UpsertIdentity finds the user of this provider account, creating the
-	// user on first sign-in, and refreshes email and name from the provider.
+	// user on first sign-in, and refreshes email and picture from the
+	// provider. The display name is only taken from the provider while empty.
 	UpsertIdentity(ctx context.Context, id Identity) (User, error)
-	GetUser(ctx context.Context, id uuid.UUID) (User, error) // ErrUserNotFound
-	DeleteUser(ctx context.Context, id uuid.UUID) error      // cascades to tokens
+	GetUser(ctx context.Context, id uuid.UUID) (User, error)                     // ErrUserNotFound
+	SetDisplayName(ctx context.Context, id uuid.UUID, name string) (User, error) // ErrUserNotFound
+	DeleteUser(ctx context.Context, id uuid.UUID) error                          // cascades to tokens
 	InsertRefreshToken(ctx context.Context, userID uuid.UUID, hash []byte, expiresAt time.Time) error
 	RevokeRefreshToken(ctx context.Context, hash []byte, now time.Time) error
 	// InTx runs fn in one transaction, committing when fn returns nil.
@@ -217,6 +231,8 @@ func (s *Service) LoginWithLine(ctx context.Context, code, redirectURI, nonce st
 }
 
 func (s *Service) login(ctx context.Context, id Identity) (User, Session, error) {
+	id.Picture = cleanPictureURL(id.Picture)
+	id.Name = truncateRunes(strings.TrimSpace(id.Name), MaxDisplayNameLen)
 	u, err := s.store.UpsertIdentity(ctx, id)
 	if err != nil {
 		return User{}, Session{}, fmt.Errorf("upsert user: %w", err)
@@ -296,6 +312,50 @@ func (s *Service) Logout(ctx context.Context, raw string) error {
 
 func (s *Service) Me(ctx context.Context, userID uuid.UUID) (User, error) {
 	return s.store.GetUser(ctx, userID)
+}
+
+// UpdateDisplayName sets the name shown in the app. It is trimmed and must be
+// 1-50 characters without control characters.
+func (s *Service) UpdateDisplayName(ctx context.Context, userID uuid.UUID, name string) (User, error) {
+	name, err := CleanDisplayName(name)
+	if err != nil {
+		return User{}, err
+	}
+	return s.store.SetDisplayName(ctx, userID, name)
+}
+
+func CleanDisplayName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	n := utf8.RuneCountInString(name)
+	if !utf8.ValidString(name) || n == 0 || n > MaxDisplayNameLen {
+		return "", ErrInvalidDisplayName
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return "", ErrInvalidDisplayName
+		}
+	}
+	return name, nil
+}
+
+// cleanPictureURL keeps only https links of sane length, so the web never
+// renders a javascript:, data: or plain-http URL from a provider.
+func cleanPictureURL(raw string) string {
+	if len(raw) > 2048 {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+		return ""
+	}
+	return raw
+}
+
+func truncateRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n])
 }
 
 // DeleteAccount hard-deletes the user and, by cascade, all of their data (PDPA).

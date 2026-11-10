@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -29,6 +30,7 @@ type Authenticator interface {
 	Logout(ctx context.Context, refreshToken string) error
 	ParseAccessToken(raw string) (uuid.UUID, error)
 	Me(ctx context.Context, userID uuid.UUID) (auth.User, error)
+	UpdateDisplayName(ctx context.Context, userID uuid.UUID, name string) (auth.User, error)
 	DeleteAccount(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -60,6 +62,8 @@ type userJSON struct {
 	ID          uuid.UUID `json:"id"`
 	Email       string    `json:"email"`
 	DisplayName string    `json:"display_name"`
+	PictureURL  string    `json:"picture_url"`
+	Providers   []string  `json:"providers"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -71,7 +75,14 @@ type tokenJSON struct {
 }
 
 func toUserJSON(u auth.User) *userJSON {
-	return &userJSON{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt}
+	providers := u.Providers
+	if providers == nil {
+		providers = []string{}
+	}
+	return &userJSON{
+		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, PictureURL: u.PictureURL,
+		Providers: providers, CreatedAt: u.CreatedAt,
+	}
 }
 
 // providers tells the web which sign-in buttons can work on this server.
@@ -246,6 +257,30 @@ func (h authHandlers) me(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toUserJSON(u))
+}
+
+// patchMe lets the user change the name shown in the app.
+func (h authHandlers) patchMe(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAuthBody)
+	var req struct {
+		DisplayName *string `json:"display_name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.DisplayName == nil {
+		writeError(c, http.StatusBadRequest, CodeInvalidRequest, "display_name is required")
+		return
+	}
+	u, err := h.auth.UpdateDisplayName(c.Request.Context(), c.MustGet(userIDKey).(uuid.UUID), *req.DisplayName)
+	switch {
+	case errors.Is(err, auth.ErrInvalidDisplayName):
+		writeError(c, http.StatusUnprocessableEntity, CodeValidationFailed,
+			fmt.Sprintf("display_name must be 1-%d characters", auth.MaxDisplayNameLen))
+	case errors.Is(err, auth.ErrUserNotFound):
+		writeError(c, http.StatusUnauthorized, CodeUnauthorized, "account no longer exists")
+	case err != nil:
+		h.internal(c, "update display name", err)
+	default:
+		c.JSON(http.StatusOK, toUserJSON(u))
+	}
 }
 
 func (h authHandlers) deleteMe(c *gin.Context) {

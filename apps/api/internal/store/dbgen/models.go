@@ -64,6 +64,7 @@ type User struct {
 	DisplayName string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	PictureUrl  string
 }
 
 type UserIdentity struct {

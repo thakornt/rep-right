@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardPen } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { REGIONS, muscleLabel } from "@/lib/exercise-groups";
@@ -40,21 +40,6 @@ export default function Home() {
       </section>
 
       <section className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-lift)]">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
-            <ClipboardPen aria-hidden size={20} />
-          </span>
-          <div>
-            <h2 className="text-lg font-semibold">บันทึกการซ้อมวันนี้</h2>
-            <p className="text-sm text-muted">กด “เหมือนครั้งก่อน” แล้วแก้แค่ตัวเลข แอปจะเตือนถ้าเพิ่มโหลดเร็วเกินไป</p>
-          </div>
-        </div>
-        <Link
-          href="/log"
-          className="btn-fill inline-flex h-13 items-center justify-center rounded-2xl text-base font-semibold transition-[filter,transform] active:scale-[0.98]"
-        >
-          เริ่มบันทึก
-        </Link>
         <AuthPanel />
       </section>
 

@@ -87,7 +87,7 @@ export function TermsGate({ state }: { state: TermsState }) {
         <p className="text-xs leading-relaxed text-faint">
           ถ้าไม่ต้องการใช้งานต่อ ลบบัญชีได้ที่หน้า{" "}
           <Link href="/account" className={link}>
-            บัญชีและความเป็นส่วนตัว
+            โปรไฟล์
           </Link>
         </p>
       </div>

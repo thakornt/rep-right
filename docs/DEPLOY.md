@@ -93,9 +93,9 @@ https://github.com/thakornt/rep-right/settings/environments
    - Authorized redirect URIs: ไม่ต้องใส่ ปุ่ม Google ใช้ popup ของ Google Identity Services (redirect แบบ `postmessage`)
 6. copy **Client ID** (ลงท้ายด้วย `.apps.googleusercontent.com`)
    - ไม่ใช่ความลับ ใส่ได้ทั้ง Render, Vercel และ `.env`
-7. copy **Client secret** ของ client เดียวกัน
+7. **Client secret** ของ client เดียวกัน: Google แสดงค่า secret แค่ครั้งเดียวตอนสร้าง ถ้าไม่ได้จดไว้ ให้กด **Add secret** ที่หน้า client แล้ว copy ค่าที่ขึ้นมาทันที (ตัวเก่ายังใช้ได้ ลบทิ้งได้ภายหลัง)
    - **เป็นความลับ** ใส่ที่ Render env `GOOGLE_CLIENT_SECRET` (และ `.env` ในเครื่อง) เท่านั้น ห้ามใส่ Vercel ห้าม commit
-   - ใช้แลกรหัสจากปุ่ม Google ของแอปเป็น ID token ถ้ายังไม่ใส่ เว็บจะกลับไปใช้ปุ่มสำเร็จรูปของ Google ให้เอง
+   - ใช้แลกรหัสจากปุ่ม Google ของแอปเป็น ID token ถ้ายังไม่ใส่ ปุ่มจะใช้ One Tap ของ Google แทน ซึ่งใช้ได้เฉพาะเบราว์เซอร์ที่ login Google ค้างไว้
 
 ## Step 3.5 LINE Login (ไม่บังคับ ถ้าไม่ตั้ง ปุ่ม LINE จะซ่อนเอง)
 
