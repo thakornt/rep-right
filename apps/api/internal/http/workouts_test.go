@@ -18,7 +18,7 @@ import (
 
 var (
 	fixedNow = time.Date(2026, 10, 30, 15, 0, 0, 0, time.UTC)
-	squat    = workout.Exercise{ID: 1, Slug: "back-squat", NameTH: "สควอท", NameEN: "Back Squat", Category: "squat", IsLowerBody: true, Muscles: []string{"quads", "glutes"}}
+	squat    = workout.Exercise{ID: 1, Slug: "back-squat", NameTH: "สควอท", NameEN: "Back Squat", Category: "legs", IsLowerBody: true, Muscles: []string{"quads", "glutes"}}
 )
 
 // fakeWorkouts keeps sessions of every user in one map, so a handler that
