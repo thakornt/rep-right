@@ -5,12 +5,20 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { useTerms } from "@/lib/terms";
 
+import { TermsGate } from "./terms-gate";
 import { btnPrimary } from "./ui";
 
-/** Renders children only when signed in; otherwise points to the sign-in on the home page. */
-export function RequireAuth({ children }: { children: ReactNode }) {
+/**
+ * Renders children only when signed in and the current terms are accepted;
+ * otherwise points to the sign-in on the home page or asks to accept. The
+ * account page passes needTerms={false} so someone who declines can still
+ * delete their account.
+ */
+export function RequireAuth({ children, needTerms = true }: { children: ReactNode; needTerms?: boolean }) {
   const auth = useAuth();
+  const terms = useTerms();
   if (auth.kind === "checking") {
     return <p className="text-sm text-faint">กำลังตรวจสอบการเข้าสู่ระบบ…</p>;
   }
@@ -24,5 +32,6 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       </div>
     );
   }
+  if (needTerms && terms !== "accepted") return <TermsGate state={terms} />;
   return children;
 }
