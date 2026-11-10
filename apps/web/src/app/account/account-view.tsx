@@ -1,14 +1,16 @@
 "use client";
 
 import { CircleAlert, ShieldCheck, ShieldOff } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { HEALTH_CONSENT_VERSION, grantConsent, listConsents, withdrawConsent, type Consent } from "@/lib/api";
 import { deleteAccount, useAuth } from "@/lib/auth";
 import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
+import { TERMS_VERSION } from "@/lib/legal";
 
-import { btnQuiet } from "../ui";
+import { btnQuiet, btnText } from "../ui";
 
 const CONFIRM_WORD = "ลบบัญชี";
 
@@ -30,6 +32,7 @@ export function AccountView() {
 
   if (auth.kind !== "signed-in") return null;
   const health = consents?.filter((c) => c.kind === "health_data").at(-1);
+  const terms = consents?.find((c) => c.kind === "terms" && c.version === TERMS_VERSION);
   const name = auth.user.display_name || auth.user.email;
 
   async function run(action: () => Promise<void>, failMessage: string) {
@@ -53,6 +56,27 @@ export function AccountView() {
         <div className="min-w-0">
           <p className="truncate text-lg font-semibold">{name}</p>
           <p className="truncate text-sm text-muted">{auth.user.email} · Google</p>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-medium tracking-wide text-faint">ข้อตกลงและนโยบาย</h2>
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5">
+          {consents !== null && (
+            <p className={`flex items-center gap-2 font-medium ${terms ? "text-health" : "text-muted"}`}>
+              {terms ? <ShieldCheck aria-hidden size={20} /> : <ShieldOff aria-hidden size={20} />}
+              {terms ? `ยอมรับฉบับปัจจุบันแล้ว · ${thDate(terms.accepted_at)}` : "ยังไม่ได้ยอมรับฉบับปัจจุบัน"}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-x-5">
+            <Link href="/terms" className={btnText}>
+              ข้อตกลงการใช้งาน
+            </Link>
+            <Link href="/privacy" className={btnText}>
+              นโยบายความเป็นส่วนตัว
+            </Link>
+          </div>
+          <p className="text-sm leading-relaxed text-muted">ถ้าไม่ต้องการให้เก็บข้อมูลต่อ ลบบัญชีได้ด้านล่าง</p>
         </div>
       </section>
 
