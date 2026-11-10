@@ -82,10 +82,10 @@ const TARGET = new THREE.Vector3(0, 0.82, 0);
 // `reach`: metres either side of the middle that must stay in frame, for a lift that
 // holds its arms out. A narrow screen moves the camera back to fit them, except from
 // the side, where the arms point along the view.
-// One finger turns the view; two fingers zoom and slide it. A mouse drags to turn it and its wheel
-// zooms, as before: its right button doesn't slide the view.
+// One finger turns the view; two fingers zoom and slide it. A mouse drags to turn it, drags with
+// the right button to slide it, and its wheel zooms.
 const TOUCHES = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: -1 as THREE.MOUSE };
+const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 const PAN_LIMIT = 0.12; // how far the view may slide from where it looks at the body, per metre of the camera's distance, so zoomed in it slides less
 
 export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; target?: THREE.Vector3; reach?: number }) {
