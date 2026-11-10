@@ -63,12 +63,39 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-export async function signInWithGoogle(idToken: string): Promise<User> {
-  const res = await post("/v1/auth/google", { id_token: idToken });
+async function startSession(path: string, body: unknown): Promise<User> {
+  const res = await post(path, body);
   if (!res.ok) throw await parseError(res);
-  const body = (await res.json()) as TokenResponse;
-  accessToken = body.access_token;
-  return body.user!;
+  const tokens = (await res.json()) as TokenResponse;
+  accessToken = tokens.access_token;
+  return tokens.user!;
+}
+
+/** Google sign-in with an ID token (Google's own button) or an authorization code (our button). */
+export const signInWithGoogle = (proof: { id_token: string } | { code: string }) =>
+  startSession("/v1/auth/google", proof);
+
+/** Finishes LINE Login with what LINE sent to /auth/line/callback. */
+export const signInWithLine = (code: string, state: string) => startSession("/v1/auth/line", { code, state });
+
+export type AuthProviders = { google_code: boolean; line: boolean };
+
+/** Which sign-in buttons this API can serve. An older API (404) means Google's own button only. */
+export async function getAuthProviders(): Promise<AuthProviders> {
+  try {
+    const res = await fetch(`${apiUrl}/v1/auth/providers`);
+    if (res.ok) return (await res.json()) as AuthProviders;
+  } catch {
+    // offline or API down: fall through
+  }
+  return { google_code: false, line: false };
+}
+
+/** Starts LINE Login; returns the LINE page to send the browser to. */
+export async function startLineLogin(redirectUri: string): Promise<string> {
+  const res = await post("/v1/auth/line/start", { redirect_uri: redirectUri });
+  if (!res.ok) throw await parseError(res);
+  return ((await res.json()) as { url: string }).url;
 }
 
 export async function signOut(): Promise<void> {

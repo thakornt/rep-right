@@ -46,7 +46,7 @@ apps/api          Go (Gin) API
   cmd/api         main: `api serve` | `api migrate up|down|status`
   internal/config env config
   internal/http   router, middleware, handlers
-  internal/auth   Google ID token verify, access JWT, refresh token rotation
+  internal/auth   Google / LINE sign-in verify, access JWT, refresh token rotation
   internal/domain pure business rules (workout: session validation)
   internal/store  pgx pool, migrations runner, dbgen/ (sqlc output)
   db/migrations   goose SQL migrations (ฝังใน binary)

@@ -24,7 +24,7 @@ func TestIdentityFromPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != (GoogleIdentity{Subject: "1234", Email: "a@example.com", Name: "A"}) {
+	if id != (Identity{Provider: ProviderGoogle, Subject: "1234", Email: "a@example.com", Name: "A"}) {
 		t.Errorf("identity = %+v", id)
 	}
 

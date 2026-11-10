@@ -2,9 +2,13 @@ package http
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,7 +20,11 @@ import (
 
 // Authenticator is the subset of *auth.Service the handlers need.
 type Authenticator interface {
+	Providers() auth.Providers
 	LoginWithGoogle(ctx context.Context, idToken string) (auth.User, auth.Session, error)
+	LoginWithGoogleCode(ctx context.Context, code string) (auth.User, auth.Session, error)
+	StartLine(redirectURI string) (auth.LineStart, error)
+	LoginWithLine(ctx context.Context, code, redirectURI, nonce string) (auth.User, auth.Session, error)
 	Refresh(ctx context.Context, refreshToken string) (auth.Session, error)
 	Logout(ctx context.Context, refreshToken string) error
 	ParseAccessToken(raw string) (uuid.UUID, error)
@@ -32,14 +40,20 @@ type CookieConfig struct {
 
 const (
 	refreshCookie = "rr_refresh"
-	userIDKey     = "auth.user_id"
-	maxAuthBody   = 16 << 10
+	// lineCookie holds state, nonce and redirect URI between the start of
+	// LINE Login and its callback.
+	lineCookie       = "rr_line"
+	lineCookieTTL    = 10 * time.Minute
+	lineCallbackPath = "/auth/line/callback"
+	userIDKey        = "auth.user_id"
+	maxAuthBody      = 16 << 10
 )
 
 type authHandlers struct {
-	auth   Authenticator
-	cookie CookieConfig
-	log    *slog.Logger
+	auth    Authenticator
+	cookie  CookieConfig
+	origins []string // web origins allowed as LINE redirect targets
+	log     *slog.Logger
 }
 
 type userJSON struct {
@@ -60,16 +74,38 @@ func toUserJSON(u auth.User) *userJSON {
 	return &userJSON{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt}
 }
 
+// providers tells the web which sign-in buttons can work on this server.
+func (h authHandlers) providers(c *gin.Context) {
+	p := h.auth.Providers()
+	c.JSON(http.StatusOK, gin.H{"google_code": p.GoogleCode, "line": p.Line})
+}
+
+// google accepts either an ID token (Google's rendered button) or an
+// authorization code from the GIS code client (our own button).
 func (h authHandlers) google(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAuthBody)
 	var req struct {
 		IDToken string `json:"id_token"`
+		Code    string `json:"code"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.IDToken == "" {
-		writeError(c, http.StatusBadRequest, CodeInvalidRequest, "id_token is required")
+	if err := c.ShouldBindJSON(&req); err != nil || (req.IDToken == "") == (req.Code == "") {
+		writeError(c, http.StatusBadRequest, CodeInvalidRequest, "id_token or code is required")
 		return
 	}
-	u, s, err := h.auth.LoginWithGoogle(c.Request.Context(), req.IDToken)
+	var (
+		u   auth.User
+		s   auth.Session
+		err error
+	)
+	if req.Code != "" {
+		u, s, err = h.auth.LoginWithGoogleCode(c.Request.Context(), req.Code)
+	} else {
+		u, s, err = h.auth.LoginWithGoogle(c.Request.Context(), req.IDToken)
+	}
+	if errors.Is(err, auth.ErrProviderDisabled) {
+		writeError(c, http.StatusNotFound, CodeProviderDisabled, "this sign-in method is not set up")
+		return
+	}
 	if errors.Is(err, auth.ErrInvalidGoogleToken) {
 		h.log.InfoContext(c.Request.Context(), "google sign-in rejected", slog.Any("error", err))
 		writeError(c, http.StatusUnauthorized, CodeInvalidGoogleToken, "google sign-in failed")
@@ -80,6 +116,98 @@ func (h authHandlers) google(c *gin.Context) {
 		return
 	}
 	h.writeSession(c, s, toUserJSON(u))
+}
+
+// lineStart begins LINE Login: it remembers state and nonce in a short-lived
+// cookie and returns the LINE URL to send the browser to.
+func (h authHandlers) lineStart(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAuthBody)
+	var req struct {
+		RedirectURI string `json:"redirect_uri"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || !h.allowedLineRedirect(req.RedirectURI) {
+		writeError(c, http.StatusBadRequest, CodeInvalidRequest, "redirect_uri must be "+lineCallbackPath+" on an allowed origin")
+		return
+	}
+	st, err := h.auth.StartLine(req.RedirectURI)
+	if errors.Is(err, auth.ErrProviderDisabled) {
+		writeError(c, http.StatusNotFound, CodeProviderDisabled, "this sign-in method is not set up")
+		return
+	}
+	if err != nil {
+		h.internal(c, "line start", err)
+		return
+	}
+	value := st.State + "~" + st.Nonce + "~" + base64.RawURLEncoding.EncodeToString([]byte(req.RedirectURI))
+	h.setLineCookie(c, value, int(lineCookieTTL.Seconds()))
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, gin.H{"url": st.URL})
+}
+
+// line finishes LINE Login with the code and state LINE sent to the callback.
+func (h authHandlers) line(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAuthBody)
+	var req struct {
+		Code  string `json:"code"`
+		State string `json:"state"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Code == "" || req.State == "" {
+		writeError(c, http.StatusBadRequest, CodeInvalidRequest, "code and state are required")
+		return
+	}
+	raw, _ := c.Cookie(lineCookie)
+	h.setLineCookie(c, "", -1) // one attempt per start
+	state, nonce, redirect, ok := parseLineCookie(raw)
+	if !ok || subtle.ConstantTimeCompare([]byte(state), []byte(req.State)) != 1 {
+		writeError(c, http.StatusBadRequest, CodeInvalidLineLogin, "line sign-in expired, please try again")
+		return
+	}
+	u, s, err := h.auth.LoginWithLine(c.Request.Context(), req.Code, redirect, nonce)
+	if errors.Is(err, auth.ErrProviderDisabled) {
+		writeError(c, http.StatusNotFound, CodeProviderDisabled, "this sign-in method is not set up")
+		return
+	}
+	if errors.Is(err, auth.ErrInvalidLineLogin) {
+		h.log.InfoContext(c.Request.Context(), "line sign-in rejected", slog.Any("error", err))
+		writeError(c, http.StatusUnauthorized, CodeInvalidLineLogin, "line sign-in failed")
+		return
+	}
+	if err != nil {
+		h.internal(c, "line sign-in", err)
+		return
+	}
+	h.writeSession(c, s, toUserJSON(u))
+}
+
+func parseLineCookie(raw string) (state, nonce, redirect string, ok bool) {
+	parts := strings.Split(raw, "~")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+		return "", "", "", false
+	}
+	r, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(r) == 0 {
+		return "", "", "", false
+	}
+	return parts[0], parts[1], string(r), true
+}
+
+// allowedLineRedirect accepts only our callback page on a configured web
+// origin, so LINE never sends a code anywhere else.
+func (h authHandlers) allowedLineRedirect(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Path != lineCallbackPath || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return false
+	}
+	return slices.Contains(h.origins, u.Scheme+"://"+u.Host)
+}
+
+// The LINE cookie is Lax, not Strict: the callback page is reached by a
+// cross-site redirect from LINE.
+func (h authHandlers) setLineCookie(c *gin.Context, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // G124: Secure comes from config, see CookieConfig
+		Name: lineCookie, Value: value, Path: "/", Domain: h.cookie.Domain, MaxAge: maxAge,
+		HttpOnly: true, Secure: h.cookie.Secure, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func (h authHandlers) refresh(c *gin.Context) {

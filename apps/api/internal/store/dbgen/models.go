@@ -60,9 +60,16 @@ type Set struct {
 
 type User struct {
 	ID          uuid.UUID
-	GoogleSub   string
 	Email       string
 	DisplayName string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type UserIdentity struct {
+	Provider  string
+	Subject   string
+	UserID    uuid.UUID
+	Email     string
+	CreatedAt time.Time
 }

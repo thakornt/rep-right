@@ -14,9 +14,9 @@ import (
 	"github.com/thakornt/rep-right/apps/api/internal/auth"
 )
 
-type stubVerifier struct{ id auth.GoogleIdentity }
+type stubVerifier struct{ id auth.Identity }
 
-func (s stubVerifier) Verify(context.Context, string) (auth.GoogleIdentity, error) { return s.id, nil }
+func (s stubVerifier) Verify(context.Context, string) (auth.Identity, error) { return s.id, nil }
 
 // TestAuthStoreWithService runs the real auth flow against Postgres, which is
 // what proves the row lock and the reuse revocation commit as intended.
@@ -39,7 +39,7 @@ func TestAuthStoreWithService(t *testing.T) {
 	var clockMu sync.Mutex
 	svc, err := auth.NewService(auth.Options{
 		Store:    NewAuthStore(pool),
-		Verifier: stubVerifier{auth.GoogleIdentity{Subject: "store-auth-" + now.Format(time.RFC3339Nano), Email: "s@example.com", Name: "S"}},
+		Verifier: stubVerifier{auth.Identity{Provider: auth.ProviderGoogle, Subject: "store-auth-" + now.Format(time.RFC3339Nano), Email: "s@example.com", Name: "S"}},
 		Secret:   []byte("0123456789abcdef0123456789abcdef"),
 		Now:      func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return now },
 	})

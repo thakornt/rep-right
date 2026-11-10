@@ -43,9 +43,12 @@ func NewRouter(d Deps) *gin.Engine {
 	r.GET("/healthz", healthz(d.DB, d.Version))
 
 	if d.Auth != nil {
-		h := authHandlers{auth: d.Auth, cookie: d.Cookie, log: d.Log}
+		h := authHandlers{auth: d.Auth, cookie: d.Cookie, origins: d.AllowedOrigins, log: d.Log}
 		v1 := r.Group("/v1")
+		v1.GET("/auth/providers", h.providers)
 		v1.POST("/auth/google", h.google)
+		v1.POST("/auth/line/start", h.lineStart)
+		v1.POST("/auth/line", h.line)
 		v1.POST("/auth/refresh", h.refresh)
 		v1.POST("/auth/logout", h.logout)
 
