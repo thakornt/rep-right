@@ -2,7 +2,8 @@
 // pose change. Needs the dev server on port 3100, Chrome, and playwright-core:
 //   npm --prefix apps/web install --no-save playwright-core
 //   node tools/body/shots.mjs hammer-curl out/hc "0,0.5,1"
-// HIDE_PINS=1 hides the numbered spots, which can cover a joint.
+// HIDE_PINS=1 hides the numbered spots, which can cover a joint. VARIANT=<button label> picks a
+// way of doing the lift first, on pages that offer more than one.
 
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
@@ -27,6 +28,10 @@ const page = await browser.newPage({ viewport: { width: 700, height: 1000 }, dev
 page.on("pageerror", (e) => console.log("PAGEERROR", e.message.slice(0, 300)));
 await page.goto(`http://localhost:3100/exercises/${slug}`, { waitUntil: "load" });
 await page.waitForSelector("canvas", { timeout: 60000 });
+if (process.env.VARIANT) {
+  await page.getByRole("button", { name: process.env.VARIANT, exact: true }).click();
+  await page.waitForSelector("canvas", { timeout: 60000 });
+}
 await page.waitForTimeout(3000);
 await page.click('button[aria-label="หยุด"]');
 if (process.env.HIDE_PINS) await page.addStyleTag({ content: 'button[aria-label^="จุดจัดท่า"]{display:none!important}' });

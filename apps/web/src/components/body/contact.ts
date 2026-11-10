@@ -47,6 +47,7 @@ export function readBody(root: THREE.Object3D) {
 // World positions and normals of every vertex, as posed now.
 function skin(body: Body) {
   const { mesh, n } = body;
+  (mesh.userData.beforeSkin as (() => void) | undefined)?.();
   const g = mesh.geometry;
   const sk = mesh.skeleton;
   // Same as three's skinning shader: world <- bind space, per bone.

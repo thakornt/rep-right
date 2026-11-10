@@ -6,6 +6,7 @@
 
 import * as THREE from "three";
 
+import { upperArmBones } from "./arm-twist";
 import { aim, deg, keepHinge, readRig, setWorldQuat, twoBoneIK, worldPos, worldQuat, type Rig } from "./pose";
 import { frame, readSide, turnTo, type PressSide } from "./pose-press";
 import { fromBottomDepthAt, fromBottomTimeAt } from "./tempo";
@@ -54,17 +55,16 @@ function readBiceps(rig: Rig, sides: PressSide[]) {
   }
   rig.pelvis.parent!.updateMatrixWorld(true);
   const { skinIndex, skinWeight, position } = skin.geometry.attributes;
-  const bones = skin.skeleton.bones;
   const limbs = sides.map((a) => {
     const shoulder = worldPos(a.s.upperarm);
     const along = worldPos(a.s.lowerarm).sub(shoulder).normalize();
     const hinge = a.hinge.clone().applyQuaternion(worldQuat(a.s.upperarm));
-    return { bone: bones.indexOf(a.s.upperarm as THREE.Bone), shoulder, along, front: along.clone().cross(hinge).normalize(), length: a.upperLen };
+    return { bones: upperArmBones(skin, a.s.upperarm), shoulder, along, front: along.clone().cross(hinge).normalize(), length: a.upperLen };
   });
   const at = new Float32Array(position.count);
   const p = new THREE.Vector3();
   for (let i = 0; i < position.count; i++) {
-    const limb = limbs.find((m) => [0, 1, 2, 3].some((k) => skinIndex.getComponent(i, k) === m.bone && skinWeight.getComponent(i, k) > 0.5));
+    const limb = limbs.find((m) => [0, 1, 2, 3].reduce((w, k) => w + (m.bones.has(skinIndex.getComponent(i, k)) ? skinWeight.getComponent(i, k) : 0), 0) > 0.5);
     if (!limb) continue;
     skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld).sub(limb.shoulder);
     const t = (p.dot(limb.along) / limb.length - BICEPS_START) / (BICEPS_END - BICEPS_START);

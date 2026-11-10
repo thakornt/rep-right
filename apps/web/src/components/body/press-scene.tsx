@@ -13,6 +13,7 @@ import { DUMBBELL_SQUAT, poseDumbbellSquat, readDumbbellSquatRig } from "./pose-
 import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
 import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather } from "./pose-pushdown";
+import { OVERHEAD_ONE, OVERHEAD_TWO, poseOverheadOne, poseOverheadTwo, readOverheadRig } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
@@ -30,7 +31,7 @@ type Props = {
   onFrame: (depth: number, phase: Phase, side: CurlSide) => void;
 };
 
-const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN, pushdown: ROPE_PUSHDOWN, pushup: PUSH_UP };
+const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN, pushdown: ROPE_PUSHDOWN, pushup: PUSH_UP, overheadOne: OVERHEAD_ONE, overheadTwo: OVERHEAD_TWO };
 const REACH: Partial<Record<PressExercise, number>> = { raise: LATERAL_RAISE.cameraReach, pulldown: LAT_PULLDOWN.cameraReach, pushdown: ROPE_PUSHDOWN.cameraReach, pushup: PUSH_UP.cameraReach };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -46,6 +47,8 @@ type Lift = {
   machine?: PulldownRig;
   rope?: boolean;
   bare?: boolean; // nothing held: the hands are on the floor
+  one?: boolean; // one dumbbell, the right hand's
+  pinSide?: "l" | "r"; // the arm the elbow and dumbbell pins sit on
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
@@ -64,6 +67,21 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
   if (exercise === "pulldown") {
     const pull = readPulldownRig(root);
     return { rig: pull.rig, pose: (depth: number) => posePulldown(pull, depth), biceps: () => 0, bench: null, machine: pull };
+  }
+  if (exercise === "overheadOne" || exercise === "overheadTwo") {
+    const o = readOverheadRig(root);
+    if (exercise === "overheadTwo") return { rig: o.rig, pose: (depth: number) => poseOverheadTwo(o, depth), biceps: () => 0, bench: null, one: true };
+    return {
+      rig: o.rig,
+      pose: (depth: number) => {
+        const g = poseOverheadOne(o, depth);
+        return { l: g.r, r: g.r };
+      },
+      biceps: () => 0,
+      bench: null,
+      one: true,
+      pinSide: "r",
+    };
   }
   if (exercise === "pushup") {
     const push = readPushUpRig(root);
@@ -402,11 +420,15 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const chestFront = new THREE.Vector3(0, 0, 1).applyQuaternion(
       worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
     );
+    const arm = rig[lift.pinSide ?? "l"];
+    const overhead = exercise === "overheadOne" || exercise === "overheadTwo";
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
-      elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
-      dumbbell: g.l.grip.clone().add(exercise === "raise" || exercise === "squat" || exercise === "pulldown" || exercise === "pushdown" || exercise === "pushup" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand with the arms out: outside it would leave the frame
+      elbow: overhead
+        ? worldPos(arm.lowerarm).add(new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03)) // out beside the raised elbow
+        : worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
+      dumbbell: overhead ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.1, 0.1, 0)) : g.l.grip.clone().add(exercise === "raise" || exercise === "squat" || exercise === "pulldown" || exercise === "pushdown" || exercise === "pushup" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand with the arms out: outside it would leave the frame
       core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
     // A pin turns see-through where it sits over the body, so the body stays in view.
@@ -433,7 +455,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} />
       ) : (
         <>
-          <Dumbbell inner={left} />
+          {!lift.one && <Dumbbell inner={left} />}
           <Dumbbell inner={right} />
         </>
       )}
