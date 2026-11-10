@@ -18,7 +18,7 @@ export function Nav() {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-20 bg-bg/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] backdrop-blur-md"
+      className="fixed inset-x-0 bottom-0 z-20 bg-bg/60 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line)] backdrop-blur-xl backdrop-saturate-150"
     >
       <ul className="mx-auto grid max-w-xl grid-cols-5">
         {links.map(({ href, label, Icon }) => {
