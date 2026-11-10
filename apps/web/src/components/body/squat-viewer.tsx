@@ -103,7 +103,7 @@ export function SquatViewer() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative mx-6 h-[min(68vh,560px)] overflow-hidden rounded-3xl bg-inset shadow-inset sm:mx-0">
+      <div className="relative mx-4 h-[min(68vh,560px)] overflow-hidden rounded-3xl bg-inset shadow-inset sm:mx-0">
         <BodyScene
           state={state}
           view={view}
