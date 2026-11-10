@@ -33,13 +33,28 @@ func (m *memStore) UpsertIdentity(_ context.Context, id Identity) (User, error) 
 		if id.Email != "" {
 			u.Email = id.Email
 		}
-		u.DisplayName = id.Name
+		if u.DisplayName == "" {
+			u.DisplayName = id.Name
+		}
+		u.PictureURL = id.Picture
 		m.users[uid] = u
 		return u, nil
 	}
-	u := User{ID: uuid.New(), Email: id.Email, DisplayName: id.Name, CreatedAt: time.Now()}
+	u := User{ID: uuid.New(), Email: id.Email, DisplayName: id.Name, PictureURL: id.Picture, CreatedAt: time.Now()}
 	m.users[u.ID] = u
 	m.identities[key] = u.ID
+	return u, nil
+}
+
+func (m *memStore) SetDisplayName(_ context.Context, id uuid.UUID, name string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u, ok := m.users[id]
+	if !ok {
+		return User{}, ErrUserNotFound
+	}
+	u.DisplayName = name
+	m.users[id] = u
 	return u, nil
 }
 

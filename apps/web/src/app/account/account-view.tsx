@@ -1,16 +1,27 @@
 "use client";
 
-import { CircleAlert, ShieldCheck, ShieldOff } from "lucide-react";
+import { Check, CircleAlert, Pencil, ShieldCheck, ShieldOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { HEALTH_CONSENT_VERSION, grantConsent, listConsents, withdrawConsent, type Consent } from "@/lib/api";
-import { deleteAccount, useAuth } from "@/lib/auth";
+import {
+  HEALTH_CONSENT_VERSION,
+  MAX_DISPLAY_NAME,
+  grantConsent,
+  listConsents,
+  withdrawConsent,
+  type Consent,
+  type Provider,
+  type User,
+} from "@/lib/api";
+import { deleteAccount, rename, useAuth } from "@/lib/auth";
 import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
 import { TERMS_VERSION } from "@/lib/legal";
 
-import { btnQuiet, btnText } from "../ui";
+import { Avatar } from "../avatar";
+import { GoogleG, LineIcon } from "../provider-icons";
+import { btnPrimary, btnQuiet, btnText, iconBtn } from "../ui";
 
 const CONFIRM_WORD = "ลบบัญชี";
 
@@ -33,7 +44,6 @@ export function AccountView() {
   if (auth.kind !== "signed-in") return null;
   const health = consents?.filter((c) => c.kind === "health_data").at(-1);
   const terms = consents?.find((c) => c.kind === "terms" && c.version === TERMS_VERSION);
-  const name = auth.user.display_name || auth.user.email;
 
   async function run(action: () => Promise<void>, failMessage: string) {
     setBusy(true);
@@ -49,14 +59,24 @@ export function AccountView() {
 
   return (
     <div className="flex flex-col gap-10">
-      <section className="flex items-center gap-4">
-        <span aria-hidden className="grid h-14 w-14 place-items-center rounded-full bg-raised text-xl font-semibold text-primary">
-          {name.slice(0, 1).toUpperCase()}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-lg font-semibold">{name}</p>
-          <p className="truncate text-sm text-muted">{auth.user.email} · Google</p>
-        </div>
+      <ProfileCard user={auth.user} />
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-medium tracking-wide text-faint">บัญชีที่ใช้เข้าสู่ระบบ</h2>
+        <ul className="flex flex-col gap-2">
+          {auth.user.providers.map((p) => (
+            <li key={p} className="flex items-center gap-3 rounded-3xl bg-surface px-5 py-4">
+              <ProviderMark provider={p} />
+              <span className="flex-1 font-medium">{PROVIDER_NAME[p]}</span>
+              <span className="flex items-center gap-1 text-sm text-health">
+                <Check aria-hidden size={16} /> เชื่อมแล้ว
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm leading-relaxed text-muted">
+          ชื่อ อีเมล และรูปโปรไฟล์ได้มาจากบัญชีนี้ตอนเข้าสู่ระบบ รูปจะอัปเดตเองทุกครั้งที่เข้าสู่ระบบ
+        </p>
       </section>
 
       <section className="flex flex-col gap-4">
@@ -158,5 +178,99 @@ export function AccountView() {
         </p>
       )}
     </div>
+  );
+}
+
+const PROVIDER_NAME: Record<Provider, string> = { google: "Google", line: "LINE" };
+
+function ProviderMark({ provider }: { provider: Provider }) {
+  return provider === "google" ? (
+    <span className="grid h-9 w-9 place-items-center rounded-full bg-white">
+      <GoogleG />
+    </span>
+  ) : (
+    <span className="grid h-9 w-9 place-items-center rounded-full bg-[#06C755]">
+      <LineIcon />
+    </span>
+  );
+}
+
+/** Picture, name (editable) and email. */
+function ProfileCard({ user }: { user: User }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const name = user.display_name || user.email || "ผู้ใช้ rep-right";
+  const trimmed = draft.trim();
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      await rename(trimmed);
+      setEditing(false);
+    } catch {
+      setError("บันทึกชื่อไม่สำเร็จ ลองอีกครั้ง");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col items-center gap-4 rounded-3xl bg-surface px-5 pt-7 pb-6 text-center">
+      <Avatar user={user} size="lg" />
+      {editing ? (
+        <form
+          className="flex w-full flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (trimmed) void save();
+          }}
+        >
+          <label className="flex flex-col gap-2 text-left text-sm text-muted">
+            ชื่อที่แสดงในแอป
+            <input
+              autoFocus
+              value={draft}
+              maxLength={MAX_DISPLAY_NAME}
+              onChange={(e) => setDraft(e.target.value)}
+              className="field"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" className={btnQuiet} onClick={() => setEditing(false)} disabled={saving}>
+              ยกเลิก
+            </button>
+            <button type="submit" className={btnPrimary} disabled={saving || !trimmed}>
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
+            </button>
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
+        </form>
+      ) : (
+        <div className="flex min-w-0 max-w-full flex-col items-center gap-1">
+          <div className="flex max-w-full items-center gap-1">
+            <p className="truncate text-xl font-semibold">{name}</p>
+            <button
+              type="button"
+              aria-label="แก้ชื่อที่แสดง"
+              className={iconBtn}
+              onClick={() => {
+                setDraft(user.display_name);
+                setEditing(true);
+              }}
+            >
+              <Pencil aria-hidden size={18} />
+            </button>
+          </div>
+          <p className="max-w-full truncate text-sm text-muted">{user.email || "บัญชีนี้ไม่ได้แชร์อีเมล"}</p>
+        </div>
+      )}
+    </section>
   );
 }

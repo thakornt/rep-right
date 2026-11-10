@@ -3,10 +3,14 @@
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
+export type Provider = "google" | "line";
+
 export type User = {
   id: string;
-  email: string;
+  email: string; // "" when LINE did not share one
   display_name: string;
+  picture_url: string; // "" = no picture
+  providers: Provider[];
   created_at: string;
 };
 
@@ -124,6 +128,16 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 export const getMe = () => apiFetch<User>("/v1/me");
+
+/** Longest display name the API accepts, in characters. */
+export const MAX_DISPLAY_NAME = 50;
+
+export const updateDisplayName = (displayName: string) =>
+  apiFetch<User>("/v1/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ display_name: displayName }),
+  });
 
 export type Exercise = {
   id: number;

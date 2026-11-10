@@ -16,6 +16,7 @@ func TestIdentityFromPayload(t *testing.T) {
 				"email":          "a@example.com",
 				"email_verified": true,
 				"name":           "A",
+				"picture":        "https://lh3.googleusercontent.com/a/x",
 			},
 		}
 	}
@@ -24,7 +25,7 @@ func TestIdentityFromPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != (Identity{Provider: ProviderGoogle, Subject: "1234", Email: "a@example.com", Name: "A"}) {
+	if id != (Identity{Provider: ProviderGoogle, Subject: "1234", Email: "a@example.com", Name: "A", Picture: "https://lh3.googleusercontent.com/a/x"}) {
 		t.Errorf("identity = %+v", id)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/thakornt/rep-right/apps/api/internal/auth"
@@ -51,8 +52,23 @@ func TestMigrationsAndUserQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if au2.ID != au.ID || au2.Email != "b@example.com" || au2.DisplayName != "B" {
-		t.Errorf("upsert should update the same user, got %+v", au2)
+	if au2.ID != au.ID || au2.Email != "b@example.com" || au2.DisplayName != "A" {
+		t.Errorf("upsert should update the same user's email but keep its name, got %+v", au2)
+	}
+	if len(au2.Providers) != 1 || au2.Providers[0] != auth.ProviderGoogle {
+		t.Errorf("providers = %v", au2.Providers)
+	}
+	named, err := st.SetDisplayName(ctx, au.ID, "ต้น")
+	if err != nil || named.DisplayName != "ต้น" {
+		t.Errorf("SetDisplayName = %+v, %v", named, err)
+	}
+	if _, err := st.SetDisplayName(ctx, uuid.New(), "x"); !errors.Is(err, auth.ErrUserNotFound) {
+		t.Errorf("SetDisplayName unknown user err = %v", err)
+	}
+	pic, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderGoogle, Subject: "sub-123", Email: "b@example.com", Name: "B",
+		Picture: "https://lh3.googleusercontent.com/a/p"})
+	if err != nil || pic.PictureURL != "https://lh3.googleusercontent.com/a/p" || pic.DisplayName != "ต้น" {
+		t.Errorf("picture refresh = %+v, %v", pic, err)
 	}
 	// Same subject from another provider is another person.
 	line, err := st.UpsertIdentity(ctx, auth.Identity{Provider: auth.ProviderLine, Subject: "sub-123", Name: "L"})

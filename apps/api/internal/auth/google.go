@@ -46,5 +46,6 @@ func identityFromPayload(p *idtoken.Payload) (Identity, error) {
 		return Identity{}, fmt.Errorf("%w: missing subject or verified email", ErrInvalidGoogleToken)
 	}
 	name, _ := p.Claims["name"].(string)
-	return Identity{Provider: ProviderGoogle, Subject: p.Subject, Email: email, Name: name}, nil
+	picture, _ := p.Claims["picture"].(string)
+	return Identity{Provider: ProviderGoogle, Subject: p.Subject, Email: email, Name: name, Picture: picture}, nil
 }

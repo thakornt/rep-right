@@ -19,7 +19,10 @@ import (
 	"github.com/thakornt/rep-right/apps/api/internal/auth"
 )
 
-var testUser = auth.User{ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Email: "a@example.com", DisplayName: "A"}
+var testUser = auth.User{
+	ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Email: "a@example.com", DisplayName: "A",
+	PictureURL: "https://lh3.googleusercontent.com/a/x", Providers: []string{"google"},
+}
 
 // fakeAuth accepts id token "good", refresh token "r1" and access token "a1".
 type fakeAuth struct {
@@ -96,6 +99,16 @@ func (f *fakeAuth) ParseAccessToken(raw string) (uuid.UUID, error) {
 }
 
 func (f *fakeAuth) Me(context.Context, uuid.UUID) (auth.User, error) { return testUser, f.meErr }
+
+func (f *fakeAuth) UpdateDisplayName(_ context.Context, _ uuid.UUID, name string) (auth.User, error) {
+	clean, err := auth.CleanDisplayName(name)
+	if err != nil {
+		return auth.User{}, err
+	}
+	u := testUser
+	u.DisplayName = clean
+	return u, nil
+}
 
 func (f *fakeAuth) DeleteAccount(_ context.Context, id uuid.UUID) error { f.deleted = id; return nil }
 
@@ -392,5 +405,45 @@ func TestLineCallbackRejects(t *testing.T) {
 		if cookieNamed(w, refreshCookie) != nil {
 			t.Errorf("%s: must not start a session", tc.name)
 		}
+	}
+}
+
+func TestMeIncludesPictureAndProviders(t *testing.T) {
+	w := send(newAuthRouter(&fakeAuth{}), http.MethodGet, "/v1/me", "", http.Header{"Authorization": {"Bearer a1"}})
+	var u map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &u); err != nil {
+		t.Fatal(err)
+	}
+	if u["picture_url"] != "https://lh3.googleusercontent.com/a/x" {
+		t.Errorf("picture_url = %v", u["picture_url"])
+	}
+	if p, _ := u["providers"].([]any); len(p) != 1 || p[0] != "google" {
+		t.Errorf("providers = %v", u["providers"])
+	}
+}
+
+func TestPatchMeDisplayName(t *testing.T) {
+	r := newAuthRouter(&fakeAuth{})
+	bearer := http.Header{"Authorization": {"Bearer a1"}}
+	w := send(r, http.MethodPatch, "/v1/me", `{"display_name":"  ต้น  "}`, bearer)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"display_name":"ต้น"`) {
+		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+	cases := []struct {
+		body   string
+		status int
+	}{
+		{`{"display_name":"   "}`, http.StatusUnprocessableEntity},
+		{`{"display_name":"` + strings.Repeat("ก", 51) + `"}`, http.StatusUnprocessableEntity},
+		{`{}`, http.StatusBadRequest},
+		{`nope`, http.StatusBadRequest},
+	}
+	for _, tc := range cases {
+		if w := send(r, http.MethodPatch, "/v1/me", tc.body, bearer); w.Code != tc.status {
+			t.Errorf("%.30s: status %d, want %d", tc.body, w.Code, tc.status)
+		}
+	}
+	if w := send(r, http.MethodPatch, "/v1/me", `{"display_name":"x"}`, nil); w.Code != http.StatusUnauthorized {
+		t.Errorf("no token: status %d", w.Code)
 	}
 }
