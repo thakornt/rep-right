@@ -2,13 +2,12 @@
 // and the home page.
 
 export const CATEGORIES: [string, string][] = [
-  ["squat", "สควอท"],
+  ["legs", "ขา"],
   ["hinge", "เดดลิฟต์ / สะโพก"],
   ["push", "ดัน (อก / ไหล่)"],
   ["pull", "ดึง (หลัง)"],
   ["shoulders", "ไหล่"],
   ["arms", "แขน"],
-  ["legs", "ขา"],
   ["core", "หน้าท้อง"],
 ];
 

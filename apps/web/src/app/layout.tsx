@@ -5,6 +5,7 @@ import Link from "next/link";
 import "./globals.css";
 import { LogoMark } from "./logo-mark";
 import { Nav } from "./nav";
+import { ServiceWorker } from "./service-worker";
 
 // Manrope for Latin and numbers, Noto Sans Thai for Thai (the navy + orange preset).
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
   title: "rep-right — ฟอร์มถูก ยกปลอดภัย",
   description:
     "ดูฟอร์มท่าเวทแบบ 3D บันทึกการซ้อมเร็ว และเตือนเมื่อเพิ่มโหลดเร็วเกินไป สำหรับคนเล่นเวทที่ไม่มีเทรนเนอร์",
+  appleWebApp: { capable: true, title: "rep-right", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         {children}
         <Nav />
+        <ServiceWorker />
       </body>
     </html>
   );
