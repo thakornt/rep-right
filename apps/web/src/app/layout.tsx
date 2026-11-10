@@ -5,6 +5,7 @@ import Link from "next/link";
 import "./globals.css";
 import { LogoMark } from "./logo-mark";
 import { Nav } from "./nav";
+import { NavigationSplash } from "./navigation-splash";
 import { ServiceWorker } from "./service-worker";
 
 // Manrope for Latin and numbers, Noto Sans Thai for Thai (the navy + orange preset).
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </Link>
         </header>
         {children}
+        <NavigationSplash />
         <Nav />
         <ServiceWorker />
       </body>

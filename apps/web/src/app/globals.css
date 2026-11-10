@@ -91,6 +91,38 @@ body {
 }
 
 /* In the components layer so utilities (pl-10, text-center, ...) can override it. */
+/* Loading splash: waits 150ms before showing, so quick page changes never flash it. */
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes splash-breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes splash-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.splash-in {
+  animation: splash-in 200ms ease-out 150ms both;
+}
+.splash-breathe {
+  animation: splash-breathe 1.4s ease-in-out infinite;
+}
+.splash-bar {
+  animation: splash-bar 1.1s ease-in-out infinite;
+}
+
 @layer components {
   /* Inputs sit "into" the surface; no outlines until focused. */
   .field {
