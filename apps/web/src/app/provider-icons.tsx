@@ -1,4 +1,4 @@
-// Sign-in provider marks, used on the sign-in buttons and the profile page.
+// Official provider marks for the profile page's list of linked accounts.
 // Google's "G" must stay in its own colours and unaltered.
 
 export function GoogleG() {
