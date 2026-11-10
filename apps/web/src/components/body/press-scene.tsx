@@ -266,7 +266,7 @@ function Mat() {
   return (
     <mesh position={[0, matTop / 2, -0.1]}>
       <boxGeometry args={[matWidth, matTop, matLength]} />
-      <meshStandardMaterial color="#20292c" roughness={0.85} />
+      <meshStandardMaterial color="#1b2742" roughness={0.85} />
     </mesh>
   );
 }
