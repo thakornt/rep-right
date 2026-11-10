@@ -51,6 +51,17 @@ export function AuthPanel() {
           <p className="text-sm text-muted">เข้าสู่ระบบเพื่อเก็บประวัติและรับคำเตือน (ดูท่าและวิธีทำได้โดยไม่ต้องเข้าสู่ระบบ)</p>
           {/* GIS buttons are at most 400px wide, so center it instead of leaving a gap. */}
           <div ref={buttonRef} className="flex min-h-11 w-full justify-center" />
+          <p className="text-xs leading-relaxed text-faint">
+            เมื่อเข้าสู่ระบบ จะมีให้อ่านและยอมรับ{" "}
+            <Link href="/terms" className="underline underline-offset-4 hover:text-fg">
+              ข้อตกลงการใช้งาน
+            </Link>{" "}
+            และ{" "}
+            <Link href="/privacy" className="underline underline-offset-4 hover:text-fg">
+              นโยบายความเป็นส่วนตัว
+            </Link>{" "}
+            ก่อนเริ่มบันทึก
+          </p>
           {!clientId && <p className="text-sm text-danger">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>}
           {state.error && <p className="text-sm text-danger">{state.error}</p>}
         </>
