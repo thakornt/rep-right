@@ -47,7 +47,7 @@ func testLineClient(srv *httptest.Server) lineClient {
 }
 
 func goodClaims() map[string]any {
-	return map[string]any{"iss": "https://access.line.me", "sub": "U1234", "aud": "1650000000", "nonce": "n1", "name": "Somchai", "email": "s@example.com"}
+	return map[string]any{"iss": "https://access.line.me", "sub": "U1234", "aud": "1650000000", "nonce": "n1", "name": "Somchai", "picture": "https://profile.line-scdn.net/0hX", "email": "s@example.com"}
 }
 
 func TestLineLoginExchangesAndVerifies(t *testing.T) {
@@ -56,7 +56,7 @@ func TestLineLoginExchangesAndVerifies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != (Identity{Provider: ProviderLine, Subject: "U1234", Email: "s@example.com", Name: "Somchai"}) {
+	if id != (Identity{Provider: ProviderLine, Subject: "U1234", Email: "s@example.com", Name: "Somchai", Picture: "https://profile.line-scdn.net/0hX"}) {
 		t.Errorf("identity = %+v", id)
 	}
 	tok := got["/oauth2/v2.1/token"]

@@ -133,12 +133,13 @@ func (l lineClient) Login(ctx context.Context, code, redirectURI, nonce string) 
 		return Identity{}, fmt.Errorf("line token response has no id_token")
 	}
 	var claims struct {
-		Iss   string `json:"iss"`
-		Sub   string `json:"sub"`
-		Aud   string `json:"aud"`
-		Nonce string `json:"nonce"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Iss     string `json:"iss"`
+		Sub     string `json:"sub"`
+		Aud     string `json:"aud"`
+		Nonce   string `json:"nonce"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+		Email   string `json:"email"`
 	}
 	err = postForm(ctx, l.http, l.apiURL+"/oauth2/v2.1/verify", url.Values{
 		"id_token":  {tok.IDToken},
@@ -158,5 +159,5 @@ func (l lineClient) Login(ctx context.Context, code, redirectURI, nonce string) 
 	case claims.Sub == "":
 		return Identity{}, fmt.Errorf("line id token: missing subject")
 	}
-	return Identity{Provider: ProviderLine, Subject: claims.Sub, Email: claims.Email, Name: claims.Name}, nil
+	return Identity{Provider: ProviderLine, Subject: claims.Sub, Email: claims.Email, Name: claims.Name, Picture: claims.Picture}, nil
 }

@@ -12,6 +12,7 @@ import {
   signInWithGoogle,
   signInWithLine,
   signOut as apiSignOut,
+  updateDisplayName,
   type User,
 } from "./api";
 
@@ -86,6 +87,12 @@ export function signInFailed(error: string) {
 export async function signOut() {
   await apiSignOut();
   set({ kind: "signed-out" });
+}
+
+/** Saves a new display name and shows it everywhere at once. */
+export async function rename(displayName: string) {
+  const user = await updateDisplayName(displayName);
+  if (state.kind === "signed-in") set({ kind: "signed-in", user });
 }
 
 export async function deleteAccount() {

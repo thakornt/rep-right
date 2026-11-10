@@ -12,18 +12,19 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, display_name)
-VALUES ($1, $2)
-RETURNING id, email, display_name, created_at, updated_at
+INSERT INTO users (email, display_name, picture_url)
+VALUES ($1, $2, $3)
+RETURNING id, email, display_name, created_at, updated_at, picture_url
 `
 
 type CreateUserParams struct {
 	Email       string
 	DisplayName string
+	PictureUrl  string
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.DisplayName)
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.DisplayName, arg.PictureUrl)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -31,6 +32,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PictureUrl,
 	)
 	return i, err
 }
@@ -45,7 +47,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, display_name, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, display_name, created_at, updated_at, picture_url FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -57,12 +59,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PictureUrl,
 	)
 	return i, err
 }
 
 const getUserByIdentity = `-- name: GetUserByIdentity :one
-SELECT u.id, u.email, u.display_name, u.created_at, u.updated_at FROM users u
+SELECT u.id, u.email, u.display_name, u.created_at, u.updated_at, u.picture_url FROM users u
 JOIN user_identities i ON i.user_id = u.id
 WHERE i.provider = $1 AND i.subject = $2
 `
@@ -81,6 +84,7 @@ func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityPa
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PictureUrl,
 	)
 	return i, err
 }
@@ -107,6 +111,31 @@ func (q *Queries) InsertIdentity(ctx context.Context, arg InsertIdentityParams) 
 	return err
 }
 
+const listProviders = `-- name: ListProviders :many
+SELECT provider FROM user_identities
+WHERE user_id = $1 ORDER BY created_at, provider
+`
+
+func (q *Queries) ListProviders(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listProviders, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var provider string
+		if err := rows.Scan(&provider); err != nil {
+			return nil, err
+		}
+		items = append(items, provider)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockIdentity = `-- name: LockIdentity :exec
 SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))
 `
@@ -121,6 +150,31 @@ type LockIdentityParams struct {
 func (q *Queries) LockIdentity(ctx context.Context, arg LockIdentityParams) error {
 	_, err := q.db.Exec(ctx, lockIdentity, arg.Provider, arg.Subject)
 	return err
+}
+
+const setDisplayName = `-- name: SetDisplayName :one
+UPDATE users SET display_name = $2, updated_at = now()
+WHERE id = $1
+RETURNING id, email, display_name, created_at, updated_at, picture_url
+`
+
+type SetDisplayNameParams struct {
+	ID          uuid.UUID
+	DisplayName string
+}
+
+func (q *Queries) SetDisplayName(ctx context.Context, arg SetDisplayNameParams) (User, error) {
+	row := q.db.QueryRow(ctx, setDisplayName, arg.ID, arg.DisplayName)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PictureUrl,
+	)
+	return i, err
 }
 
 const updateIdentityEmail = `-- name: UpdateIdentityEmail :exec
@@ -142,22 +196,30 @@ func (q *Queries) UpdateIdentityEmail(ctx context.Context, arg UpdateIdentityEma
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
 SET email = CASE WHEN $1::text = '' THEN email ELSE $1::text END,
-    display_name = $2,
+    display_name = CASE WHEN display_name = '' THEN $2::text ELSE display_name END,
+    picture_url = $3,
     updated_at = now()
-WHERE id = $3
-RETURNING id, email, display_name, created_at, updated_at
+WHERE id = $4
+RETURNING id, email, display_name, created_at, updated_at, picture_url
 `
 
 type UpdateUserProfileParams struct {
 	Email       string
 	DisplayName string
+	PictureUrl  string
 	ID          uuid.UUID
 }
 
 // Refreshes what the provider says at each sign-in. An empty email (LINE
-// without email permission) keeps the one we have.
+// without email permission) keeps the one we have. The display name is the
+// user's own once set (PATCH /v1/me), so it is only filled when empty.
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserProfile, arg.Email, arg.DisplayName, arg.ID)
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.Email,
+		arg.DisplayName,
+		arg.PictureUrl,
+		arg.ID,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -165,6 +227,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PictureUrl,
 	)
 	return i, err
 }
