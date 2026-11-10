@@ -12,6 +12,9 @@ loadEnvConfig(path.resolve(process.cwd(), "../.."), process.env.NODE_ENV !== "pr
 const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:8080").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
+  // The dev server answers phones on the same Wi-Fi too (http://<this computer's address>:3100),
+  // for trying the 3D on a real phone; Next blocks its dev files from other addresses otherwise.
+  allowedDevOrigins: ["10.*.*.*", "192.168.*.*", "172.*.*.*", "*.local"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

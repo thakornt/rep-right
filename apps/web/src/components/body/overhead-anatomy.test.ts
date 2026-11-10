@@ -18,15 +18,21 @@ import { worldPos } from "./pose";
 import { OVERHEAD_ONE, OVERHEAD_TWO, poseOverheadOne, poseOverheadTwo, readOverheadRig, type OverheadRig } from "./pose-overhead";
 import { DUMBBELL } from "./pose-press";
 
-const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
+// Skin folding at the shoulder joint, hidden but real overlap. With the arm overhead the shoulder's
+// corrective smoothing (delta-mush.ts) presses the raised arm's skin into the top of the shoulder,
+// up to 5.1 cm there, hidden; the owner accepted 5.5 (2026-11-10).
+const ARMPIT_FOLD = 0.055;
 const THROUGH = 0.01;
 // The two hands overlap round the handle, fingers over fingers, as the owner described; their skin
 // meets by this much. It is 2.1 cm.
 const HANDS_OVERLAP = 0.025;
 const FLOOR = 0.01;
 const MIN_DUMBBELL_GAP = 0.02; // metres from the dumbbell to the head, neck and back, at any point
-const MAX_ARM_OUT = 10; // degrees the raised upper arm may lean from straight up, one arm
+const MAX_ARM_OUT = 18; // degrees the raised upper arm may lean from straight up, one arm: out a little, as in the owner's photo (2026-11-10)
 const MAX_ELBOW_DRIFT = 0.02; // metres the elbow may move through the lift: it is the pivot
+// Two hands: the elbows lean out 6 degrees more by the bottom, as the owner asked (2026-11-10),
+// which carries them 2.6 cm; they can't start wider with the hands together over the head.
+const MAX_ELBOW_DRIFT_TWO = 0.03;
 const MAX_HIP_GAP = 0.012; // metres between the resting hand's skin and the waist's
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
@@ -131,7 +137,7 @@ describe("overhead triceps extension, two hands", () => {
 
   test("the elbows stay high, a little forward, and nearly still", () => {
     const at = DEPTHS.map((d) => (poseOverheadTwo(o, d), bone("lowerarm_l")));
-    for (const p of at) expect(p.distanceTo(at[0])).toBeLessThan(MAX_ELBOW_DRIFT);
+    for (const p of at) expect(p.distanceTo(at[0])).toBeLessThan(MAX_ELBOW_DRIFT_TWO);
     for (const d of [0, 1]) {
       poseOverheadTwo(o, d);
       for (const tag of ["l", "r"]) {

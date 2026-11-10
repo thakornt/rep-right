@@ -8,6 +8,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
 import { shortenPalms } from "./body-proportions";
+import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
@@ -124,6 +125,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
   const amounts = new Array<number>(REGION_COUNT).fill(0);
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
   const triceps = { value: new THREE.Vector2() }; // metres each arm's triceps gathers: left, right
+  const traps = { value: new THREE.Vector2() }; // metres each side's upper trapezius swells: left, right
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
@@ -135,14 +137,18 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     shader.uniforms.uMuscleMap = { value: map };
     shader.uniforms.uBiceps = biceps;
     shader.uniforms.uTriceps = triceps;
+    shader.uniforms.uTraps = traps;
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
         `#include <common>
         attribute float aBiceps;
         attribute vec2 aTriceps;
+        attribute vec2 aTraps;
+        attribute vec3 aMush;
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
+        uniform vec2 uTraps;
         varying vec2 vMapUv;`,
       )
       .replace(
@@ -152,6 +158,8 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         // aBiceps or aTriceps on the mesh, which read as 0.
         transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
         transformed += normal * dot(aTriceps, uTriceps);
+        transformed += normal * dot(aTraps, uTraps);
+        transformed += aMush; // the shoulders' corrective smoothing (delta-mush.ts)
         vMapUv = uv;`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -211,6 +219,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setTriceps: (left: number, right: number) => triceps.value.set(left, right),
+    setTraps: (left: number, right: number) => traps.value.set(left, right),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
       if (i === REGION_IDS.teres) {
@@ -256,8 +265,10 @@ export function useBody() {
   return useMemo(() => {
     shortenPalms(scene);
     addArmTwist(scene);
+    prepareDeltaMush(scene);
     const body = cloneSkinned(scene);
     followArmTwist(body);
+    followDeltaMush(body);
     return body;
   }, [scene]);
 }

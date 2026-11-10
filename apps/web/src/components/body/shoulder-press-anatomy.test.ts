@@ -10,7 +10,10 @@ import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
 import { benchLayout, DUMBBELL, posePress, readPressRig, SHOULDER_PRESS, type PressRig } from "./pose-press";
 
-const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; hidden, but real overlap
+// Skin folding at the shoulder joint, hidden but real overlap. With the arm overhead the shoulder's
+// corrective smoothing (delta-mush.ts) presses the raised arm's skin into the top of the shoulder,
+// up to 5.1 cm there, hidden; the owner accepted 5.5 (2026-11-10).
+const ARMPIT_FOLD = 0.055;
 const THROUGH = 0.01;
 const FLOOR = 0.01;
 const ON_BENCH = 0.015;

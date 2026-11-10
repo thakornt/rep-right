@@ -232,7 +232,7 @@ describe("dumbbell hammer curl", () => {
         expect(problems.join("; ")).toBe("");
       }
     }
-  });
+  }, 20000); // poses the body many times; the shoulders' corrective smoothing runs each time
 
   test("the biceps swell apart: weights mark which arm each vertex is on", () => {
     expect(Math.max(...curl.biceps)).toBeCloseTo(1, 1);

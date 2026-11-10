@@ -49,6 +49,7 @@ function skin(body: Body) {
   const { mesh, n } = body;
   (mesh.userData.beforeSkin as (() => void) | undefined)?.();
   const g = mesh.geometry;
+  const mush = g.getAttribute("aMush") as THREE.BufferAttribute | undefined; // the shoulders' corrective smoothing
   const sk = mesh.skeleton;
   // Same as three's skinning shader: world <- bind space, per bone.
   const toWorld = mesh.matrixWorld.clone().multiply(mesh.bindMatrixInverse);
@@ -69,7 +70,9 @@ function skin(body: Body) {
       const be = mats[g.attributes.skinIndex.getComponent(i, k)].elements;
       for (let j = 0; j < 16; j++) e[j] += be[j] * w;
     }
-    p.fromBufferAttribute(g.attributes.position, i).applyMatrix4(m);
+    p.fromBufferAttribute(g.attributes.position, i);
+    if (mush) p.add(new THREE.Vector3(mush.getX(i), mush.getY(i), mush.getZ(i)));
+    p.applyMatrix4(m);
     q.fromBufferAttribute(g.attributes.normal, i).transformDirection(m);
     p.toArray(pos, i * 3);
     q.toArray(nor, i * 3);
