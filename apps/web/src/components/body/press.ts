@@ -5,11 +5,28 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "pushup") {
+    // The chest and the back of the arm press the body up, hardest near the bottom; the trunk and
+    // legs hold the body in one straight line throughout.
+    return [
+      { region: "chest_mid", role: "prime", amount: (0.4 + 0.6 * depth) * effort },
+      { region: "chest_lower", role: "prime", amount: (0.35 + 0.55 * depth) * effort },
+      { region: "chest_upper", role: "synergist", amount: (0.3 + 0.4 * depth) * effort },
+      { region: "triceps", role: "prime", amount: (0.75 - 0.15 * depth) * effort },
+      { region: "delt_front", role: "synergist", amount: (0.35 + 0.45 * depth) * effort },
+      { region: "abs", role: "stabilizer", amount: 0.6 }, // holding the hips from sagging
+      { region: "obliques", role: "stabilizer", amount: 0.45 },
+      { region: "glutes", role: "stabilizer", amount: 0.45 },
+      { region: "quads", role: "stabilizer", amount: 0.35 }, // straight knees
+      { region: "upper_back", role: "stabilizer", amount: 0.35 },
+      { region: "forearms", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "pushdown") {
     // Here the work is on the way down, hardest pressing the arm straight.
     const press = phase === "down" ? 1 : 0.8;
@@ -114,6 +131,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  pushup: {
+    cues: {
+      feet: "ปลายเท้าจิกพื้น เท้ากว้างประมาณช่วงสะโพก ขาเหยียดตรง",
+      back: "ลำตัวเป็นเส้นตรงตั้งแต่หัวถึงส้นเท้า หลังตรง สะโพกไม่ตกและไม่โด่ง มองพื้นข้างหน้ามือเล็กน้อย",
+      elbow: "ตอนลงสุด มองจากด้านหน้าปลายแขนตั้งตรง ศอกไม่กางออกนอกข้อมือ ศอกเยื้องไปทางเท้า ตอนขึ้นสุดแขนเกือบเหยียดแต่ไม่ล็อกศอก",
+      dumbbell: "วางมือกว้างกว่าไหล่เล็กน้อย ตอนขึ้นสุดมองจากด้านข้างแขนตั้งตรงใต้ไหล่ ตอนลงสุดมือจะอยู่แถวราวนม นิ้วชี้ไปข้างหน้า มองจากด้านหน้าแขนจากไหล่ถึงมือจะเฉียงออกนิด ๆ",
+      core: "เกร็งท้องและก้นให้ตัวแข็งเป็นแผ่นเดียว ดันขึ้นเร็วพร้อมหายใจออก ลงช้า ๆ พร้อมหายใจเข้า",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือและระยะที่ลงได้จึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ลงเท่าที่ตัวยังตรงเป็นแผ่นเดียวและไหล่ยังสบาย ถ้ายังลงไม่ได้ เริ่มจากวางเข่าหรือดันกับขอบโต๊ะก่อน",
+      "ท่านี้ข้อมือจะกระดกขึ้นมาก ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ข้อมือ ไหล่ หรือศอก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   pushdown: {
     cues: {
       feet: "ยืนหันหน้าเข้าหาเครื่อง เท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงเต็มเท้า",

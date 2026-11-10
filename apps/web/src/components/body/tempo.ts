@@ -16,6 +16,7 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   squat: 1 - QUICK_UP,
   pulldown: 0.29, // the work is on the way down; measured off the video
   pushdown: 0.36, // the work is on the way down; measured off the video
+  pushup: 1 - QUICK_UP, // pushed up quickly breathing out, lowered slowly breathing in, as the owner asked
 };
 export const BACK_SQUAT_DOWN_SHARE = 1 - QUICK_UP;
 
