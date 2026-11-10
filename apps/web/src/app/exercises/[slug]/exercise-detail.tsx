@@ -6,12 +6,27 @@ import { useEffect, useState } from "react";
 
 import { OverheadViewer } from "@/components/body/overhead-viewer";
 import { PressViewer } from "@/components/body/press-viewer";
+import type { PressExercise } from "@/components/body/press";
 import { SquatViewer } from "@/components/body/squat-viewer";
+import { FormSteps } from "@/components/form-steps";
 import type { FormCues } from "@/content/form-cues";
 import { getExercises, type Exercise } from "@/lib/api";
 import { muscleLabel } from "@/lib/exercise-groups";
 
 import { btnPrimary } from "../../ui";
+
+// Exercises shown with the dumbbell, cable and floor viewer, by slug.
+const PRESS_SLUGS: Record<string, PressExercise> = {
+  "incline-dumbbell-press": "incline",
+  "seated-dumbbell-shoulder-press": "shoulder",
+  "hammer-curl": "hammer",
+  "dumbbell-lateral-raise": "raise",
+  "dumbbell-squat": "squat",
+  "lat-pulldown": "pulldown",
+  "rope-triceps-pushdown": "pushdown",
+  "push-up": "pushup",
+  crunch: "crunch",
+};
 
 export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues }) {
   const [exercise, setExercise] = useState<Exercise | null>(null);
@@ -21,6 +36,18 @@ export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues })
       .then((list) => setExercise(list.find((e) => e.slug === slug) ?? null))
       .catch(() => setExercise(null));
   }, [slug]);
+
+  // With a 3D view, the form's key points sit under its controls, above the muscles.
+  const steps = <FormSteps cues={form.cues} />;
+  const press = PRESS_SLUGS[slug];
+  const viewer =
+    slug === "back-squat" ? (
+      <SquatViewer steps={steps} />
+    ) : slug === "overhead-dumbbell-triceps-extension" ? (
+      <OverheadViewer steps={steps} />
+    ) : press ? (
+      <PressViewer exercise={press} steps={steps} />
+    ) : null;
 
   return (
     <div className="flex flex-col gap-9">
@@ -44,34 +71,7 @@ export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues })
         )}
       </header>
 
-      {slug === "back-squat" && <SquatViewer />}
-      {slug === "incline-dumbbell-press" && <PressViewer exercise="incline" />}
-      {slug === "seated-dumbbell-shoulder-press" && <PressViewer exercise="shoulder" />}
-      {slug === "hammer-curl" && <PressViewer exercise="hammer" />}
-      {slug === "dumbbell-lateral-raise" && <PressViewer exercise="raise" />}
-      {slug === "dumbbell-squat" && <PressViewer exercise="squat" />}
-      {slug === "lat-pulldown" && <PressViewer exercise="pulldown" />}
-      {slug === "rope-triceps-pushdown" && <PressViewer exercise="pushdown" />}
-      {slug === "push-up" && <PressViewer exercise="pushup" />}
-      {slug === "overhead-dumbbell-triceps-extension" && <OverheadViewer />}
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xs font-medium tracking-wide text-faint">จุดสำคัญของฟอร์ม</h2>
-        <ol className="flex flex-col">
-          {form.cues.map((c, i) => (
-            <li key={c} className="relative flex gap-4 pb-6 last:pb-0">
-              {/* Connector between steps */}
-              {i < form.cues.length - 1 && (
-                <span aria-hidden className="absolute top-9 bottom-1 left-[1.05rem] w-px bg-line" />
-              )}
-              <span className="num grid h-9 w-9 shrink-0 place-items-center rounded-full bg-raised text-sm font-semibold text-primary">
-                {i + 1}
-              </span>
-              <p className="pt-1.5 text-[1.02rem] leading-relaxed">{c}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {viewer ?? steps}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium tracking-wide text-faint">ข้อผิดพลาดที่พบบ่อย</h2>

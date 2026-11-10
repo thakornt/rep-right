@@ -11,7 +11,7 @@ const WAYS = [
 ] as const;
 
 // The overhead triceps extension, done with both hands on one dumbbell or one arm at a time.
-export function OverheadViewer() {
+export function OverheadViewer({ steps }: { steps?: React.ReactNode }) {
   const [way, setWay] = useState<(typeof WAYS)[number][0]>("overheadTwo");
-  return <PressViewer key={way} exercise={way} switcher={<WaySwitch ways={WAYS} value={way} onChange={setWay} />} />;
+  return <PressViewer key={way} exercise={way} switcher={<WaySwitch ways={WAYS} value={way} onChange={setWay} />} steps={steps} />;
 }

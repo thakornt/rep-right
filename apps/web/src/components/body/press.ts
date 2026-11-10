@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "crunch";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -38,6 +38,14 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "quads", role: "stabilizer", amount: 0.35 }, // straight knees
       { region: "upper_back", role: "stabilizer", amount: 0.35 },
       { region: "forearms", role: "stabilizer", amount: 0.3 },
+    ];
+  }
+  if (exercise === "crunch") {
+    // Hardest curled up; the hips and legs just stay put.
+    const curled = 1 - depth;
+    return [
+      { region: "abs", role: "prime", amount: (0.45 + 0.55 * curled) * effort },
+      { region: "obliques", role: "synergist", amount: (0.2 + 0.4 * curled) * effort },
     ];
   }
   if (exercise === "pushdown") {
@@ -196,6 +204,23 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือและระยะที่ลงได้จึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลงเท่าที่ตัวยังตรงเป็นแผ่นเดียวและไหล่ยังสบาย ถ้ายังลงไม่ได้ เริ่มจากวางเข่าหรือดันกับขอบโต๊ะก่อน",
       "ท่านี้ข้อมือจะกระดกขึ้นมาก ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ข้อมือ ไหล่ หรือศอก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  crunch: {
+    cues: {
+      feet: "นอนหงาย ชันเข่า เท้าวางเต็มพื้นกว้างประมาณช่วงสะโพก เท้าไม่ลอยตอนขึ้น",
+      back: "ค่อย ๆ ม้วนหลังส่วนบนขึ้นจนสะบักพ้นพื้น หลังล่างแนบพื้นอยู่ ไม่ต้องลุกขึ้นนั่ง",
+      elbow: "เปิดศอกไปทางหน้าลำตัวประมาณ 45 องศา ไม่ต้องกางราบ และไม่หุบศอกเข้าหากันตอนขึ้น",
+      dumbbell: "ฝ่ามือหันเข้าหาใบหน้า ปลายนิ้วแตะขมับเบา ๆ ไม่ประสานมือดึงคอ",
+      core: "เกร็งท้องแล้วม้วนซี่โครงเข้าหาสะโพกเร็ว ๆ พร้อมหายใจออก แล้วลงช้า ๆ พร้อมหายใจเข้า เว้นระยะคางกับอกประมาณหนึ่งกำปั้น",
+    },
+    top: "ม้วนขึ้นสุด",
+    bottom: "นอนราบ",
+    rising: "กำลังม้วนขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ม้วนขึ้นได้จึงต่างกัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ม้วนขึ้นเท่าที่หลังล่างยังแนบพื้น และคอยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่หลังหรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   pushdown: {
