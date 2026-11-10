@@ -18,7 +18,10 @@ import { worldPos } from "./pose";
 import { OVERHEAD_ONE, OVERHEAD_TWO, poseOverheadOne, poseOverheadTwo, readOverheadRig, type OverheadRig } from "./pose-overhead";
 import { DUMBBELL } from "./pose-press";
 
-const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
+// Skin folding at the shoulder joint, hidden but real overlap. With the arm overhead the shoulder's
+// corrective smoothing (delta-mush.ts) presses the raised arm's skin into the top of the shoulder,
+// up to 5.1 cm there, hidden; the owner accepted 5.5 (2026-11-10).
+const ARMPIT_FOLD = 0.055;
 const THROUGH = 0.01;
 // The two hands overlap round the handle, fingers over fingers, as the owner described; their skin
 // meets by this much. It is 2.1 cm.
