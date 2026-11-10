@@ -33,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="mx-auto flex w-full max-w-xl items-center px-4 pt-4">
           <Link href="/" className="flex items-center gap-2 text-[0.95rem] font-semibold tracking-tight">
             <LogoMark />
-            rep-right
+            Rep Right
           </Link>
         </header>
         {children}
