@@ -1,8 +1,10 @@
 "use client";
 
 import { Activity, ClipboardPen, Dumbbell, History, House } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+
+import { useReportNavigating } from "@/lib/navigating";
 
 const links = [
   { href: "/", label: "หน้าแรก", Icon: House },
@@ -35,6 +37,7 @@ export function Nav() {
                 {active && (
                   <span aria-hidden className="absolute inset-x-[30%] top-0 h-0.5 rounded-full bg-primary" />
                 )}
+                <TabPending />
                 <Icon aria-hidden size={22} strokeWidth={active ? 2.25 : 1.75} className={active ? "text-primary" : ""} />
                 {label}
               </Link>
@@ -44,4 +47,12 @@ export function Nav() {
       </ul>
     </nav>
   );
+}
+
+/** While this tab's page is loading: a pulsing bar on the tab, and the full-screen splash. */
+function TabPending() {
+  const { pending } = useLinkStatus();
+  useReportNavigating(pending);
+  if (!pending) return null;
+  return <span aria-hidden className="absolute inset-x-[30%] top-0 h-0.5 animate-pulse rounded-full bg-primary" />;
 }

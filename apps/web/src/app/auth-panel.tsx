@@ -115,7 +115,10 @@ export function AuthPanel() {
       {state.kind === "checking" && <p className="text-sm text-faint">กำลังตรวจสอบการเข้าสู่ระบบ…</p>}
       {state.kind === "signed-out" && (
         <>
-          <p className="text-sm text-muted">เข้าสู่ระบบเพื่อเก็บประวัติและรับคำเตือน (ดูท่าและวิธีทำได้โดยไม่ต้องเข้าสู่ระบบ)</p>
+          <div className="flex flex-col items-center gap-1 pb-1 text-center">
+            <h2 className="text-xl font-semibold tracking-tight text-primary">เข้าสู่ระบบ</h2>
+            <p className="text-sm text-balance text-muted">เพื่อเก็บประวัติและรับคำเตือน (ดูท่าและวิธีทำได้โดยไม่ต้องเข้าสู่ระบบ)</p>
+          </div>
           <SignInButton
             icon={<GoogleMark />}
             label={pending === "google" ? "กำลังเปิด Google…" : "เข้าสู่ระบบด้วย Google"}
@@ -130,7 +133,7 @@ export function AuthPanel() {
               onClick={startLine}
             />
           )}
-          <p className="text-xs leading-relaxed text-faint">
+          <p className="text-center text-xs leading-relaxed text-faint">
             เมื่อเข้าสู่ระบบ จะมีให้อ่านและยอมรับ{" "}
             <Link href="/terms" className="underline underline-offset-4 hover:text-fg">
               ข้อตกลงการใช้งาน

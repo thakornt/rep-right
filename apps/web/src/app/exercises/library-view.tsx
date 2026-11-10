@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { getExercises, type Exercise } from "@/lib/api";
+import { useReportNavigating } from "@/lib/navigating";
 
 import { ExercisePicker } from "../exercise-picker";
 
@@ -13,6 +14,9 @@ export function LibraryView() {
   const params = useSearchParams();
   const [exercises, setExercises] = useState<Exercise[] | null>(null);
   const [error, setError] = useState(false);
+  // Opening an exercise can wait on the network; the splash covers the wait.
+  const [opening, startOpening] = useTransition();
+  useReportNavigating(opening);
 
   useEffect(() => {
     getExercises()
@@ -32,7 +36,7 @@ export function LibraryView() {
       exercises={exercises}
       initialMuscles={muscles}
       mark3d
-      onPick={(e) => router.push(`/exercises/${e.slug}`)}
+      onPick={(e) => startOpening(() => router.push(`/exercises/${e.slug}`))}
     />
   );
 }
