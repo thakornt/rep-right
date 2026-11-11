@@ -7,7 +7,7 @@ import { REGIONS, muscleLabel } from "@/lib/exercise-groups";
 const LOOKS: { photo: string; focus: string }[] = [
   { photo: "upper", focus: "object-[55%_45%]" },
   { photo: "core", focus: "object-[55%_75%]" },
-  { photo: "lower", focus: "object-[45%_40%]" },
+  { photo: "lower", focus: "object-[78%_50%]" },
 ];
 
 export function RegionCards() {

@@ -8,4 +8,4 @@ attribution required; credited here anyway).
 |---|---|---|
 | upper | https://unsplash.com/photos/bKaS5pM4Rak | @nigelm23 |
 | core | https://unsplash.com/photos/DBvEoaU3ICs | @andretaissin |
-| lower | https://unsplash.com/photos/-DcG2kR5cPc | Andrew Valdivia (@donovan_valdivia) |
+| lower | https://unsplash.com/photos/OLPMOwcI6Oc | @dunnebells44 |
