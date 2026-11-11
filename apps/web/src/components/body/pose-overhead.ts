@@ -23,7 +23,7 @@ import { holdArm, standFeet } from "./pose-curl";
 import { DUMBBELL, frame, readSide, turnTo, type PressSide } from "./pose-press";
 
 export const OVERHEAD_ONE = {
-  armOut: 12, // degrees the upper arm leans out from straight up, seen from the front or behind: the elbow a little outside the shoulder, as in the owner's photo
+  armOut: 3, // degrees the upper arm leans out from straight up, seen from the front or behind: near straight up at the top, as the owner asked (2026-11-11)
   armForward: 10, // degrees it leans forward, seen from the side; less and the shoulder turns out past its range
   across: 35, // degrees the forearm's way down turns from straight back toward the other side
   topBend: 6, // degrees the elbow stays bent at the top: not locked

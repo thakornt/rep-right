@@ -8,6 +8,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
 import { shortenPalms } from "./body-proportions";
+import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
@@ -167,6 +168,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         attribute float aBiceps;
         attribute vec2 aTriceps;
         attribute vec2 aTraps;
+
         attribute vec3 aMush;
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
@@ -286,6 +288,7 @@ export function useBody() {
   const { scene } = useGLTF(MODEL);
   return useMemo(() => {
     shortenPalms(scene);
+    setShoulderWeights(scene);
     addArmTwist(scene);
     prepareDeltaMush(scene);
     const body = cloneSkinned(scene);

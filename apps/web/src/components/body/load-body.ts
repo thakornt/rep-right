@@ -8,6 +8,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
 import { shortenPalms } from "./body-proportions";
+import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
 
 export function loadBody(): Promise<THREE.Object3D> {
@@ -15,6 +16,7 @@ export function loadBody(): Promise<THREE.Object3D> {
   const data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   return new Promise((resolve, reject) => new GLTFLoader().parse(data, "", (g) => {
     shortenPalms(g.scene);
+    setShoulderWeights(g.scene);
     addArmTwist(g.scene);
     prepareDeltaMush(g.scene);
     followArmTwist(g.scene);
