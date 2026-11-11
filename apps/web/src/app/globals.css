@@ -154,6 +154,129 @@ body {
   .btn-fill:hover {
     filter: brightness(1.06) saturate(1.05);
   }
+  /* Home page region cards: dark glass over a faded muscle photo, with an
+     orange glow along the lower edge and a light catching the top border. */
+  .region-card {
+    background: linear-gradient(160deg, rgb(31 43 77 / 0.6) 0%, rgb(13 20 38 / 0.78) 62%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgb(255 255 255 / 0.06);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 28px 50px -30px rgb(0 0 0 / 0.9);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease;
+  }
+  .region-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 70% at 0% 110%, rgb(247 148 29 / 0.22), transparent 60%),
+      linear-gradient(90deg, rgb(13 20 38 / 0.8) 12%, transparent 62%);
+    transition: opacity 220ms ease;
+  }
+  .region-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(140deg, rgb(255 255 255 / 0.22), transparent 32%, transparent 68%, rgb(247 148 29 / 0.35));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.55;
+    transition: opacity 220ms ease;
+  }
+  .region-photo {
+    z-index: -2;
+    opacity: 0.55;
+    filter: grayscale(0.25) contrast(1.12) brightness(1.1);
+    -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 98%);
+    mask-image: linear-gradient(to left, #000 40%, transparent 98%);
+    transition:
+      opacity 300ms ease,
+      transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @media (hover: hover) {
+    .region-card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.09),
+        0 34px 60px -30px rgb(0 0 0 / 0.95),
+        0 0 0 1px rgb(247 148 29 / 0.12);
+    }
+    .region-card:hover::after {
+      opacity: 1;
+    }
+    .region-card:hover .region-photo {
+      opacity: 0.68;
+      transform: scale(1.04);
+    }
+  }
+  .region-card:focus-within::after {
+    opacity: 1;
+  }
+  .region-count {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-top: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: rgb(13 20 38 / 0.72);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .region-chip {
+    display: inline-flex;
+    height: 2.75rem;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.09);
+    background: rgb(13 20 38 / 0.55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    padding-inline: 1rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--fg);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      transform 120ms ease;
+  }
+  .region-chip:hover {
+    border-color: rgb(247 148 29 / 0.55);
+    background: rgb(247 148 29 / 0.12);
+    color: var(--primary-hi);
+  }
+  .region-chip:active {
+    transform: scale(0.96);
+    background: rgb(247 148 29 / 0.2);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .region-card,
+    .region-photo,
+    .region-chip {
+      transition: none;
+    }
+    .region-card:hover,
+    .region-card:hover .region-photo {
+      transform: none;
+    }
+  }
+
   /* Outlined button whose 1.5px border is the btn-fill gradient. The inner
      layer must match the card it sits on (--surface). */
   .btn-outline-grad {

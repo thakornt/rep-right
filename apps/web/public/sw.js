@@ -3,7 +3,7 @@
 // - Pages: network first, so content is fresh; the last copy when offline;
 //   /offline for a page never opened.
 // - /_next/static: file names change with every build, so cache first.
-// - Models and icons: from the cache at once, refreshed in the background.
+// - Models, icons and images: from the cache at once, refreshed in the background.
 // - /api: never cached. Workout data and sign-in only ever go to the network.
 
 const VERSION = "v1";
@@ -86,7 +86,9 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirst(request, OFFLINE));
   } else if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirst(request));
-  } else if (url.pathname.startsWith("/models/") || url.pathname.startsWith("/icons/")) {
+  } else if (url.pathname.startsWith("/models/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/images/")) {
     event.respondWith(staleWhileRevalidate(event));
   } else {
     // Route data fetched on in-app navigation, so links still work offline.
