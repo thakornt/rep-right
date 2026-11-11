@@ -1,11 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
-import { REGIONS, muscleLabel } from "@/lib/exercise-groups";
-
 import { ApiStatus } from "./api-status";
 import { AuthPanel } from "./auth-panel";
 import { DeletedNotice } from "./deleted-notice";
+import { RegionCards } from "./region-cards";
 
 export default function Home() {
   return (
@@ -16,24 +15,7 @@ export default function Home() {
         <h1 className="text-[1.9rem] leading-tight font-semibold tracking-tight text-balance">
           วันนี้คุณอยากพัฒนา<span className="text-primary">กล้ามเนื้อ</span>ส่วนไหน?
         </h1>
-        <div className="flex flex-col gap-5">
-          {REGIONS.map(([region, muscles]) => (
-            <div key={region} className="flex flex-col gap-2.5">
-              <p className="text-xs font-medium tracking-wide text-faint">{region}</p>
-              <div className="flex flex-wrap gap-2">
-                {muscles.map((m) => (
-                  <Link
-                    key={m}
-                    href={`/exercises?muscle=${m}`}
-                    className="flex h-12 items-center rounded-2xl bg-surface px-4 text-[0.95rem] font-medium text-fg transition-colors duration-150 hover:bg-raised hover:text-primary"
-                  >
-                    {muscleLabel(m)}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <RegionCards />
         <Link href="/exercises" className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary">
           ดูท่าทั้งหมดพร้อมวิธีทำ <ArrowRight aria-hidden size={16} />
         </Link>
