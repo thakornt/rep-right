@@ -3,11 +3,11 @@ import Link from "next/link";
 import { REGIONS, muscleLabel } from "@/lib/exercise-groups";
 
 // Background photo per region, in REGIONS order.
-// Photos: Unsplash License (free for commercial use), see public/images/regions/CREDITS.md.
+// Photos: Unsplash License and one supplied by the owner; see public/images/regions/CREDITS.md.
 const LOOKS: { photo: string; focus: string }[] = [
   { photo: "upper", focus: "object-[55%_45%]" },
   { photo: "core", focus: "object-[55%_75%]" },
-  { photo: "lower", focus: "object-[78%_50%]" },
+  { photo: "lower", focus: "object-[60%_35%]" },
 ];
 
 export function RegionCards() {
