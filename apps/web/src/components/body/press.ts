@@ -5,11 +5,28 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "crunch";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "row") {
+    // The back pulls the elbow back to the hip, hardest at the top; the arm bends only as far as the
+    // forearm hanging straight down needs, so the biceps helps without leading.
+    return [
+      { region: "lats", role: "prime", amount: (0.5 + 0.5 * (1 - depth)) * effort },
+      { region: "teres", role: "prime", amount: (0.45 + 0.45 * (1 - depth)) * effort },
+      { region: "upper_back", role: "synergist", amount: (0.35 + 0.45 * (1 - depth)) * effort }, // the shoulder blade drawn back
+      { region: "delt_rear", role: "synergist", amount: (0.3 + 0.4 * (1 - depth)) * effort },
+      { region: "biceps", role: "synergist", amount: (0.25 + 0.3 * (1 - depth)) * effort },
+      { region: "forearms", role: "stabilizer", amount: 0.4 }, // the grip
+      { region: "erectors", role: "stabilizer", amount: 0.45 }, // holding the back straight in the lean
+      { region: "abs", role: "stabilizer", amount: 0.35 },
+      { region: "obliques", role: "stabilizer", amount: 0.4 }, // keeping the trunk from twisting open
+      { region: "glutes", role: "stabilizer", amount: 0.3 },
+      { region: "hamstrings", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "overheadOne" || exercise === "overheadTwo") {
     // The back of the arm straightens the elbow against the weight, its long head stretched most
     // with the dumbbell low behind the head; the shoulder holds the arm up meanwhile.
@@ -152,6 +169,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  row: {
+    cues: {
+      feet: "เท้าข้างเดียวกับมือที่ค้ำอยู่ข้างหน้า ถอยเท้าข้างที่ถือดัมเบลไปข้างหลังตรง ๆ เท้าทั้งสองข้างวางเต็มพื้น ย่อเข่าเล็กน้อย ให้ตัวมั่นคงไม่โยก",
+      back: "พับตัวจากสะโพกให้ลำตัวโน้มต่ำ หลังตรงเป็นเส้นเดียว มองพื้นข้างหน้าเล็กน้อย ไม่ยืนตัวตั้ง เพราะจะดึงด้วยบ่าแทนหลัง",
+      elbow: "ดึงศอกไปข้างหลังเข้าหาสะโพก ต้นแขนแนบข้างลำตัว ไม่กางศอกออก ตอนลงให้แขนห้อยเกือบตรงแต่ไม่ล็อกศอก",
+      dumbbell: "ฝ่ามือหันเข้าหาลำตัว ปลายแขนห้อยตรงลงพื้นตลอดทาง ดัมเบลเคลื่อนเป็นแนวโค้งจากใต้ไหล่ไปทางสะโพก ไม่กระชากขึ้นตรง ๆ หาอก",
+      core: "มืออีกข้างค้ำไว้ให้มั่นคง เกร็งท้องไม่ให้ลำตัวบิดเปิดตามแขนที่ดึง ดึงขึ้นเร็วกว่าตอนลง แล้วลดลงช้า ๆ",
+    },
+    top: "ดึงขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังดึงขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความสูงของที่ค้ำและระยะที่ถอยเท้าจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงเท่าที่หลังยังตรงและลำตัวไม่บิด ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่หลังล่าง ไหล่ หรือศอก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   overheadOne: {
     cues: {
       feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงเต็มเท้า มือข้างที่ว่างเท้าเอวไว้ช่วยให้ลำตัวนิ่ง",

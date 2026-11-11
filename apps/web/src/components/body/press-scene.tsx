@@ -4,44 +4,130 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { memo, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-import { bodyMaterial, CameraRig, Floor, PLAY_SECONDS, useBody, useMuscleMap, type View } from "./body-scene";
+import {
+  bodyMaterial,
+  CameraRig,
+  Floor,
+  PLAY_SECONDS,
+  useBody,
+  useMuscleMap,
+  type View,
+} from "./body-scene";
 import { REGION_IDS, ROLE_COLORS, ROLE_STRENGTH } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, worldPos, worldQuat, type Rig } from "./pose";
-import { alternateAt, alternateTime, bicepsBulge, HAMMER_CURL, poseCurl, readCurlRig, type CurlSide } from "./pose-curl";
-import { DUMBBELL_SQUAT, poseDumbbellSquat, readDumbbellSquatRig } from "./pose-dumbbell-squat";
+import {
+  alternateAt,
+  alternateTime,
+  bicepsBulge,
+  HAMMER_CURL,
+  poseCurl,
+  readCurlRig,
+  type CurlSide,
+} from "./pose-curl";
+import {
+  DUMBBELL_SQUAT,
+  poseDumbbellSquat,
+  readDumbbellSquatRig,
+} from "./pose-dumbbell-squat";
 import { CRUNCH, poseCrunch, readCrunchRig } from "./pose-crunch";
-import { LAT_PULLDOWN, posePulldown, pulleyAt, readPulldownRig, type PulldownRig } from "./pose-pulldown";
-import { benchLayout, DUMBBELL, INCLINE_PRESS, posePress, readPressRig, SHOULDER_PRESS } from "./pose-press";
-import { posePushdown, pushdownPulley, readPushdownRig, ROPE_PUSHDOWN, tricepsGather } from "./pose-pushdown";
-import { OVERHEAD_ONE, OVERHEAD_TWO, SHOULDER_GIRDLE, poseOverheadOne, poseOverheadTwo, readOverheadRig } from "./pose-overhead";
+import {
+  LAT_PULLDOWN,
+  posePulldown,
+  pulleyAt,
+  readPulldownRig,
+  type PulldownRig,
+} from "./pose-pulldown";
+import {
+  benchLayout,
+  DUMBBELL,
+  INCLINE_PRESS,
+  posePress,
+  readPressRig,
+  SHOULDER_PRESS,
+} from "./pose-press";
+import {
+  posePushdown,
+  pushdownPulley,
+  readPushdownRig,
+  ROPE_PUSHDOWN,
+  tricepsGather,
+} from "./pose-pushdown";
+import {
+  OVERHEAD_ONE,
+  OVERHEAD_TWO,
+  SHOULDER_GIRDLE,
+  poseOverheadOne,
+  poseOverheadTwo,
+  readOverheadRig,
+} from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
+import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 import { DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 // Alternating, depth is the moving arm's, `side`, and the other arm waits down.
-export type PressState = { depth: number; playing: boolean; alternate: boolean; side: CurlSide };
+export type PressState = {
+  depth: number;
+  playing: boolean;
+  alternate: boolean;
+  side: CurlSide;
+};
 
 type Props = {
   exercise: PressExercise;
   state: React.RefObject<PressState>;
   view: View;
-  onPinMove: (id: string, x: number, y: number, visible: boolean, front: boolean) => void;
+  onPinMove: (
+    id: string,
+    x: number,
+    y: number,
+    visible: boolean,
+    front: boolean,
+  ) => void;
   onFrame: (depth: number, phase: Phase, side: CurlSide) => void;
 };
 
-const SPECS = { incline: INCLINE_PRESS, shoulder: SHOULDER_PRESS, hammer: HAMMER_CURL, raise: LATERAL_RAISE, squat: DUMBBELL_SQUAT, pulldown: LAT_PULLDOWN, pushdown: ROPE_PUSHDOWN, pushup: PUSH_UP, overheadOne: OVERHEAD_ONE, overheadTwo: OVERHEAD_TWO, crunch: CRUNCH };
-const REACH: Partial<Record<PressExercise, number>> = { raise: LATERAL_RAISE.cameraReach, pulldown: LAT_PULLDOWN.cameraReach, pushdown: ROPE_PUSHDOWN.cameraReach, pushup: PUSH_UP.cameraReach, crunch: CRUNCH.cameraReach };
+const SPECS = {
+  incline: INCLINE_PRESS,
+  shoulder: SHOULDER_PRESS,
+  hammer: HAMMER_CURL,
+  raise: LATERAL_RAISE,
+  squat: DUMBBELL_SQUAT,
+  pulldown: LAT_PULLDOWN,
+  pushdown: ROPE_PUSHDOWN,
+  pushup: PUSH_UP,
+  overheadOne: OVERHEAD_ONE,
+  overheadTwo: OVERHEAD_TWO,
+  crunch: CRUNCH,
+  row: DUMBBELL_ROW,
+};
+const REACH: Partial<Record<PressExercise, number>> = {
+  raise: LATERAL_RAISE.cameraReach,
+  pulldown: LAT_PULLDOWN.cameraReach,
+  pushdown: ROPE_PUSHDOWN.cameraReach,
+  pushup: PUSH_UP.cameraReach,
+  crunch: CRUNCH.cameraReach,
+  row: DUMBBELL_ROW.cameraReach,
+};
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
 
 // The rig, how it moves, and the bench if the lift has one.
-type Held = { grip: THREE.Vector3; handle: THREE.Vector3; enter?: THREE.Vector3; end?: THREE.Vector3 };
+type Held = {
+  grip: THREE.Vector3;
+  handle: THREE.Vector3;
+  enter?: THREE.Vector3;
+  end?: THREE.Vector3;
+};
 type Lift = {
   rig: Rig;
-  pose: (left: number, right: number) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3 };
+  pose: (
+    left: number,
+    right: number,
+  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3 };
   biceps: (depth: number) => number;
   triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
@@ -51,28 +137,57 @@ type Lift = {
   one?: boolean; // one dumbbell, the right hand's
   pinSide?: "l" | "r"; // the arm the elbow and dumbbell pins sit on
   mat?: boolean;
+  support?: THREE.Vector3; // where the free hand presses on a support box, for its top
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
-    return { rig: curl.rig, pose: (left: number, right: number) => poseCurl(curl, left, right), biceps: bicepsBulge, bench: null };
+    return {
+      rig: curl.rig,
+      pose: (left: number, right: number) => poseCurl(curl, left, right),
+      biceps: bicepsBulge,
+      bench: null,
+    };
   }
   if (exercise === "raise") {
     const raise = readRaiseRig(root);
-    return { rig: raise.rig, pose: (depth: number) => poseRaise(raise, depth), biceps: () => 0, bench: null };
+    return {
+      rig: raise.rig,
+      pose: (depth: number) => poseRaise(raise, depth),
+      biceps: () => 0,
+      bench: null,
+    };
   }
   if (exercise === "squat") {
     const squat = readDumbbellSquatRig(root);
-    return { rig: squat.rig, pose: (depth: number) => poseDumbbellSquat(squat, depth), biceps: () => 0, bench: null };
+    return {
+      rig: squat.rig,
+      pose: (depth: number) => poseDumbbellSquat(squat, depth),
+      biceps: () => 0,
+      bench: null,
+    };
   }
   if (exercise === "pulldown") {
     const pull = readPulldownRig(root);
-    return { rig: pull.rig, pose: (depth: number) => posePulldown(pull, depth), biceps: () => 0, bench: null, machine: pull };
+    return {
+      rig: pull.rig,
+      pose: (depth: number) => posePulldown(pull, depth),
+      biceps: () => 0,
+      bench: null,
+      machine: pull,
+    };
   }
   if (exercise === "overheadOne" || exercise === "overheadTwo") {
     const o = readOverheadRig(root);
-    if (exercise === "overheadTwo") return { rig: o.rig, pose: (depth: number) => poseOverheadTwo(o, depth), biceps: () => 0, bench: null, one: true };
+    if (exercise === "overheadTwo")
+      return {
+        rig: o.rig,
+        pose: (depth: number) => poseOverheadTwo(o, depth),
+        biceps: () => 0,
+        bench: null,
+        one: true,
+      };
     return {
       rig: o.rig,
       pose: (depth: number) => {
@@ -85,24 +200,67 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       pinSide: "r",
     };
   }
+  if (exercise === "row") {
+    const row = readRowRig(root);
+    const support = poseRow(row, 1).support.clone();
+    return {
+      rig: row.rig,
+      pose: (depth: number) => {
+        const { work } = poseRow(row, depth);
+        return { l: work, r: work };
+      },
+      biceps: () => 0,
+      bench: null,
+      one: true,
+      pinSide: "l",
+      support,
+    };
+  }
   if (exercise === "pushup") {
     const push = readPushUpRig(root);
-    return { rig: push.rig, pose: (depth: number) => posePushUp(push, depth), biceps: () => 0, bench: null, bare: true };
+    return {
+      rig: push.rig,
+      pose: (depth: number) => posePushUp(push, depth),
+      biceps: () => 0,
+      bench: null,
+      bare: true,
+    };
   }
   if (exercise === "crunch") {
     const crunch = readCrunchRig(root);
-    return { rig: crunch.rig, pose: (depth: number) => poseCrunch(crunch, depth), biceps: () => 0, bench: null, mat: true };
+    return {
+      rig: crunch.rig,
+      pose: (depth: number) => poseCrunch(crunch, depth),
+      biceps: () => 0,
+      bench: null,
+      mat: true,
+    };
   }
   if (exercise === "pushdown") {
     const push = readPushdownRig(root);
-    return { rig: push.rig, pose: (depth: number) => posePushdown(push, depth), biceps: () => 0, triceps: tricepsGather, bench: null, rope: true };
+    return {
+      rig: push.rig,
+      pose: (depth: number) => posePushdown(push, depth),
+      biceps: () => 0,
+      triceps: tricepsGather,
+      bench: null,
+      rope: true,
+    };
   }
   const press = readPressRig(root, SPECS[exercise]);
-  return { rig: press.rig, pose: (depth: number) => posePress(press, depth), biceps: () => 0, bench: benchLayout(press) };
+  return {
+    rig: press.rig,
+    pose: (depth: number) => posePress(press, depth),
+    biceps: () => 0,
+    bench: benchLayout(press),
+  };
 }
 
 export default memo(function PressScene(props: Props) {
-  const target = useMemo(() => new THREE.Vector3(...SPECS[props.exercise].cameraTarget), [props.exercise]);
+  const target = useMemo(
+    () => new THREE.Vector3(...SPECS[props.exercise].cameraTarget),
+    [props.exercise],
+  );
   return (
     <Canvas
       dpr={[1, 2]}
@@ -116,7 +274,11 @@ export default memo(function PressScene(props: Props) {
       <directionalLight position={[-3, 2, -2]} intensity={0.8} />
       <Floor />
       <Presser {...props} />
-      <CameraRig view={props.view} target={target} reach={REACH[props.exercise] ?? 0} />
+      <CameraRig
+        view={props.view}
+        target={target}
+        reach={REACH[props.exercise] ?? 0}
+      />
     </Canvas>
   );
 });
@@ -125,13 +287,35 @@ function Dumbbell({ inner }: { inner: React.RefObject<THREE.Group | null> }) {
   return (
     <group ref={inner}>
       <mesh rotation-z={Math.PI / 2}>
-        <cylinderGeometry args={[DUMBBELL.handleRadius, DUMBBELL.handleRadius, DUMBBELL.handleLength, 16]} />
+        <cylinderGeometry
+          args={[
+            DUMBBELL.handleRadius,
+            DUMBBELL.handleRadius,
+            DUMBBELL.handleLength,
+            16,
+          ]}
+        />
         <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
       </mesh>
       {[-1, 1].map((side) => (
-        <mesh key={side} position-x={side * DUMBBELL.headAt} rotation-z={Math.PI / 2}>
-          <cylinderGeometry args={[DUMBBELL.headRadius, DUMBBELL.headRadius, DUMBBELL.headWidth, 6]} />
-          <meshStandardMaterial color="#3f4a4e" metalness={0.4} roughness={0.55} />
+        <mesh
+          key={side}
+          position-x={side * DUMBBELL.headAt}
+          rotation-z={Math.PI / 2}
+        >
+          <cylinderGeometry
+            args={[
+              DUMBBELL.headRadius,
+              DUMBBELL.headRadius,
+              DUMBBELL.headWidth,
+              6,
+            ]}
+          />
+          <meshStandardMaterial
+            color="#3f4a4e"
+            metalness={0.4}
+            roughness={0.55}
+          />
         </mesh>
       ))}
     </group>
@@ -140,7 +324,9 @@ function Dumbbell({ inner }: { inner: React.RefObject<THREE.Group | null> }) {
 
 function Bench({ layout }: { layout: ReturnType<typeof benchLayout> }) {
   const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
-  const frameMat = <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />;
+  const frameMat = (
+    <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />
+  );
   const { pad, seat } = layout;
   const seatBottom = seat.position.y - seat.size[1] / 2;
   return (
@@ -180,10 +366,21 @@ function Bench({ layout }: { layout: ReturnType<typeof benchLayout> }) {
 // cable from the pulley to the bar. Real machines have one column in front of the lifter,
 // which would hide the body here, so two uprights stand wide of the bar and behind the
 // seat, where none of the set views look through them. The bar and cable move.
-function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: React.RefObject<THREE.Group | null>; cable: React.RefObject<THREE.Mesh | null> }) {
+function PulldownMachine({
+  machine,
+  bar,
+  cable,
+}: {
+  machine: PulldownRig;
+  bar: React.RefObject<THREE.Group | null>;
+  cable: React.RefObject<THREE.Mesh | null>;
+}) {
   const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
-  const frameMat = <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />;
-  const { padAhead, padRadius, pulleyHeight, pulleyAhead, barLength, stance } = LAT_PULLDOWN;
+  const frameMat = (
+    <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />
+  );
+  const { padAhead, padRadius, pulleyHeight, pulleyAhead, barLength, stance } =
+    LAT_PULLDOWN;
   const COLUMN = -0.38; // metres from the hips: behind them
   const WIDE = barLength / 2 + 0.16; // metres from the middle to each upright
   const seatThick = 0.08;
@@ -203,7 +400,11 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
         {frameMat}
       </mesh>
       {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * (stance + 0.02), machine.padY, padAhead]} rotation-z={Math.PI / 2}>
+        <mesh
+          key={side}
+          position={[side * (stance + 0.02), machine.padY, padAhead]}
+          rotation-z={Math.PI / 2}
+        >
           <cylinderGeometry args={[padRadius, padRadius, 0.24, 20]} />
           {padMat}
         </mesh>
@@ -219,7 +420,10 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
       </mesh>
       {/* The uprights, joined along the floor and overhead, see-through so they hide nothing. */}
       {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * WIDE, pulleyHeight / 2 + 0.05, COLUMN]}>
+        <mesh
+          key={side}
+          position={[side * WIDE, pulleyHeight / 2 + 0.05, COLUMN]}
+        >
           <boxGeometry args={[0.08, pulleyHeight + 0.1, 0.08]} />
           <FrameMat />
         </mesh>
@@ -237,7 +441,10 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
         <boxGeometry args={[0.08, 0.08, pulleyAhead - COLUMN + 0.08]} />
         <FrameMat />
       </mesh>
-      <mesh position={[0, pulleyHeight - 0.01, pulleyAhead]} rotation-z={Math.PI / 2}>
+      <mesh
+        position={[0, pulleyHeight - 0.01, pulleyAhead]}
+        rotation-z={Math.PI / 2}
+      >
         <cylinderGeometry args={[0.035, 0.035, 0.03, 20]} />
         {frameMat}
       </mesh>
@@ -248,7 +455,11 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
       <group ref={bar}>
         <mesh rotation-z={Math.PI / 2}>
           <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
-          <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+          <meshStandardMaterial
+            color="#9aa6ab"
+            metalness={0.8}
+            roughness={0.3}
+          />
         </mesh>
       </group>
     </group>
@@ -257,7 +468,27 @@ function PulldownMachine({ machine, bar, cable }: { machine: PulldownRig; bar: R
 
 // Machine frames stand round the body, so they let it show through from every view.
 function FrameMat() {
-  return <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} transparent opacity={0.22} depthWrite={false} />;
+  return (
+    <meshStandardMaterial
+      color="#3a4548"
+      metalness={0.5}
+      roughness={0.5}
+      transparent
+      opacity={0.22}
+      depthWrite={false}
+    />
+  );
+}
+
+// The box the free hand presses on in the row, its top under the palm.
+function SupportBox({ at }: { at: THREE.Vector3 }) {
+  const SIZE = 0.4; // metres across and deep
+  return (
+    <mesh position={[at.x, at.y / 2, at.z - 0.04]}>
+      <boxGeometry args={[SIZE, at.y, SIZE]} />
+      <meshStandardMaterial color="#20292c" roughness={0.75} />
+    </mesh>
+  );
 }
 
 // The mat the crunch lies on.
@@ -272,7 +503,11 @@ function Mat() {
 }
 
 // Lay a unit-long cylinder from one point to another.
-function span(mesh: THREE.Object3D | null | undefined, from: THREE.Vector3, to: THREE.Vector3) {
+function span(
+  mesh: THREE.Object3D | null | undefined,
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+) {
   if (!mesh) return;
   const run = to.clone().sub(from);
   mesh.position.copy(from).addScaledVector(run, 0.5);
@@ -286,7 +521,8 @@ function span(mesh: THREE.Object3D | null | undefined, from: THREE.Vector3, to: 
 function CableTower({ rope }: { rope: React.RefObject<THREE.Group | null> }) {
   const frameMat = <FrameMat />; // see-through: the uprights and beams stand in front of the body from some views
   const ropeMat = <meshStandardMaterial color="#14191b" roughness={0.9} />;
-  const { pulleyHeight, pulleyAhead, ropeRadius, stopperRadius } = ROPE_PUSHDOWN;
+  const { pulleyHeight, pulleyAhead, ropeRadius, stopperRadius } =
+    ROPE_PUSHDOWN;
   const WIDE = 0.95; // metres from the middle to each upright: wide enough to stay out of the 45 degree view
   const BEHIND = 0.14; // metres the uprights stand beyond the pulley
   const z = pulleyAhead + BEHIND;
@@ -318,11 +554,19 @@ function CableTower({ rope }: { rope: React.RefObject<THREE.Group | null> }) {
       <group ref={rope}>
         <mesh name="cable">
           <cylinderGeometry args={[0.004, 0.004, 1, 8]} />
-          <meshStandardMaterial color="#c8ced1" metalness={0.6} roughness={0.4} />
+          <meshStandardMaterial
+            color="#c8ced1"
+            metalness={0.6}
+            roughness={0.4}
+          />
         </mesh>
         <mesh name="clip">
           <sphereGeometry args={[0.022, 12, 10]} />
-          <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+          <meshStandardMaterial
+            color="#9aa6ab"
+            metalness={0.8}
+            roughness={0.3}
+          />
         </mesh>
         {[0, 1].map((i) => (
           <group key={i}>
@@ -365,7 +609,15 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const barRef = useRef<THREE.Group>(null);
   const cableRef = useRef<THREE.Mesh>(null);
   const ropeRef = useRef<THREE.Group>(null);
-  const clock = useRef({ t: 0, depth: 0, wasPlaying: false, wasAlternate: false, lastReport: 0, phase: "down" as Phase, side: "l" as CurlSide });
+  const clock = useRef({
+    t: 0,
+    depth: 0,
+    wasPlaying: false,
+    wasAlternate: false,
+    lastReport: 0,
+    phase: "down" as Phase,
+    side: "l" as CurlSide,
+  });
   const colors = useMemo(
     () => ({
       prime: new THREE.Color(ROLE_COLORS.prime),
@@ -383,7 +635,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
       if (!c.wasPlaying || c.wasAlternate !== s.alternate) {
-        c.t = s.alternate ? alternateTime(c.depth, c.side, PLAY_SECONDS) : repTimeAt(c.depth, PLAY_SECONDS, DOWN_SHARE[exercise]);
+        c.t = s.alternate
+          ? alternateTime(c.depth, c.side, PLAY_SECONDS)
+          : repTimeAt(c.depth, PLAY_SECONDS, DOWN_SHARE[exercise]);
       }
       c.t += dt;
       if (s.alternate) {
@@ -406,7 +660,10 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
     body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
     // The upper trapezius thickens on the side whose arm is overhead.
-    const traps = exercise === "overheadOne" || exercise === "overheadTwo" ? SHOULDER_GIRDLE.trapsBulge : 0;
+    const traps =
+      exercise === "overheadOne" || exercise === "overheadTwo"
+        ? SHOULDER_GIRDLE.trapsBulge
+        : 0;
     body.setTraps(exercise === "overheadOne" ? 0 : traps, traps);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
@@ -418,7 +675,10 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       const run = pulleyAt().sub(g.bar);
       cableRef.current?.position.copy(g.bar).addScaledVector(run, 0.5);
       cableRef.current?.scale.set(1, run.length(), 1);
-      cableRef.current?.quaternion.setFromUnitVectors(ALONG_CABLE, run.normalize());
+      cableRef.current?.quaternion.setFromUnitVectors(
+        ALONG_CABLE,
+        run.normalize(),
+      );
     }
     if (g.knot) {
       const part = (name: string) => ropeRef.current?.getObjectByName(name);
@@ -433,7 +693,11 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
 
     body.clear();
     for (const act of pressActivation(exercise, depth, c.phase)) {
-      body.setRegion(REGION_IDS[act.region], colors[act.role], (0.2 + 0.8 * act.amount) * ROLE_STRENGTH[act.role]);
+      body.setRegion(
+        REGION_IDS[act.region],
+        colors[act.role],
+        (0.2 + 0.8 * act.amount) * ROLE_STRENGTH[act.role],
+      );
     }
 
     const { rig } = lift;
@@ -442,20 +706,56 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     );
     const arm = rig[lift.pinSide ?? "l"];
     const overhead = exercise === "overheadOne" || exercise === "overheadTwo";
+    const row = exercise === "row";
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
       elbow: overhead
-        ? worldPos(arm.lowerarm).add(new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03)) // out beside the raised elbow
-        : worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0)), // behind the elbow in a curl, clear of its crease
-      dumbbell: overhead ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.1, 0.1, 0)) : g.l.grip.clone().add(exercise === "raise" || exercise === "squat" || exercise === "pulldown" || exercise === "pushdown" || exercise === "pushup" || exercise === "crunch" ? new THREE.Vector3(-0.02, 0.12, 0) : new THREE.Vector3(0.1, 0.08, 0)), // above the hand with the arms out: outside it would leave the frame
+        ? worldPos(arm.lowerarm).add(
+            new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03),
+          ) // out beside the raised elbow
+        : row
+          ? worldPos(arm.lowerarm).add(
+              new THREE.Vector3(arm.sign * 0.06, 0.04, -0.02),
+            ) // out beside the rowing elbow
+          : worldPos(rig.l.lowerarm).add(
+              new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0),
+            ), // behind the elbow in a curl, clear of its crease
+      dumbbell: row
+        ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.12, 0, 0))
+        : overhead
+          ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.1, 0.1, 0))
+          : g.l.grip
+              .clone()
+              .add(
+                exercise === "raise" ||
+                  exercise === "squat" ||
+                  exercise === "pulldown" ||
+                  exercise === "pushdown" ||
+                  exercise === "pushup" ||
+                  exercise === "crunch"
+                  ? new THREE.Vector3(-0.02, 0.12, 0)
+                  : new THREE.Vector3(0.1, 0.08, 0),
+              ), // above the hand with the arms out: outside it would leave the frame
       core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
     // A pin turns see-through where it sits over the body, so the body stays in view.
-    const over = overBody(rig, camera as THREE.PerspectiveCamera, PRESS_PINS.map((id) => at[id]), PIN_RADIUS, size.height);
+    const over = overBody(
+      rig,
+      camera as THREE.PerspectiveCamera,
+      PRESS_PINS.map((id) => at[id]),
+      PIN_RADIUS,
+      size.height,
+    );
     PRESS_PINS.forEach((id, i) => {
       const v = at[id].clone().project(camera);
-      onPinMove(id, ((v.x + 1) / 2) * size.width, ((1 - v.y) / 2) * size.height, v.z < 1, !over[i]);
+      onPinMove(
+        id,
+        ((v.x + 1) / 2) * size.width,
+        ((1 - v.y) / 2) * size.height,
+        v.z < 1,
+        !over[i],
+      );
     });
 
     const now = performance.now();
@@ -469,6 +769,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     <group>
       <primitive object={scene} />
       {lift.bench && <Bench layout={lift.bench} />}
+      {lift.support && <SupportBox at={lift.support} />}
       {lift.bare ? null : lift.mat ? (
         <Mat />
       ) : lift.rope ? (

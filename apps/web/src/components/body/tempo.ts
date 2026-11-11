@@ -20,6 +20,7 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   pushup: 1 - QUICK_UP, // pushed up quickly breathing out, lowered slowly breathing in, as the owner asked
   overheadOne: 1 - QUICK_UP,
   overheadTwo: 1 - QUICK_UP,
+  row: 1 - QUICK_UP, // rowed up quickly, lowered slowly
 };
 export const BACK_SQUAT_DOWN_SHARE = 1 - QUICK_UP;
 

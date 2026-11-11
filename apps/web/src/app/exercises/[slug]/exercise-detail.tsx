@@ -26,6 +26,7 @@ const PRESS_SLUGS: Record<string, PressExercise> = {
   "rope-triceps-pushdown": "pushdown",
   "push-up": "pushup",
   crunch: "crunch",
+  "single-arm-dumbbell-row": "row",
 };
 
 export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues }) {

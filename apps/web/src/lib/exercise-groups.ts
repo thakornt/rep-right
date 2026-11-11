@@ -42,6 +42,7 @@ export const SLUGS_WITH_3D = new Set([
   "push-up",
   "overhead-dumbbell-triceps-extension",
   "crunch",
+  "single-arm-dumbbell-row",
 ]);
 
 // Muscle groups by body region, for the home page.
