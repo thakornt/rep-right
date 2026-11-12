@@ -62,6 +62,7 @@ import {
   readOverheadRig,
 } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
+import { FACE_PULL, poseFacePull, readFacePullRig } from "./pose-face-pull";
 import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
@@ -105,6 +106,7 @@ const SPECS = {
   crunch: CRUNCH,
   row: DUMBBELL_ROW,
   rdl: DUMBBELL_RDL,
+  facePull: FACE_PULL,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -114,6 +116,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   crunch: CRUNCH.cameraReach,
   row: DUMBBELL_ROW.cameraReach,
   rdl: DUMBBELL_RDL.cameraReach,
+  facePull: FACE_PULL.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -135,7 +138,7 @@ type Lift = {
   triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
-  rope?: boolean;
+  rope?: THREE.Vector3; // the pulley a rope hangs from
   bare?: boolean; // nothing held: the hands are on the floor
   one?: boolean; // one dumbbell, the right hand's
   pinSide?: "l" | "r"; // the arm the elbow and dumbbell pins sit on
@@ -256,7 +259,17 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       biceps: () => 0,
       triceps: tricepsGather,
       bench: null,
-      rope: true,
+      rope: pushdownPulley(),
+    };
+  }
+  if (exercise === "facePull") {
+    const fp = readFacePullRig(root);
+    return {
+      rig: fp.rig,
+      pose: (depth: number) => poseFacePull(fp, depth),
+      biceps: () => 0,
+      bench: null,
+      rope: fp.pulley,
     };
   }
   const press = readPressRig(root, SPECS[exercise]);
@@ -530,11 +543,18 @@ function span(
 // A cable tower with its rope. A real one's column stands in front of the lifter, which would
 // hide the body, so two uprights stand wide of it with the pulley on a beam between them, as on
 // a functional trainer. The cable, knot and two strands move.
-function CableTower({ rope }: { rope: React.RefObject<THREE.Group | null> }) {
+function CableTower({
+  rope,
+  pulley,
+}: {
+  rope: React.RefObject<THREE.Group | null>;
+  pulley: THREE.Vector3;
+}) {
   const frameMat = <FrameMat />; // see-through: the uprights and beams stand in front of the body from some views
   const ropeMat = <meshStandardMaterial color="#14191b" roughness={0.9} />;
-  const { pulleyHeight, pulleyAhead, ropeRadius, stopperRadius } =
-    ROPE_PUSHDOWN;
+  const { ropeRadius, stopperRadius } = ROPE_PUSHDOWN; // the face pull's rope is the same
+  const pulleyHeight = pulley.y;
+  const pulleyAhead = pulley.z;
   const WIDE = 0.95; // metres from the middle to each upright: wide enough to stay out of the 45 degree view
   const BEHIND = 0.14; // metres the uprights stand beyond the pulley
   const z = pulleyAhead + BEHIND;
@@ -694,7 +714,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     }
     if (g.knot) {
       const part = (name: string) => ropeRef.current?.getObjectByName(name);
-      span(part("cable"), g.knot, pushdownPulley());
+      span(part("cable"), g.knot, lift.rope!);
       part("clip")?.position.copy(g.knot);
       [g.l, g.r].forEach((hand, i) => {
         span(part(`strand${i}`), g.knot!, hand.enter!);
@@ -719,6 +739,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const arm = rig[lift.pinSide ?? "l"];
     const overhead = exercise === "overheadOne" || exercise === "overheadTwo";
     const row = exercise === "row";
+    const facePull = exercise === "facePull";
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
@@ -726,14 +747,16 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         ? worldPos(arm.lowerarm).add(
             new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03),
           ) // out beside the raised elbow
-        : row
+        : row || facePull
           ? worldPos(arm.lowerarm).add(
               new THREE.Vector3(arm.sign * 0.06, 0.04, -0.02),
             ) // out beside the rowing elbow
           : worldPos(rig.l.lowerarm).add(
               new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0),
             ), // behind the elbow in a curl, clear of its crease
-      dumbbell: row
+      dumbbell: facePull
+        ? g.l.grip.clone().add(new THREE.Vector3(0.08, 0.06, 0)) // outside the hand, clear of the head
+        : row
         ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.12, 0, 0))
         : overhead
           ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.1, 0.1, 0))
@@ -786,7 +809,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       {lift.bare ? null : lift.mat ? (
         <Mat />
       ) : lift.rope ? (
-        <CableTower rope={ropeRef} />
+        <CableTower rope={ropeRef} pulley={lift.rope} />
       ) : lift.machine ? (
         <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} />
       ) : (

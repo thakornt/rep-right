@@ -44,6 +44,7 @@ export const SLUGS_WITH_3D = new Set([
   "crunch",
   "single-arm-dumbbell-row",
   "romanian-deadlift",
+  "face-pull",
 ]);
 
 // Muscle groups by body region, for the home page.
