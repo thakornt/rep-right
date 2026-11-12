@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ApiStatus } from "./api-status";
 import { AuthPanel } from "./auth-panel";
 import { DeletedNotice } from "./deleted-notice";
+import { ProgramCta } from "./program-cta";
 import { RegionCards } from "./region-cards";
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
         <Link href="/exercises" className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary">
           ดูท่าทั้งหมดพร้อมวิธีทำ <ArrowRight aria-hidden size={16} />
         </Link>
+        <ProgramCta />
       </section>
 
       <section className="flex flex-col gap-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-lift)]">
