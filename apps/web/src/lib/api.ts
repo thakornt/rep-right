@@ -209,6 +209,16 @@ export const listConsents = async () => (await apiFetch<{ consents: Consent[] }>
 export const withdrawConsent = (kind: ConsentKind) =>
   apiFetch<void>(`/v1/me/consents/${kind}`, { method: "DELETE" });
 
+// --- Chosen weekly program (ids from src/content/programs.ts) ---
+
+export const getMyProgram = async () =>
+  (await apiFetch<{ program_id: string | null }>("/v1/me/program")).program_id;
+
+export const putMyProgram = (programId: string) =>
+  apiFetch<{ program_id: string }>("/v1/me/program", { method: "PUT", ...json({ program_id: programId }) });
+
+export const deleteMyProgram = () => apiFetch<void>("/v1/me/program", { method: "DELETE" });
+
 /** Hard-deletes the account and all its data; the server also clears the refresh cookie. */
 export async function deleteAccount(): Promise<void> {
   await apiFetch<void>("/v1/me", { method: "DELETE" });

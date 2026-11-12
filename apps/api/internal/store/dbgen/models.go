@@ -65,6 +65,7 @@ type User struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	PictureUrl  string
+	ProgramID   pgtype.Text
 }
 
 type UserIdentity struct {

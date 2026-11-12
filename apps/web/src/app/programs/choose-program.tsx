@@ -25,7 +25,7 @@ export function ChooseProgram({ id }: { id: string }) {
           type="button"
           className={btnPrimary}
           onClick={() => {
-            saveMyProgram(id);
+            void saveMyProgram(id);
             router.push("/");
           }}
         >
