@@ -39,6 +39,13 @@ import {
   type PulldownRig,
 } from "./pose-pulldown";
 import {
+  LEG_EXTENSION,
+  poseLegExtension,
+  readLegExtensionRig,
+  seatTopAt,
+  type LegExtensionRig,
+} from "./pose-leg-extension";
+import {
   benchLayout,
   DUMBBELL,
   INCLINE_PRESS,
@@ -107,6 +114,7 @@ const SPECS = {
   row: DUMBBELL_ROW,
   rdl: DUMBBELL_RDL,
   facePull: FACE_PULL,
+  legExtension: LEG_EXTENSION,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -117,6 +125,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   row: DUMBBELL_ROW.cameraReach,
   rdl: DUMBBELL_RDL.cameraReach,
   facePull: FACE_PULL.cameraReach,
+  legExtension: LEG_EXTENSION.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -133,11 +142,12 @@ type Lift = {
   pose: (
     left: number,
     right: number,
-  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3 };
+  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number };
   biceps: (depth: number) => number;
   triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
+  legMachine?: LegExtensionRig; // the leg extension machine, fitted to the body
   rope?: THREE.Vector3; // the pulley a rope hangs from
   bare?: boolean; // nothing held: the hands are on the floor
   one?: boolean; // one dumbbell, the right hand's
@@ -262,6 +272,16 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       rope: pushdownPulley(),
     };
   }
+  if (exercise === "legExtension") {
+    const ext = readLegExtensionRig(root);
+    return {
+      rig: ext.rig,
+      pose: (depth: number) => poseLegExtension(ext, depth),
+      biceps: () => 0,
+      bench: null,
+      legMachine: ext,
+    };
+  }
   if (exercise === "facePull") {
     const fp = readFacePullRig(root);
     return {
@@ -383,6 +403,113 @@ function Bench({ layout }: { layout: ReturnType<typeof benchLayout> }) {
           {frameMat}
         </mesh>
       ))}
+    </group>
+  );
+}
+
+// The leg extension machine, fitted to the body: the seat, the back pad at the trunk's lean,
+// the seat and back pad reclined together, a handle along each side of the seat at its height,
+// and the lever turning about a pivot in line with the knees, with the
+// pad across the front of the shins. The frame stands behind and under the seat, and the lever on
+// the outside of the right leg, so the set views see the legs. The lever and pad move.
+function LegExtensionMachine({
+  machine,
+  lever,
+}: {
+  machine: LegExtensionRig;
+  lever: React.RefObject<THREE.Group | null>;
+}) {
+  const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
+  const frameMat = (
+    <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />
+  );
+  const P = LEG_EXTENSION;
+  const seatThick = 0.08;
+  const lean = ((P.lean + P.recline) * Math.PI) / 180;
+  const recline = (P.recline * Math.PI) / 180;
+  const seatBack = machine.backAt * Math.cos(lean) - 0.02;
+  const seatFront = machine.seatFront;
+  const seatMid = (seatBack + seatFront) / 2;
+  const seatLength = (seatFront - seatBack) / Math.cos(recline);
+  const seatWidth = 0.36; // barely wider than the legs, as the owner asked, so the handles and elbows stay in
+  const backH = 0.62; // the back pad is narrower than the back (0.32 m across), so seen from behind it doesn't hide the arms (owner, 2026-11-12)
+  const backThick = 0.07;
+  // The back pad's middle: behind the hips along the trunk's front, up along its length.
+  const chest = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(1, 0, 0), -lean);
+  const up = new THREE.Vector3(0, 1, 0).applyAxisAngle(new THREE.Vector3(1, 0, 0), -lean);
+  const backMid = new THREE.Vector3(0, P.hipHeight, 0)
+    .addScaledVector(chest, machine.backAt - backThick / 2)
+    .addScaledVector(up, backH / 2 + 0.02);
+  return (
+    <group>
+      <mesh
+        position={[0, seatTopAt(machine, seatMid) - seatThick / 2 / Math.cos(recline), seatMid]}
+        rotation-x={-recline}
+      >
+        <boxGeometry args={[seatWidth, seatThick, seatLength]} />
+        {padMat}
+      </mesh>
+      <mesh position={backMid.toArray()} rotation-x={-lean}>
+        <boxGeometry args={[0.24, backH, backThick]} />
+        {padMat}
+      </mesh>
+      {/* Post under the seat, a foot along the floor, and the column behind the back pad. */}
+      <mesh position={[0, (seatTopAt(machine, seatMid) - seatThick) / 2, seatMid]}>
+        <boxGeometry args={[0.08, seatTopAt(machine, seatMid) - seatThick, 0.08]} />
+        {frameMat}
+      </mesh>
+      <mesh position={[0, 0.025, (seatBack + machine.knee.z) / 2]}>
+        <boxGeometry args={[0.08, 0.05, machine.knee.z - seatBack + 0.3]} />
+        {frameMat}
+      </mesh>
+      {/* The handles beside the hips, each lying along the hole through the fist, on a short
+          post down to the seat frame from its back end. */}
+      {machine.handles.map((h, i) => {
+        const tilt = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          h.dir.clone().normalize().multiplyScalar(h.dir.z < 0 ? -1 : 1),
+        );
+        const back = h.at
+          .clone()
+          .addScaledVector(h.dir.clone().normalize().multiplyScalar(h.dir.z < 0 ? -1 : 1), -P.handleLength / 2);
+        const postH = back.y - (machine.seatY - seatThick);
+        return (
+          <group key={i}>
+            <mesh position={h.at.toArray()} quaternion={tilt}>
+              <cylinderGeometry args={[DUMBBELL.handleRadius, DUMBBELL.handleRadius, P.handleLength, 16]} />
+              <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+            </mesh>
+            <mesh position={[back.x, back.y - postH / 2, back.z]}>
+              <boxGeometry args={[0.03, postH, 0.03]} />
+              {frameMat}
+            </mesh>
+          </group>
+        );
+      })}
+      {/* The pivot, outside the right knee and in line with it, on its own post. */}
+      <mesh position={[-P.pivotOut, machine.knee.y / 2, machine.knee.z]}>
+        <boxGeometry args={[0.06, machine.knee.y, 0.06]} />
+        {frameMat}
+      </mesh>
+      <mesh position={[-P.pivotOut + 0.02, machine.knee.y, machine.knee.z]} rotation-z={Math.PI / 2}>
+        <cylinderGeometry args={[0.045, 0.045, 0.06, 24]} />
+        {frameMat}
+      </mesh>
+      {/* The lever turns about the pivot; the pad hangs across the shins at its end. */}
+      <group ref={lever}>
+        <mesh name="arm">
+          <boxGeometry args={[0.04, 1, 0.05]} />
+          {frameMat}
+        </mesh>
+        <mesh name="pad" rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[P.padRadius, P.padRadius, P.padWidth, 20]} />
+          {padMat}
+        </mesh>
+        <mesh name="rod" rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[0.015, 0.015, P.pivotOut - P.padWidth / 2 + 0.02, 12]} />
+          {frameMat}
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -641,6 +768,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const barRef = useRef<THREE.Group>(null);
   const cableRef = useRef<THREE.Mesh>(null);
   const ropeRef = useRef<THREE.Group>(null);
+  const leverRef = useRef<THREE.Group>(null);
   const clock = useRef({
     t: 0,
     depth: 0,
@@ -712,6 +840,22 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         run.normalize(),
       );
     }
+    if (g.pad && lift.legMachine && leverRef.current) {
+      // The lever runs from the pivot to the pad, outside the right leg; the pad lies across.
+      const pivot = lift.legMachine.knee
+        .clone()
+        .setX(-LEG_EXTENSION.pivotOut + 0.02);
+      const end = g.pad.clone().setX(pivot.x);
+      const part = (name: string) => leverRef.current?.getObjectByName(name);
+      span(part("arm"), pivot, end);
+      part("pad")?.position.copy(g.pad);
+      const rod = part("rod");
+      rod?.position.set(
+        (pivot.x - LEG_EXTENSION.padWidth / 2) / 2,
+        g.pad.y,
+        g.pad.z,
+      );
+    }
     if (g.knot) {
       const part = (name: string) => ropeRef.current?.getObjectByName(name);
       span(part("cable"), g.knot, lift.rope!);
@@ -740,10 +884,15 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const overhead = exercise === "overheadOne" || exercise === "overheadTwo";
     const row = exercise === "row";
     const facePull = exercise === "facePull";
+    const legExt = exercise === "legExtension";
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
-      feet: worldPos(rig.l.ball).setY(0.03),
+      feet: legExt && g.pad
+        ? g.pad.clone().add(new THREE.Vector3(0.06, 0.05, 0.04)) // on the shin pad
+        : worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
-      elbow: overhead
+      elbow: legExt
+        ? worldPos(rig.l.calf).add(new THREE.Vector3(0.09, 0, 0)) // beside the knee, in line with the pivot
+        : overhead
         ? worldPos(arm.lowerarm).add(
             new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03),
           ) // out beside the raised elbow
@@ -754,7 +903,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
           : worldPos(rig.l.lowerarm).add(
               new THREE.Vector3(0.04, -0.03, exercise === "hammer" ? -0.09 : 0),
             ), // behind the elbow in a curl, clear of its crease
-      dumbbell: facePull
+      dumbbell: legExt
+        ? g.l.grip.clone().add(new THREE.Vector3(0.06, 0.06, 0)) // by the left handle
+        : facePull
         ? g.l.grip.clone().add(new THREE.Vector3(0.08, 0.06, 0)) // outside the hand, clear of the head
         : row
         ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.12, 0, 0))
@@ -773,7 +924,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
                   ? new THREE.Vector3(-0.02, 0.12, 0)
                   : new THREE.Vector3(0.1, 0.08, 0),
               ), // above the hand with the arms out: outside it would leave the frame
-      core: worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
+      core: legExt
+        ? worldPos(rig.l.thigh).lerp(worldPos(rig.l.calf), 0.5).add(new THREE.Vector3(0, 0.08, 0)) // on the front of the thigh
+        : worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
     // A pin turns see-through where it sits over the body, so the body stays in view.
     const over = overBody(
@@ -810,6 +963,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         <Mat />
       ) : lift.rope ? (
         <CableTower rope={ropeRef} pulley={lift.rope} />
+      ) : lift.legMachine ? (
+        <LegExtensionMachine machine={lift.legMachine} lever={leverRef} />
       ) : lift.machine ? (
         <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} />
       ) : (
