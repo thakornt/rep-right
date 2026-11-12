@@ -24,8 +24,8 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
           <path d={FIGURE} strokeWidth="28" strokeLinejoin="round" />
         </g>
       </defs>
-      <rect x="-430" y="-60" width="1460" height="1460" rx="300" fill="#1f2b4d" />
-      <g clipPath={`url(#${tile})`} fill="#0b1222" stroke="#0b1222" opacity=".55">
+      <rect x="-430" y="-60" width="1460" height="1460" rx="300" fill="#202023" />
+      <g clipPath={`url(#${tile})`} fill="#050506" stroke="#050506" opacity=".55">
         {SHADOW_STEPS.map((d) => (
           <use key={d} href={`#${figure}`} x={d} y={d} />
         ))}
@@ -33,7 +33,7 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
       <g fill={`url(#${face})`} stroke={`url(#${face})`}>
         <use href={`#${figure}`} />
       </g>
-      <rect x="-418" y="-48" width="1436" height="1436" rx="290" fill="none" stroke="#34446f" strokeWidth="24" />
+      <rect x="-418" y="-48" width="1436" height="1436" rx="290" fill="none" stroke="#3a3a3f" strokeWidth="24" />
     </svg>
   );
 }

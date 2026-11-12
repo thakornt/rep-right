@@ -280,7 +280,7 @@ export default memo(function PressScene(props: Props) {
       gl={{ antialias: true }}
       style={{ touchAction: "none" }}
     >
-      <color attach="background" args={["#0b1222"]} />
+      <color attach="background" args={["#0c0c0e"]} />
       <hemisphereLight args={["#ffffff", "#2a2a2a", 1.1]} />
       <directionalLight position={[2, 4, 3]} intensity={2.2} />
       <directionalLight position={[-3, 2, -2]} intensity={0.8} />

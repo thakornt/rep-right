@@ -144,7 +144,7 @@ export function ExercisePicker({
       <dialog
         ref={sheet}
         aria-label="กรองตามกล้ามเนื้อ"
-        className="mx-auto mt-auto mb-0 w-full max-w-xl rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-[#050914]/75 sm:m-auto sm:max-w-md sm:rounded-3xl"
+        className="mx-auto mt-auto mb-0 w-full max-w-xl rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-[#050506]/75 sm:m-auto sm:max-w-md sm:rounded-3xl"
         onClick={(e) => {
           if (e.target === sheet.current) sheet.current.close(); // tap outside closes
         }}

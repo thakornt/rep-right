@@ -8,7 +8,7 @@ import { Nav } from "./nav";
 import { NavigationSplash } from "./navigation-splash";
 import { ServiceWorker } from "./service-worker";
 
-// Manrope for Latin and numbers, Noto Sans Thai for Thai (the navy + orange preset).
+// Manrope for Latin and numbers, Noto Sans Thai for Thai (the grey + orange preset).
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
 const notoSansThai = Noto_Sans_Thai({ variable: "--font-noto-sans-thai", subsets: ["thai"] });
 
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0d1426",
+  themeColor: "#0b0b0c",
   viewportFit: "cover",
 };
 

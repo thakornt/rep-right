@@ -1,28 +1,28 @@
 @import "tailwindcss";
 
 /*
- * Two-tone dark theme: deep navy with one orange accent.
+ * Two-tone dark theme: near-black neutral greys with one orange accent.
  * Depth comes from surface tones (bg < surface < raised < hover) and inset
- * fields, not from borders. Text on orange is always navy: white on #f7941d
- * is only 2.3:1. Status colours are solid fills or text, never tinted boxes
+ * fields, not from borders. Text on orange is always near-black: white on
+ * #f7941d is only 2.3:1. Status colours are solid fills or text, never tinted boxes
  * with coloured outlines. The 3D badge keeps --health.
  */
 :root {
   color-scheme: dark;
 
-  --bg: #0d1426;
-  --surface: #152038;
-  --raised: #1f2b4d;
-  --hover: #283760;
-  --inset: #0a1020;
-  --line: #22304f; /* hairline dividers only */
+  --bg: #0b0b0c;
+  --surface: #161618;
+  --raised: #202023;
+  --hover: #2a2a2e;
+  --inset: #08080a;
+  --line: #26262a; /* hairline dividers only */
 
-  --fg: #eef1f7;
-  --muted: #a3adc4;
-  --faint: #6f7a96;
+  --fg: #f2f2f3;
+  --muted: #a6a6ad;
+  --faint: #71717a;
 
   --primary: #f7941d;
-  --primary-fg: #0d1426;
+  --primary-fg: #0b0b0c;
   --primary-hi: #ffb35c;
   --primary-lo: #e5700c;
   --health: #34d399;
@@ -151,7 +151,7 @@ body {
     outline-offset: 0;
   }
 
-  /* Long filled call-to-action buttons: a warm orange gradient, navy text. */
+  /* Long filled call-to-action buttons: a warm orange gradient, near-black text. */
   .btn-fill {
     background: linear-gradient(135deg, var(--primary-hi) 0%, var(--primary) 48%, var(--primary-lo) 100%);
     color: var(--primary-fg);
@@ -165,7 +165,7 @@ body {
   /* Home page region cards: dark glass over a faded muscle photo, with an
      orange glow along the lower edge and a light catching the top border. */
   .region-card {
-    background: linear-gradient(160deg, rgb(31 43 77 / 0.6) 0%, rgb(13 20 38 / 0.78) 62%);
+    background: linear-gradient(160deg, rgb(32 32 35 / 0.6) 0%, rgb(11 11 12 / 0.78) 62%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid rgb(255 255 255 / 0.06);
@@ -184,7 +184,7 @@ body {
     pointer-events: none;
     background:
       radial-gradient(120% 70% at 0% 110%, rgb(247 148 29 / 0.22), transparent 60%),
-      linear-gradient(90deg, rgb(13 20 38 / 0.8) 12%, transparent 62%);
+      linear-gradient(90deg, rgb(11 11 12 / 0.8) 12%, transparent 62%);
     transition: opacity 220ms ease;
   }
   .region-card::after {
@@ -238,7 +238,7 @@ body {
     margin-top: 0.35rem;
     border-radius: 999px;
     border: 1px solid rgb(255 255 255 / 0.08);
-    background: rgb(13 20 38 / 0.72);
+    background: rgb(11 11 12 / 0.72);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     padding: 0.2rem 0.6rem;
@@ -251,7 +251,7 @@ body {
     align-items: center;
     border-radius: 999px;
     border: 1px solid rgb(255 255 255 / 0.09);
-    background: rgb(13 20 38 / 0.55);
+    background: rgb(11 11 12 / 0.55);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     padding-inline: 1rem;

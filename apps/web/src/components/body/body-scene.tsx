@@ -48,7 +48,7 @@ export default memo(function BodyScene(props: Props) {
       gl={{ antialias: true }}
       style={{ touchAction: "none" }}
     >
-      <color attach="background" args={["#0b1222"]} />
+      <color attach="background" args={["#0c0c0e"]} />
       <hemisphereLight args={["#ffffff", "#2a2a2a", 1.1]} />
       <directionalLight position={[2, 4, 3]} intensity={2.2} />
       <directionalLight position={[-3, 2, -2]} intensity={0.8} />
@@ -64,9 +64,9 @@ export function Floor() {
     <group>
       <mesh rotation-x={-Math.PI / 2} position-y={-0.001}>
         <circleGeometry args={[1.4, 64]} />
-        <meshStandardMaterial color="#121c33" roughness={1} />
+        <meshStandardMaterial color="#161618" roughness={1} />
       </mesh>
-      <gridHelper args={[2.8, 14, "#22304f", "#1a2440"]} position-y={0} />
+      <gridHelper args={[2.8, 14, "#2a2a2e", "#1d1d20"]} position-y={0} />
     </group>
   );
 }
