@@ -5,11 +5,21 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "legExtension") {
+    // The front of the thigh straightens the knee, hardest near straight; the rest of the body
+    // just holds still on the seat.
+    const straight = 1 - depth;
+    return [
+      { region: "quads", role: "prime", amount: (0.45 + 0.55 * straight) * effort },
+      { region: "abs", role: "stabilizer", amount: 0.25 }, // the trunk still on the back pad
+      { region: "forearms", role: "stabilizer", amount: 0.3 }, // holding the handles, pulling into the seat
+    ];
+  }
   if (exercise === "facePull") {
     // The back of the shoulder and the upper back pull the elbows out and back, and the shoulder
     // turns the forearms up; hardest pulled in, with the shoulder blades squeezed. The work is on
@@ -199,6 +209,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  legExtension: {
+    cues: {
+      feet: "ปรับเบาะรองให้อยู่หน้าแข้งส่วนล่าง เหนือข้อเท้าเล็กน้อย ตอนเริ่มให้เข่างออย่างน้อย 90 องศา",
+      back: "นั่งหลังพิงพนัก ดึงตัวเข้าหาเบาะให้ก้นแนบเบาะตลอด ไม่ยกก้นขึ้นตอนเหยียดขา",
+      elbow: "ปรับเบาะนั่งเข้าออกจนเข่าตรงกับแกนหมุนของเครื่อง (จุดกลมที่แขนเครื่องหมุนรอบ)",
+      dumbbell: "จับที่จับข้างเบาะไว้แน่น ใช้ดึงตัวเข้าหาเบาะให้นิ่ง",
+      core: "เหยียดขาขึ้นเร็วพร้อมหายใจออกจนเกือบตรง เกร็งต้นขาหน้าค้างไว้ครู่หนึ่ง แล้วลดลงช้า ๆ พร้อมหายใจเข้า ไม่เตะด้วยแรงเหวี่ยง",
+    },
+    top: "เหยียดขาสุด",
+    bottom: "งอเข่าสุด",
+    rising: "กำลังเหยียดขา",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความยาวขาไม่เท่ากัน จึงต้องปรับเบาะนั่งและเบาะรองหน้าแข้งทุกครั้งที่ใช้เครื่อง",
+      "เหยียดขาเท่าที่เข่ายังสบาย ไม่ต้องล็อกเข่าตึงสุด",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   facePull: {
     cues: {
       feet: "ตั้งรอกให้สูงกว่าหัวเล็กน้อย แล้วถอยออกมาหนึ่งถึงสองก้าว เท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงส้นเท้ามากหน่อย",
