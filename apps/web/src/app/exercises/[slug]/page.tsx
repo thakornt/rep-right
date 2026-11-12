@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { FORM_CUES } from "@/content/form-cues";
@@ -44,6 +44,8 @@ export default function ExercisePage({ params }: PageProps<"/exercises/[slug]">)
 
 async function Exercise({ params }: { params: PageProps<"/exercises/[slug]">["params"] }) {
   const { slug } = await params;
+  // The neutral-grip and single-arm pulldowns are grips of the lat pulldown now.
+  if (slug === "neutral-grip-lat-pulldown" || slug === "single-arm-lat-pulldown") redirect("/exercises/lat-pulldown");
   const form = FORM_CUES[slug];
   if (!form) notFound();
   return <ExerciseDetail slug={slug} form={form} />;

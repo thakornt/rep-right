@@ -5,10 +5,12 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
+  // The pulldown's other grips work the same muscles.
+  if (exercise === "pulldownNeutral" || exercise === "pulldownSingle") exercise = "pulldown";
   const effort = phase === "up" ? 1 : 0.8;
   if (exercise === "legExtension") {
     // The front of the thigh straightens the knee, hardest near straight; the rest of the body
@@ -209,6 +211,42 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  pulldownNeutral: {
+    cues: {
+      feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น ไม่มีช่องว่าง ช่วงล่างที่นิ่งช่วยให้ดึงได้เต็มแรง",
+      back: "ตอนบนตัวเกือบตรงและยืดให้สุด แล้วเอนหลังเล็กน้อยไปพร้อมกับการดึง อกยกขึ้น ไม่เหวี่ยงตัวช่วยดึง",
+      elbow: "ศอกลงมาข้างหน้าลำตัว ชิดตัว ไม่กางออกข้าง และไม่แทงศอกไปข้างหลัง",
+      dumbbell: "จับด้ามจับคู่ขนาน ฝ่ามือหันเข้าหากัน ดึงลงมาที่อกส่วนบน",
+      core: "เกร็งท้องเบา ๆ ดึงลงเร็วพร้อมหายใจออก แล้วปล่อยขึ้นช้า ๆ พร้อมหายใจเข้า อย่าให้ด้ามจับดีดขึ้น",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "ดึงลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังดึงลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ดึงลงได้จึงต่างกัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงลงเท่าที่ไหล่ยังสบายและอกยังยกอยู่ ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  pulldownSingle: {
+    cues: {
+      feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น มืออีกข้างวางบนต้นขา",
+      back: "ลำตัวเกือบตรงตลอด ไม่บิดตัวหรือเอียงตัวไปข้างที่ดึงเพื่อช่วยดึง",
+      elbow: "ดึงศอกลงมาข้างลำตัว ชิดซี่โครง ให้มือมาอยู่ข้างไหล่",
+      dumbbell: "จับด้ามจับข้างเดียว ฝ่ามือหันเข้าหาตัว ตอนบนแขนเกือบตรงและรู้สึกยืดข้างลำตัว",
+      core: "เกร็งท้องให้ลำตัวนิ่ง ดึงลงเร็วพร้อมหายใจออก แล้วปล่อยขึ้นช้า ๆ พร้อมหายใจเข้า ทำครบแล้วสลับข้าง",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "ดึงลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังดึงลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ดึงลงได้จึงต่างกัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงลงเท่าที่ไหล่ยังสบายและลำตัวยังไม่บิด ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   legExtension: {
     cues: {
       feet: "ปรับเบาะรองให้อยู่หน้าแข้งส่วนล่าง เหนือข้อเท้าเล็กน้อย ตอนเริ่มให้เข่างออย่างน้อย 90 องศา",
