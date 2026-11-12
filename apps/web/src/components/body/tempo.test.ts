@@ -8,7 +8,7 @@ import { BACK_SQUAT_DOWN_SHARE, DOWN_SHARE, fromBottomDepthAt, fromBottomTimeAt,
 const PERIOD = 3.6;
 const MAX_QUICK_SHARE = 0.4; // the quick way takes under this share of a rep
 const WORK_GOING_UP = ["incline", "shoulder", "hammer", "raise", "squat", "crunch", "legExtension"] as const;
-const WORK_GOING_DOWN = ["pulldown", "pushdown"] as const;
+const WORK_GOING_DOWN = ["pulldown", "pulldownNeutral", "pulldownSingle", "pushdown"] as const;
 
 describe("tempo", () => {
   test.each(WORK_GOING_UP)("%s comes down slowly and goes up quickly", (lift) => {

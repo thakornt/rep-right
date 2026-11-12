@@ -39,6 +39,13 @@ import {
   type PulldownRig,
 } from "./pose-pulldown";
 import {
+  posePulldownVariant,
+  PULLDOWN_NEUTRAL,
+  PULLDOWN_SINGLE,
+  readPulldownVariantRig,
+  type PulldownGrip,
+} from "./pose-pulldown-variants";
+import {
   LEG_EXTENSION,
   poseLegExtension,
   readLegExtensionRig,
@@ -106,6 +113,8 @@ const SPECS = {
   raise: LATERAL_RAISE,
   squat: DUMBBELL_SQUAT,
   pulldown: LAT_PULLDOWN,
+  pulldownNeutral: PULLDOWN_NEUTRAL,
+  pulldownSingle: PULLDOWN_SINGLE,
   pushdown: ROPE_PUSHDOWN,
   pushup: PUSH_UP,
   overheadOne: OVERHEAD_ONE,
@@ -119,6 +128,8 @@ const SPECS = {
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
   pulldown: LAT_PULLDOWN.cameraReach,
+  pulldownNeutral: PULLDOWN_NEUTRAL.cameraReach,
+  pulldownSingle: PULLDOWN_SINGLE.cameraReach,
   pushdown: ROPE_PUSHDOWN.cameraReach,
   pushup: PUSH_UP.cameraReach,
   crunch: CRUNCH.cameraReach,
@@ -142,11 +153,12 @@ type Lift = {
   pose: (
     left: number,
     right: number,
-  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number };
+  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number; pulley?: THREE.Vector3 };
   biceps: (depth: number) => number;
   triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
+  grip?: PulldownGrip; // the pulldown's handle, if not the wide bar
   legMachine?: LegExtensionRig; // the leg extension machine, fitted to the body
   rope?: THREE.Vector3; // the pulley a rope hangs from
   bare?: boolean; // nothing held: the hands are on the floor
@@ -191,6 +203,18 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       pose: (depth: number) => poseDumbbellSquat(squat, depth),
       biceps: () => 0,
       bench: null,
+    };
+  }
+  if (exercise === "pulldownNeutral" || exercise === "pulldownSingle") {
+    const grip: PulldownGrip = exercise === "pulldownNeutral" ? "neutral" : "single";
+    const pull = readPulldownVariantRig(root, grip);
+    return {
+      rig: pull.rig,
+      pose: (depth: number) => posePulldownVariant(pull, depth),
+      biceps: () => 0,
+      bench: null,
+      machine: pull,
+      grip,
     };
   }
   if (exercise === "pulldown") {
@@ -522,11 +546,15 @@ function PulldownMachine({
   machine,
   bar,
   cable,
+  grip,
 }: {
   machine: PulldownRig;
   bar: React.RefObject<THREE.Group | null>;
   cable: React.RefObject<THREE.Mesh | null>;
+  grip?: PulldownGrip;
 }) {
+  const pulleyX = 0; // every grip hangs from the pulley in the middle
+  const steel = <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />;
   const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
   const frameMat = (
     <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />
@@ -589,12 +617,12 @@ function PulldownMachine({
         <FrameMat />
       </mesh>
       {/* The beam out over the lifter, and the pulley under it. */}
-      <mesh position={[0, pulleyHeight + 0.06, (pulleyAhead + COLUMN) / 2]}>
+      <mesh position={[pulleyX, pulleyHeight + 0.06, (pulleyAhead + COLUMN) / 2]}>
         <boxGeometry args={[0.08, 0.08, pulleyAhead - COLUMN + 0.08]} />
         <FrameMat />
       </mesh>
       <mesh
-        position={[0, pulleyHeight - 0.01, pulleyAhead]}
+        position={[pulleyX, pulleyHeight - 0.01, pulleyAhead]}
         rotation-z={Math.PI / 2}
       >
         <cylinderGeometry args={[0.035, 0.035, 0.03, 20]} />
@@ -604,15 +632,50 @@ function PulldownMachine({
         <cylinderGeometry args={[0.004, 0.004, 1, 8]} />
         <meshStandardMaterial color="#c8ced1" metalness={0.6} roughness={0.4} />
       </mesh>
+      {/* The handle, turned each frame so its grips lie along the hands' (local z). */}
       <group ref={bar}>
-        <mesh rotation-z={Math.PI / 2}>
-          <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
-          <meshStandardMaterial
-            color="#9aa6ab"
-            metalness={0.8}
-            roughness={0.3}
-          />
-        </mesh>
+        {grip === "neutral" ? (
+          <>
+            {[-1, 1].map((side) => (
+              <mesh key={side} position-x={side * PULLDOWN_NEUTRAL.gripHalf} rotation-x={Math.PI / 2}>
+                <cylinderGeometry args={[DUMBBELL.handleRadius, DUMBBELL.handleRadius, 0.13, 16]} />
+                {steel}
+              </mesh>
+            ))}
+            {/* The bridge joining the two grips over the hands, where the cable clips on. */}
+            {[-1, 1].map((end) => (
+              <mesh key={end} position={[0, 0.045, end * 0.065]} rotation-z={Math.PI / 2}>
+                <cylinderGeometry args={[0.008, 0.008, PULLDOWN_NEUTRAL.gripHalf * 2, 10]} />
+                {steel}
+              </mesh>
+            ))}
+            {[-1, 1].flatMap((side) =>
+              [-1, 1].map((end) => (
+                <mesh key={`${side}${end}`} position={[side * PULLDOWN_NEUTRAL.gripHalf, 0.0225, end * 0.065]}>
+                  <cylinderGeometry args={[0.008, 0.008, 0.045, 10]} />
+                  {steel}
+                </mesh>
+              )),
+            )}
+          </>
+        ) : grip === "single" ? (
+          <>
+            <mesh rotation-x={Math.PI / 2}>
+              <cylinderGeometry args={[DUMBBELL.handleRadius, DUMBBELL.handleRadius, 0.13, 16]} />
+              {steel}
+            </mesh>
+            {/* The D-shaped loop over the grip, where the cable clips on. */}
+            <mesh rotation-y={Math.PI / 2}>
+              <torusGeometry args={[0.07, 0.007, 8, 24, Math.PI]} />
+              {steel}
+            </mesh>
+          </>
+        ) : (
+          <mesh rotation-z={Math.PI / 2}>
+            <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
+            {steel}
+          </mesh>
+        )}
       </group>
     </group>
   );
@@ -831,9 +894,28 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     right.current?.quaternion.setFromUnitVectors(ALONG, g.r.handle);
     if (g.bar) {
       barRef.current?.position.copy(g.bar);
+      // A handle's grips lie along the hands' (local z), its loop toward the pulley (local y).
+      if (lift.grip && barRef.current) {
+        // Both grips of the neutral handle lie on one line: average the hands' and keep it square
+        // across the body, so it can't twist to one side.
+        const z = lift.grip === "neutral"
+          ? g.l.handle.clone().normalize().add(g.r.handle.clone().normalize().multiplyScalar(Math.sign(g.l.handle.dot(g.r.handle)) || 1)).setX(0).normalize()
+          : g.r.handle.clone().normalize();
+        const y = (g.pulley?.clone() ?? pulleyAt()).sub(g.bar);
+        y.addScaledVector(z, -y.dot(z)).normalize();
+        barRef.current.quaternion.setFromRotationMatrix(
+          new THREE.Matrix4().makeBasis(y.clone().cross(z), y, z),
+        );
+      }
       // The cable runs from the pulley to the bar, at whatever slant that takes.
-      const run = pulleyAt().sub(g.bar);
-      cableRef.current?.position.copy(g.bar).addScaledVector(run, 0.5);
+      // From the loop's top on a handle, from the bar's middle otherwise.
+      const from = lift.grip === "single"
+        ? g.bar.clone().addScaledVector((g.pulley?.clone() ?? pulleyAt()).sub(g.bar).normalize(), 0.07)
+        : lift.grip === "neutral"
+          ? g.bar.clone().addScaledVector((g.pulley?.clone() ?? pulleyAt()).sub(g.bar).normalize(), 0.045)
+          : g.bar;
+      const run = (g.pulley?.clone() ?? pulleyAt()).sub(from);
+      cableRef.current?.position.copy(from).addScaledVector(run, 0.5);
       cableRef.current?.scale.set(1, run.length(), 1);
       cableRef.current?.quaternion.setFromUnitVectors(
         ALONG_CABLE,
@@ -918,6 +1000,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
                   exercise === "squat" ||
                   exercise === "rdl" ||
                   exercise === "pulldown" ||
+                  exercise === "pulldownNeutral" ||
+                  exercise === "pulldownSingle" ||
                   exercise === "pushdown" ||
                   exercise === "pushup" ||
                   exercise === "crunch"
@@ -966,7 +1050,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       ) : lift.legMachine ? (
         <LegExtensionMachine machine={lift.legMachine} lever={leverRef} />
       ) : lift.machine ? (
-        <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} />
+        <PulldownMachine machine={lift.machine} bar={barRef} cable={cableRef} grip={lift.grip} />
       ) : (
         <>
           {!lift.one && <Dumbbell inner={left} />}
