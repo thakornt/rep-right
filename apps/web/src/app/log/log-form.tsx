@@ -414,6 +414,7 @@ export function LogForm() {
           <ExercisePicker
             exercises={unused}
             title={draft.blocks.length ? "เพิ่มท่า" : "เลือกท่าที่ซ้อม"}
+            mark3d
             onPick={addExercise}
           />
         ))}
