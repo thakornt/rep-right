@@ -18,7 +18,6 @@ import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 export const MODEL = "/models/body.glb";
 const MUSCLE_MAP = "/models/muscles.png";
-const RELIEF_MAP = "/models/relief.png";
 
 export type View = "side" | "front" | "back" | "angle";
 
@@ -142,8 +141,10 @@ export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; ta
 
 // ---------- body material ----------
 
-// Skin keeps showing through the colour, so its shape and grooves still read.
-export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THREE.Texture }) {
+// Skin keeps showing through the colour, so its shape still reads. No grooves are drawn between
+// the muscles (relief.png): stretched by the poses they read as cuts, so the owner had them taken
+// off the whole body (2026-11-12).
+export function bodyMaterial({ map }: { map: THREE.Texture }) {
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
@@ -152,7 +153,6 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
-    normalMap: relief,
   });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTint = { value: tints };
@@ -170,10 +170,17 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         attribute vec2 aTraps;
 
         attribute vec3 aMush;
+        attribute vec3 aMushNormal;
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
         uniform vec2 uTraps;
         varying vec2 vMapUv;`,
+      )
+      .replace(
+        "#include <beginnormal_vertex>",
+        `#include <beginnormal_vertex>
+        // The shoulders' corrected skin is lit by its own normals (delta-mush.ts).
+        if (dot(aMushNormal, aMushNormal) > 0.0) objectNormal = aMushNormal;`,
       )
       .replace(
         "#include <begin_vertex>",
@@ -260,7 +267,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
 
 // The muscle map holds region ids, not colours: no filtering, no colour conversion.
 export function useMuscleMap() {
-  const [loadedMap, loadedRelief] = useLoader(THREE.TextureLoader, [MUSCLE_MAP, RELIEF_MAP]);
+  const loadedMap = useLoader(THREE.TextureLoader, MUSCLE_MAP);
   return useMemo(() => {
     const map = loadedMap.clone();
     map.flipY = false;
@@ -269,12 +276,8 @@ export function useMuscleMap() {
     map.minFilter = THREE.NearestFilter;
     map.generateMipmaps = false;
     map.needsUpdate = true;
-    const relief = loadedRelief.clone();
-    relief.flipY = false;
-    relief.colorSpace = THREE.NoColorSpace;
-    relief.needsUpdate = true;
-    return { map, relief };
-  }, [loadedMap, loadedRelief]);
+    return { map };
+  }, [loadedMap]);
 }
 
 // ---------- the lifter ----------
