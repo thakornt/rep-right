@@ -9,12 +9,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, display_name, picture_url)
 VALUES ($1, $2, $3)
-RETURNING id, email, display_name, created_at, updated_at, picture_url
+RETURNING id, email, display_name, created_at, updated_at, picture_url, program_id
 `
 
 type CreateUserParams struct {
@@ -33,6 +34,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PictureUrl,
+		&i.ProgramID,
 	)
 	return i, err
 }
@@ -47,7 +49,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, display_name, created_at, updated_at, picture_url FROM users WHERE id = $1
+SELECT id, email, display_name, created_at, updated_at, picture_url, program_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -60,12 +62,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PictureUrl,
+		&i.ProgramID,
 	)
 	return i, err
 }
 
 const getUserByIdentity = `-- name: GetUserByIdentity :one
-SELECT u.id, u.email, u.display_name, u.created_at, u.updated_at, u.picture_url FROM users u
+SELECT u.id, u.email, u.display_name, u.created_at, u.updated_at, u.picture_url, u.program_id FROM users u
 JOIN user_identities i ON i.user_id = u.id
 WHERE i.provider = $1 AND i.subject = $2
 `
@@ -85,8 +88,20 @@ func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PictureUrl,
+		&i.ProgramID,
 	)
 	return i, err
+}
+
+const getUserProgram = `-- name: GetUserProgram :one
+SELECT program_id FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUserProgram(ctx context.Context, id uuid.UUID) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getUserProgram, id)
+	var program_id pgtype.Text
+	err := row.Scan(&program_id)
+	return program_id, err
 }
 
 const insertIdentity = `-- name: InsertIdentity :exec
@@ -155,7 +170,7 @@ func (q *Queries) LockIdentity(ctx context.Context, arg LockIdentityParams) erro
 const setDisplayName = `-- name: SetDisplayName :one
 UPDATE users SET display_name = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, email, display_name, created_at, updated_at, picture_url
+RETURNING id, email, display_name, created_at, updated_at, picture_url, program_id
 `
 
 type SetDisplayNameParams struct {
@@ -173,8 +188,27 @@ func (q *Queries) SetDisplayName(ctx context.Context, arg SetDisplayNameParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PictureUrl,
+		&i.ProgramID,
 	)
 	return i, err
+}
+
+const setUserProgram = `-- name: SetUserProgram :execrows
+UPDATE users SET program_id = $1, updated_at = now()
+WHERE id = $2
+`
+
+type SetUserProgramParams struct {
+	ProgramID pgtype.Text
+	ID        uuid.UUID
+}
+
+func (q *Queries) SetUserProgram(ctx context.Context, arg SetUserProgramParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setUserProgram, arg.ProgramID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateIdentityEmail = `-- name: UpdateIdentityEmail :exec
@@ -200,7 +234,7 @@ SET email = CASE WHEN $1::text = '' THEN email ELSE $1::text END,
     picture_url = $3,
     updated_at = now()
 WHERE id = $4
-RETURNING id, email, display_name, created_at, updated_at, picture_url
+RETURNING id, email, display_name, created_at, updated_at, picture_url, program_id
 `
 
 type UpdateUserProfileParams struct {
@@ -228,6 +262,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PictureUrl,
+		&i.ProgramID,
 	)
 	return i, err
 }

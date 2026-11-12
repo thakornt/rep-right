@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Noto_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 
+import { ProgramSync } from "@/lib/my-program";
+
 import "./globals.css";
 import { LogoMark } from "./logo-mark";
 import { Nav } from "./nav";
@@ -40,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <NavigationSplash />
         <Nav />
         <ServiceWorker />
+        <ProgramSync />
       </body>
     </html>
   );

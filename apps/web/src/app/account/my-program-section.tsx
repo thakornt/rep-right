@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { weekdayIndex } from "@/content/programs";
+import { useAuth } from "@/lib/auth";
 import { clearMyProgram, useMyProgram } from "@/lib/my-program";
 
 import { WeekTable } from "../programs/week-table";
@@ -14,6 +15,7 @@ import { btnPrimary, btnQuiet } from "../ui";
 export function MyProgramSection() {
   const router = useRouter();
   const program = useMyProgram();
+  const signedIn = useAuth().kind === "signed-in";
   if (program === undefined) return null;
 
   return (
@@ -46,7 +48,7 @@ export function MyProgramSection() {
               type="button"
               className={btnQuiet.replace("text-fg", "text-danger")}
               onClick={() => {
-                clearMyProgram();
+                void clearMyProgram();
                 router.push("/programs");
               }}
             >
@@ -54,7 +56,9 @@ export function MyProgramSection() {
             </button>
           </div>
           <p className="text-xs leading-relaxed text-faint">
-            โปรแกรมนี้บันทึกไว้ในเครื่องนี้เท่านั้น ลบแล้วหน้าแรกจะกลับไปแสดงปุ่มช่วยเลือกโปรแกรม
+            {signedIn
+              ? "โปรแกรมนี้บันทึกไว้กับบัญชีของคุณ เปิดจากเครื่องไหนก็เห็น ลบแล้วหน้าแรกจะกลับไปแสดงปุ่มช่วยเลือกโปรแกรม"
+              : "ตอนนี้บันทึกไว้ในเครื่องนี้เท่านั้น เข้าสู่ระบบเพื่อเก็บไว้กับบัญชี ลบแล้วหน้าแรกจะกลับไปแสดงปุ่มช่วยเลือกโปรแกรม"}
           </p>
         </>
       )}

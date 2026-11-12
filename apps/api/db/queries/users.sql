@@ -47,3 +47,10 @@ WHERE user_id = $1 ORDER BY created_at, provider;
 
 -- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1;
+
+-- name: GetUserProgram :one
+SELECT program_id FROM users WHERE id = $1;
+
+-- name: SetUserProgram :execrows
+UPDATE users SET program_id = sqlc.narg(program_id), updated_at = now()
+WHERE id = sqlc.arg(id);
