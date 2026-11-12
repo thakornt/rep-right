@@ -5,11 +5,25 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "rdl") {
+    // The hamstrings and glutes lengthen under load going down and drive the hips forward coming
+    // up, hardest near the bottom; the back holds its line throughout.
+    return [
+      { region: "hamstrings", role: "prime", amount: (0.4 + 0.6 * depth) * effort },
+      { region: "glutes", role: "prime", amount: (0.35 + 0.6 * depth) * effort },
+      { region: "adductors", role: "synergist", amount: (0.2 + 0.4 * depth) * effort },
+      { region: "erectors", role: "stabilizer", amount: 0.4 + 0.3 * depth }, // holding the back straight
+      { region: "upper_back", role: "stabilizer", amount: 0.4 }, // shoulders back, not rounded
+      { region: "lats", role: "stabilizer", amount: 0.35 }, // keeping the dumbbells close to the legs
+      { region: "forearms", role: "stabilizer", amount: 0.45 }, // the grip
+      { region: "abs", role: "stabilizer", amount: 0.35 },
+    ];
+  }
   if (exercise === "row") {
     // The back pulls the elbow back to the hip, hardest at the top; the arm bends only as far as the
     // forearm hanging straight down needs, so the biceps helps without leading.
@@ -169,6 +183,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  rdl: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงกลางเท้าถึงส้นเท้า ย่อเข่านิดเดียวและคงมุมนี้ไว้ ไม่นั่งลงแบบสควอท",
+      back: "หลังตรงเป็นเส้นเดียวจากสะโพกถึงคอ ไม่ห่อหลังและไม่แอ่นหลังล่าง อกผาย ไหล่ไม่ห่อ มองพื้นข้างหน้าเล็กน้อย",
+      elbow: "แขนห้อยตรงเหมือนตะขอ ไม่งอศอกดึง ไหล่ดึงไปข้างหลังเล็กน้อยให้ดัมเบลอยู่ชิดขา",
+      dumbbell: "ดัมเบลไถลลงชิดหน้าขาตลอดทาง ลงจนประมาณกลางหน้าแข้ง หรือเท่าที่หลังยังตรงและรู้สึกตึงต้นขาด้านหลัง",
+      core: "เริ่มด้วยการดันสะโพกไปข้างหลัง ไม่ใช่ก้มตัว เกร็งท้องให้หลังนิ่ง ขึ้นโดยดันสะโพกมาข้างหน้าและบีบก้น ลงช้า ๆ",
+    },
+    top: "ยืนขึ้นสุด",
+    bottom: "ลงสุด",
+    rising: "กำลังยืนขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความลึกที่ลงได้ขึ้นกับความยืดหยุ่นของต้นขาด้านหลัง ไม่ต้องลงเท่าโมเดล",
+      "ลงเท่าที่หลังยังตรง ถ้าหลังเริ่มห่อ ตรงนั้นคือจุดที่ควรหยุดแล้วดันสะโพกกลับขึ้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่หลังล่างหรือต้นขาด้านหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   row: {
     cues: {
       feet: "เท้าข้างเดียวกับมือที่ค้ำอยู่ข้างหน้า ถอยเท้าข้างที่ถือดัมเบลไปข้างหลังตรง ๆ เท้าทั้งสองข้างวางเต็มพื้น ย่อเข่าเล็กน้อย ให้ตัวมั่นคงไม่โยก",

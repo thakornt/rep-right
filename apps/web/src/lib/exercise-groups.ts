@@ -43,6 +43,7 @@ export const SLUGS_WITH_3D = new Set([
   "overhead-dumbbell-triceps-extension",
   "crunch",
   "single-arm-dumbbell-row",
+  "romanian-deadlift",
 ]);
 
 // Muscle groups by body region, for the home page.

@@ -62,6 +62,7 @@ import {
   readOverheadRig,
 } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
+import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
@@ -103,6 +104,7 @@ const SPECS = {
   overheadTwo: OVERHEAD_TWO,
   crunch: CRUNCH,
   row: DUMBBELL_ROW,
+  rdl: DUMBBELL_RDL,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -111,6 +113,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   pushup: PUSH_UP.cameraReach,
   crunch: CRUNCH.cameraReach,
   row: DUMBBELL_ROW.cameraReach,
+  rdl: DUMBBELL_RDL.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -155,6 +158,15 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
     return {
       rig: raise.rig,
       pose: (depth: number) => poseRaise(raise, depth),
+      biceps: () => 0,
+      bench: null,
+    };
+  }
+  if (exercise === "rdl") {
+    const rdl = readRdlRig(root);
+    return {
+      rig: rdl.rig,
+      pose: (depth: number) => poseRdl(rdl, depth),
       biceps: () => 0,
       bench: null,
     };
@@ -730,6 +742,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
               .add(
                 exercise === "raise" ||
                   exercise === "squat" ||
+                  exercise === "rdl" ||
                   exercise === "pulldown" ||
                   exercise === "pushdown" ||
                   exercise === "pushup" ||
