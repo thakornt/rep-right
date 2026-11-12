@@ -5,11 +5,27 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "facePull") {
+    // The back of the shoulder and the upper back pull the elbows out and back, and the shoulder
+    // turns the forearms up; hardest pulled in, with the shoulder blades squeezed. The work is on
+    // the way in.
+    const pull = phase === "down" ? 1 : 0.8;
+    return [
+      { region: "delt_rear", role: "prime", amount: (0.45 + 0.55 * depth) * pull },
+      { region: "upper_back", role: "prime", amount: (0.4 + 0.6 * depth) * pull }, // the shoulder blades squeezed together
+      { region: "teres", role: "synergist", amount: (0.3 + 0.5 * depth) * pull }, // turning the upper arm out
+      { region: "delt_side", role: "synergist", amount: (0.25 + 0.4 * depth) * pull }, // holding the elbows up
+      { region: "biceps", role: "stabilizer", amount: 0.2 }, // only holding the bend: the clip's point, not a curl
+      { region: "forearms", role: "stabilizer", amount: 0.3 }, // the grip on the rope
+      { region: "abs", role: "stabilizer", amount: 0.35 }, // the trunk still, not leaning back to pull
+      { region: "erectors", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "rdl") {
     // The hamstrings and glutes lengthen under load going down and drive the hips forward coming
     // up, hardest near the bottom; the back holds its line throughout.
@@ -183,6 +199,24 @@ export const PRESS_CONTENT: Record<
   PressExercise,
   { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
 > = {
+  facePull: {
+    cues: {
+      feet: "ตั้งรอกให้สูงกว่าหัวเล็กน้อย แล้วถอยออกมาหนึ่งถึงสองก้าว เท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงส้นเท้ามากหน่อย",
+      back: "เอนตัวไปข้างหลังเล็กน้อยเป็นเส้นตรงจากข้อเท้าถึงหัว เพื่อสู้แรงสายที่ดึงตัวไปข้างหน้า แต่ไม่เหวี่ยงตัวช่วยดึง อกผาย ตอนดึงเข้าสุดให้บีบสะบักสองข้างเข้าหากัน",
+      elbow: "ศอกนำ ดึงศอกออกข้างและไปข้างหลังให้สูงระดับไหล่ ไม่ให้ศอกตกต่ำกว่ามือ ถ้าศอกตกจะกลายเป็นการงอแขนแบบท่าค้อน (Hammer curl) ที่ไปโดนต้นแขนกับแขนท่อนล่างแทน",
+      dumbbell: "จับเชือกแบบคว่ำมือ ดึงให้กลางเชือกเข้ามาเหมือนจะชนหน้าผาก แล้วแหวกมือออกให้กว้างที่สุดไปข้างหัว ปลายแขนตั้งขึ้น เหมือนกำลังเบ่งกล้ามแขนสองข้าง",
+      core: "ดึงเข้าให้เร็วและหายใจออก แล้วต้านกลับช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง ใช้น้ำหนักที่ยังทำท่าได้ถูกและรู้สึกที่หลังไหล่ก่อน",
+    },
+    top: "ปล่อยแขนออกสุด",
+    bottom: "ดึงเข้าสุด",
+    rising: "กำลังปล่อยกลับ",
+    lowering: "กำลังดึงเข้า",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ไหล่หมุนออกได้ไม่เท่ากัน ไม่ต้องแหวกมือกว้างเท่าโมเดล",
+      "ดึงเข้าเท่าที่ศอกยังสูงระดับไหล่และไหล่ยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   rdl: {
     cues: {
       feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงกลางเท้าถึงส้นเท้า ย่อเข่านิดเดียวและคงมุมนี้ไว้ ไม่นั่งลงแบบสควอท",
