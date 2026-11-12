@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
-import { shortenPalms } from "./body-proportions";
+import { shortenPalms, slimThighs } from "./body-proportions";
 import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
@@ -291,6 +291,7 @@ export function useBody() {
   const { scene } = useGLTF(MODEL);
   return useMemo(() => {
     shortenPalms(scene);
+    slimThighs(scene);
     setShoulderWeights(scene);
     addArmTwist(scene);
     prepareDeltaMush(scene);
