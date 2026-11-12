@@ -16,7 +16,7 @@ export function RegionCards() {
       {/* Soft light behind the glass, so the blur has something to catch. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-10 -left-16 h-56 w-56 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-[#3b5bdb]/25 blur-3xl" />
+        <div className="absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-white/[0.07] blur-3xl" />
         <div className="absolute -bottom-12 left-1/4 h-48 w-48 rounded-full bg-primary/12 blur-3xl" />
       </div>
 
