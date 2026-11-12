@@ -28,6 +28,7 @@ const PRESS_SLUGS: Record<string, PressExercise> = {
   crunch: "crunch",
   "single-arm-dumbbell-row": "row",
   "romanian-deadlift": "rdl",
+  "face-pull": "facePull",
 };
 
 export function ExerciseDetail({ slug, form }: { slug: string; form: FormCues }) {
