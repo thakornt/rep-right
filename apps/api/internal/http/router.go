@@ -25,6 +25,8 @@ type Deps struct {
 	Cookie CookieConfig
 	// Workouts enables exercises, sessions and consents (needs Auth).
 	Workouts Workouts
+	// Programs enables /v1/me/program (needs Auth).
+	Programs Programs
 	Now      func() time.Time // defaults to time.Now
 }
 
@@ -56,6 +58,13 @@ func NewRouter(d Deps) *gin.Engine {
 		me.GET("", h.me)
 		me.PATCH("", h.patchMe)
 		me.DELETE("", h.deleteMe)
+
+		if d.Programs != nil {
+			p := programHandlers{store: d.Programs, log: d.Log}
+			me.GET("/program", p.get)
+			me.PUT("/program", p.put)
+			me.DELETE("/program", p.delete)
+		}
 
 		if d.Workouts != nil {
 			now := d.Now

@@ -13,7 +13,7 @@ export default function AccountPage() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 pt-6 pb-6">
       <h1 className="text-[1.75rem] leading-tight font-semibold tracking-tight">โปรไฟล์</h1>
-      {/* Kept in this browser, so it works signed in or not. */}
+      {/* Works signed in (saved on the account) or not (this browser only). */}
       <MyProgramSection />
       <RequireAuth needTerms={false}>
         <AccountView />
