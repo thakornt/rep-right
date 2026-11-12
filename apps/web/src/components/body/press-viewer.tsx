@@ -118,7 +118,7 @@ export function PressViewer({
         ) : (
           switcher
         )}
-        <div className="relative mx-4 h-[min(68vh,560px)] overflow-hidden rounded-3xl bg-inset shadow-inset sm:mx-0">
+        <div className="relative mx-4 h-[min(68vh,560px)] overflow-hidden rounded-3xl border border-faint/50 bg-inset shadow-inset sm:mx-0">
           <PressScene
             exercise={exercise}
             state={state}
