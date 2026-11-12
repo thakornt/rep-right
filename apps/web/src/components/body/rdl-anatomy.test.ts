@@ -24,6 +24,7 @@ const MAX_BACK_DIP = 0.01; // metres the lower back's skin may sink below the bu
 const MAX_LUMBAR_FLEX = 15; // degrees the lower back may round from standing to lose its arch; the row was accepted at 23
 const MAX_BACK_BEND = 3; // degrees any part of the back may lean off one straight line at the bottom
 const MAX_DUMBBELL_HEIGHT_BOTTOM = 0.45; // metres: the dumbbells reach below the knee, toward mid-shin
+const MAX_NECK_UP = 8; // degrees the neck may bend up off the back's line, seen from the side: it carries on the line, not bent back (owner, 2026-11-12)
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 
@@ -124,5 +125,16 @@ describe("dumbbell Romanian deadlift", () => {
     const low = (poseRdl(rdl, 1), [bone("pelvis"), bone("foot_l")]);
     expect(top[0].z - low[0].z).toBeGreaterThan(0.12);
     expect(low[1].distanceTo(top[1])).toBeLessThan(0.002);
+  });
+
+  test("the neck carries on the back's line and doesn't bend up", () => {
+    for (const d of DEPTHS) {
+      poseRdl(rdl, d);
+      const back = bone("neck_01").sub(bone("spine_01"));
+      const neck = bone("head").sub(bone("neck_01"));
+      // Seen from the side: positive when the neck turns up, toward the back of the body, off the back's line.
+      const up = THREE.MathUtils.radToDeg(Math.atan2(back.z * neck.y - back.y * neck.z, back.y * neck.y + back.z * neck.z));
+      expect(up, `depth ${d}`).toBeLessThan(MAX_NECK_UP);
+    }
   });
 });
