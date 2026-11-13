@@ -1,5 +1,6 @@
-// Writes the skin as drawn at the single-arm pulldown's top, for sculpting the shoulder's corrective
-// shape in Blender (tools/body/correctives/README.md). Skipped unless CORRECTIVE_DUMP names a folder.
+// Writes the skin as drawn at a lift's pose, for sculpting a corrective shape in Blender
+// (tools/body/correctives/README.md). Skipped unless CORRECTIVE_DUMP names a folder. CORRECTIVE_POSE
+// picks the lift (pulldown_single, the default, or overhead_two) and DEPTH how far into it.
 import fs from "node:fs";
 import * as THREE from "three";
 import { test } from "vitest";
@@ -9,12 +10,15 @@ import { worldPos } from "./pose";
 import { BODY_REGIONS } from "./body-regions";
 import { armElevation } from "./shoulder-correctives";
 import { posePulldownVariant, readPulldownVariantRig } from "./pose-pulldown-variants";
+import { poseOverheadTwo, readOverheadRig } from "./pose-overhead";
 const OUT = (process.env.CORRECTIVE_DUMP ?? "") + "/";
 test.skipIf(!process.env.CORRECTIVE_DUMP)("dump the skin for Blender", async () => {
   const root = await loadBody();
   const body = readBody(root);
-  const rig = readPulldownVariantRig(root, "single");
-  posePulldownVariant(rig, Number(process.env.DEPTH ?? 0));
+  const lift = process.env.CORRECTIVE_POSE ?? "pulldown_single";
+  if (lift === "overhead_two") poseOverheadTwo(readOverheadRig(root), Number(process.env.DEPTH ?? 1));
+  else if (lift === "pulldown_single") posePulldownVariant(readPulldownVariantRig(root, "single"), Number(process.env.DEPTH ?? 0));
+  else throw new Error(`no lift ${lift}`);
   const mesh = body.mesh;
   (mesh.userData.beforeSkin as () => void)();
   const g = mesh.geometry;
