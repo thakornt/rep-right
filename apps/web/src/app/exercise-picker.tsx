@@ -4,48 +4,63 @@ import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 
 import type { Exercise } from "@/lib/api";
-import { CATEGORIES, MUSCLES, SLUGS_WITH_3D, muscleLabel } from "@/lib/exercise-groups";
+import { countWith, matchesFilter, type ExerciseFilter } from "@/lib/exercise-filter";
+import { CATEGORIES, EQUIPMENT, MUSCLES, SLUGS_WITH_3D, muscleLabel } from "@/lib/exercise-groups";
 
 import { Badge3D } from "./badge-3d";
 import { btnPrimary, btnQuiet } from "./ui";
 
 const muscleChip =
-  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.92rem] transition-[background-color,transform] duration-150 active:scale-[0.97] cursor-pointer";
+  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.92rem] transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-35 disabled:active:scale-100 cursor-pointer disabled:cursor-default";
 const chipOn = "bg-primary font-semibold text-primary-fg";
 const chipOff = "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised";
 
-const normalize = (s: string) => s.toLowerCase().replace(/[\s-]+/g, "");
+type Group = "muscles" | "equipment";
 
-function matches(e: Exercise, query: string, muscles: Set<string>): boolean {
-  if (muscles.size > 0 && !e.muscles.some((m) => muscles.has(m))) return false;
-  const q = normalize(query);
-  return q === "" || [e.name_th, e.name_en, e.slug].some((n) => normalize(n).includes(q));
-}
+const GROUPS: { group: Group; label: string; options: [string, string][] }[] = [
+  { group: "equipment", label: "อุปกรณ์ที่มี", options: EQUIPMENT },
+  { group: "muscles", label: "กล้ามเนื้อหลัก", options: MUSCLES },
+];
 
 export function ExercisePicker({
   exercises,
   title,
   onPick,
   initialMuscles = [],
+  initialEquipment = [],
   mark3d = false,
 }: {
   exercises: Exercise[];
   title?: string;
   onPick: (e: Exercise) => void;
   initialMuscles?: string[];
+  initialEquipment?: string[];
   mark3d?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [muscles, setMuscles] = useState<Set<string>>(() => new Set(initialMuscles));
+  const [picked, setPicked] = useState<Record<Group, Set<string>>>(() => ({
+    muscles: new Set(initialMuscles),
+    equipment: new Set(initialEquipment),
+  }));
   const sheet = useRef<HTMLDialogElement>(null);
 
-  const shown = exercises.filter((e) => matches(e, query, muscles));
-  const toggle = (m: string) =>
-    setMuscles((cur) => {
-      const next = new Set(cur);
-      if (!next.delete(m)) next.add(m);
-      return next;
+  const filter: ExerciseFilter = { query, ...picked };
+  const shown = exercises.filter((e) => matchesFilter(e, filter));
+  const pickedCount = picked.muscles.size + picked.equipment.size;
+  const toggle = (group: Group, value: string) =>
+    setPicked((cur) => {
+      const next = new Set(cur[group]);
+      if (!next.delete(value)) next.add(value);
+      return { ...cur, [group]: next };
     });
+  const clear = (group?: Group) =>
+    setPicked((cur) => (group ? { ...cur, [group]: new Set() } : { muscles: new Set(), equipment: new Set() }));
+
+  // Options no exercise uses at all are left out; ones the other group rules out are dimmed.
+  const options = (group: Group, list: [string, string][]) =>
+    list
+      .filter(([value]) => exercises.some((e) => e[group].includes(value)))
+      .map(([value, label]) => ({ value, label, count: countWith(exercises, filter, group, value), on: picked[group].has(value) }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,42 +80,53 @@ export function ExercisePicker({
         <button
           type="button"
           onClick={() => sheet.current?.showModal()}
-          aria-label={`กรองตามกล้ามเนื้อ${muscles.size ? ` (เลือกอยู่ ${muscles.size})` : ""}`}
+          aria-label={`ตัวกรองอุปกรณ์และกล้ามเนื้อ${pickedCount ? ` (เลือกอยู่ ${pickedCount})` : ""}`}
           className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-xl transition-[background-color,transform] active:scale-95 cursor-pointer ${
-            muscles.size ? "bg-primary text-primary-fg" : "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised"
+            pickedCount ? "bg-primary text-primary-fg" : "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised"
           }`}
         >
           <SlidersHorizontal aria-hidden size={20} />
-          {muscles.size > 0 && (
+          {pickedCount > 0 && (
             <span className="num absolute -top-1.5 -right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-fg px-1 text-[0.7rem] font-bold text-bg">
-              {muscles.size}
+              {pickedCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* Quick muscle filter: always in view, scrolls sideways on a phone. */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        <button
-          type="button"
-          aria-pressed={muscles.size === 0}
-          onClick={() => setMuscles(new Set())}
-          className={`${muscleChip} ${muscles.size === 0 ? chipOn : chipOff}`}
-        >
-          ทั้งหมด
-        </button>
-        {MUSCLES.map(([m, label]) => {
-          const count = exercises.filter((e) => e.muscles.includes(m)).length;
-          if (count === 0) return null;
-          const on = muscles.has(m);
-          return (
-            <button key={m} type="button" aria-pressed={on} onClick={() => toggle(m)} className={`${muscleChip} ${on ? chipOn : chipOff}`}>
-              {label}
-              <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Quick filters: always in view, each row scrolls sideways on a phone. */}
+      {GROUPS.map(({ group, label, options: list }) => {
+        const opts = options(group, list);
+        if (opts.length === 0) return null; // e.g. an API that sends no equipment yet
+        return (
+          <div key={group} role="group" aria-label={label} className="flex flex-col gap-1.5">
+            <p className="px-0.5 text-[0.82rem] font-semibold text-muted">{label}</p>
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+              <button
+                type="button"
+                aria-pressed={picked[group].size === 0}
+                onClick={() => clear(group)}
+                className={`${muscleChip} ${picked[group].size === 0 ? chipOn : chipOff}`}
+              >
+                ทั้งหมด
+              </button>
+              {opts.map(({ value, label: name, count, on }) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={!on && count === 0}
+                  onClick={() => toggle(group, value)}
+                  className={`${muscleChip} ${on ? chipOn : chipOff}`}
+                >
+                  {name}
+                  <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       {shown.length === 0 && <p className="py-6 text-center text-sm text-muted">ไม่พบท่าที่ตรงกับคำค้นหรือตัวกรอง</p>}
       {CATEGORIES.map(([cat, label]) => {
@@ -143,42 +169,46 @@ export function ExercisePicker({
       {/* Bottom sheet on phones, centred dialog on wider screens. */}
       <dialog
         ref={sheet}
-        aria-label="กรองตามกล้ามเนื้อ"
-        className="mx-auto mt-auto mb-0 w-full max-w-xl rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-[#050506]/75 sm:m-auto sm:max-w-md sm:rounded-3xl"
+        aria-label="ตัวกรอง"
+        className="mx-auto mt-auto mb-0 max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-fg backdrop:bg-[#050506]/75 sm:m-auto sm:max-w-md sm:rounded-3xl"
         onClick={(e) => {
           if (e.target === sheet.current) sheet.current.close(); // tap outside closes
         }}
       >
         <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-line sm:hidden" />
-        <p className="text-lg font-semibold">กล้ามเนื้อหลัก</p>
-        <p className="mb-4 text-sm text-muted">เลือกได้หลายกลุ่ม</p>
-        <div className="flex flex-wrap gap-2">
-          {MUSCLES.map(([m, label]) => {
-            const count = exercises.filter((e) => e.muscles.includes(m)).length;
-            const on = muscles.has(m);
-            return (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={on}
-                disabled={count === 0}
-                onClick={() => toggle(m)}
-                className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[0.95rem] transition-colors disabled:opacity-30 cursor-pointer ${
-                  on ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
-                }`}
-              >
-                {label}
-                <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
-          <button type="button" onClick={() => setMuscles(new Set())} className={btnQuiet}>
+        {GROUPS.map(({ group, label, options: list }) => {
+          const opts = options(group, list);
+          if (opts.length === 0) return null;
+          return (
+            <div key={group} className="mb-6">
+              <p className="text-lg font-semibold">{label}</p>
+              <p className="mb-3 text-sm text-muted">เลือกได้หลายอย่าง</p>
+              <div className="flex flex-wrap gap-2">
+                {opts.map(({ value, label: name, count, on }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={on}
+                    disabled={!on && count === 0}
+                    onClick={() => toggle(group, value)}
+                    className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[0.95rem] transition-colors disabled:opacity-30 cursor-pointer ${
+                      on ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
+                    }`}
+                  >
+                    {name}
+                    <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <div className="grid grid-cols-[auto_1fr] gap-2">
+          <button type="button" onClick={() => clear()} className={btnQuiet}>
             ล้าง
           </button>
           <button type="button" onClick={() => sheet.current?.close()} className={btnPrimary}>
-            แสดง {exercises.filter((e) => matches(e, query, muscles)).length} ท่า
+            แสดง {shown.length} ท่า
           </button>
         </div>
       </dialog>
