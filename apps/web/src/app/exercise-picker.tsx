@@ -10,11 +10,6 @@ import { CATEGORIES, EQUIPMENT, MUSCLES, SLUGS_WITH_3D, muscleLabel } from "@/li
 import { Badge3D } from "./badge-3d";
 import { btnPrimary, btnQuiet } from "./ui";
 
-const muscleChip =
-  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[0.92rem] transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-35 disabled:active:scale-100 cursor-pointer disabled:cursor-default";
-const chipOn = "bg-primary font-semibold text-primary-fg";
-const chipOff = "bg-surface text-fg shadow-[inset_0_0_0_1px_var(--line)] hover:bg-raised";
-
 type Group = "muscles" | "equipment";
 
 const GROUPS: { group: Group; label: string; options: [string, string][] }[] = [
@@ -93,40 +88,6 @@ export function ExercisePicker({
           )}
         </button>
       </div>
-
-      {/* Quick filters: always in view, each row scrolls sideways on a phone. */}
-      {GROUPS.map(({ group, label, options: list }) => {
-        const opts = options(group, list);
-        if (opts.length === 0) return null; // e.g. an API that sends no equipment yet
-        return (
-          <div key={group} role="group" aria-label={label} className="flex flex-col gap-1.5">
-            <p className="px-0.5 text-[0.82rem] font-semibold text-muted">{label}</p>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-              <button
-                type="button"
-                aria-pressed={picked[group].size === 0}
-                onClick={() => clear(group)}
-                className={`${muscleChip} ${picked[group].size === 0 ? chipOn : chipOff}`}
-              >
-                ทั้งหมด
-              </button>
-              {opts.map(({ value, label: name, count, on }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={on}
-                  disabled={!on && count === 0}
-                  onClick={() => toggle(group, value)}
-                  className={`${muscleChip} ${on ? chipOn : chipOff}`}
-                >
-                  {name}
-                  <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })}
 
       {shown.length === 0 && <p className="py-6 text-center text-sm text-muted">ไม่พบท่าที่ตรงกับคำค้นหรือตัวกรอง</p>}
       {CATEGORIES.map(([cat, label]) => {
