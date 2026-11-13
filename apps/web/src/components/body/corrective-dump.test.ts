@@ -16,10 +16,13 @@ test.skipIf(!process.env.CORRECTIVE_DUMP)("dump the skin for Blender", async () 
   const root = await loadBody();
   const body = readBody(root);
   const lift = process.env.CORRECTIVE_POSE ?? "pulldown_single";
+  let padY: number | undefined; // the thigh pads' height, for drawing them beside the skin
   if (lift === "overhead_two") poseOverheadTwo(readOverheadRig(root), Number(process.env.DEPTH ?? 1));
-  else if (lift === "pulldown_single") posePulldownVariant(readPulldownVariantRig(root, "single"), Number(process.env.DEPTH ?? 0));
-  else if (lift === "pulldown_neutral") posePulldownVariant(readPulldownVariantRig(root, "neutral"), Number(process.env.DEPTH ?? 0));
-  else throw new Error(`no lift ${lift}`);
+  else if (lift === "pulldown_single" || lift === "pulldown_neutral") {
+    const pull = readPulldownVariantRig(root, lift === "pulldown_single" ? "single" : "neutral");
+    padY = pull.padY;
+    posePulldownVariant(pull, Number(process.env.DEPTH ?? 0));
+  } else throw new Error(`no lift ${lift}`);
   const mesh = body.mesh;
   (mesh.userData.beforeSkin as () => void)();
   const g = mesh.geometry;
@@ -57,5 +60,5 @@ test.skipIf(!process.env.CORRECTIVE_DUMP)("dump the skin for Blender", async () 
   fs.writeFileSync(OUT + "trunk.json", JSON.stringify(mats[trunk].elements));
   fs.writeFileSync(OUT + "regions.bin", Buffer.from(atob(BODY_REGIONS), "latin1"));
   const j = (b: string) => worldPos(root.getObjectByName(b)!).toArray();
-  fs.writeFileSync(OUT + "meta.json", JSON.stringify({ n, shoulderR: j("upperarm_r"), shoulderL: j("upperarm_l"), elbowR: j("lowerarm_r"), spine3: j("spine_03"), neck: j("neck_01"), elevation: armElevation(root, "r"), elevationL: armElevation(root, "l") }));
+  fs.writeFileSync(OUT + "meta.json", JSON.stringify({ n, shoulderR: j("upperarm_r"), shoulderL: j("upperarm_l"), elbowR: j("lowerarm_r"), spine3: j("spine_03"), neck: j("neck_01"), elevation: armElevation(root, "r"), elevationL: armElevation(root, "l"), padY }));
 });

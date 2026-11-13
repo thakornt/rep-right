@@ -8,7 +8,7 @@
 //   forearm stays in line with the cable all the way, so the hand pulls the way the cable runs and
 //   the handle hangs square to it; the pull comes from the armpit, the elbow driving down in front
 //   of the body, never out to the side, until the hand is by the shoulder. The trunk stays nearly
-//   upright and the left hand rests on the left thigh.
+//   upright and the left hand holds the left thigh pad, to keep the body steady (owner, 2026-11-13).
 //
 // Depth 0 = the arms up (the stretch), 1 = pulled down, as with the wide grip.
 
@@ -16,6 +16,7 @@ import * as THREE from "three";
 
 import { enableShoulderCorrectives } from "./shoulder-correctives";
 import { aim, deg, keepHinge, qx, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos } from "./pose";
+import { readGrip } from "./grip";
 import { frame, readSide, turnTo, type PressSide } from "./pose-press";
 import { LAT_PULLDOWN, readPulldownRig, type PulldownRig } from "./pose-pulldown";
 
@@ -56,13 +57,12 @@ export const PULLDOWN_SINGLE = {
   upperDownForward: 30, // degrees the upper arm leans forward of straight down at the bottom: the elbow in front of the body, as in the clip
   upperIn: -0.06, // how far the upper arm angles toward the middle at the bottom, against straight down: a little out, as the owner asked (2026-11-12), never flared
   gripReach: 0.075, // metres from the wrist to the middle of the fist, along the hand
-  restOnThigh: 0.22, // metres in front of the hips the left hand rests on the thigh, just behind the pad
-  palmAbove: 0.09, // metres above the thigh's top the middle of the palm sits: resting on the skin
+  padHold: 0.19, // metres from the middle the left fist holds the left thigh pad, along it: its middle
   cameraTarget: [0, 0.95, 0.1] as [number, number, number],
   cameraReach: 0.75,
 };
 
-export type PulldownVariantRig = PulldownRig & { grip: PulldownGrip; root: THREE.Object3D; hands: { l: PressSide; r: PressSide } };
+export type PulldownVariantRig = PulldownRig & { grip: PulldownGrip; root: THREE.Object3D; hands: { l: PressSide; r: PressSide }; padHand: PressSide };
 
 const X = new THREE.Vector3(1, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -71,7 +71,10 @@ const FRONT = new THREE.Vector3(0, 0, 1);
 // Call once with the body at rest. The seat and pads fit as for the wide grip.
 export function readPulldownVariantRig(root: THREE.Object3D, grip: PulldownGrip): PulldownVariantRig {
   const base = readPulldownRig(root);
-  return { ...base, grip, root, hands: { l: readSide(root, base.rig, "l"), r: readSide(root, base.rig, "r") } };
+  const l = readSide(root, base.rig, "l");
+  // The single arm's free hand closes round the thigh pad, as thick as the pad.
+  const padHand = { ...l, grip: readGrip(root, base.rig.skin, "l", LAT_PULLDOWN.padRadius) };
+  return { ...base, grip, root, hands: { l, r: readSide(root, base.rig, "r") }, padHand };
 }
 
 export const variantPulley = (grip: PulldownGrip) =>
@@ -201,22 +204,8 @@ export function posePulldownVariant(pull: PulldownVariantRig, depth: number) {
   const foreDir = pulley.clone().sub(elbowAt).normalize();
   const handle = elbowAt.clone().addScaledVector(foreDir, r.foreLen + S.gripReach);
   const right = holdAlong(r, handle, handleLine, elbowAt.clone().sub(shoulder.clone().lerp(handle, 0.5)));
-  const l = pull.hands.l;
-  const thighTop = pull.padY - P.padRadius;
-  // The palm rests flat on the thigh, fingers forward and a little down, thumb in.
-  const rest = new THREE.Vector3(P.stance, thighTop + PULLDOWN_SINGLE.palmAbove, PULLDOWN_SINGLE.restOnThigh);
-  const restLong = new THREE.Vector3(0, -0.25, 1).normalize();
-  const thumbIn = new THREE.Vector3(-1, 0, 0);
-  const restQ = frame(restLong, thumbIn).multiply(l.handFrame.clone().invert()).multiply(l.handRest);
-  setWorldQuat(l.s.hand, restQ);
-  const wrist = rest.clone().sub(worldPos(l.s.middle1).sub(worldPos(l.s.hand)).multiplyScalar(0.5));
-  twoBoneIK(l.s.upperarm, l.s.lowerarm, l.s.hand, l.upperLen, l.foreLen, wrist, new THREE.Vector3(0.4, 0, -1).normalize());
-  const lElbow = worldPos(l.s.lowerarm);
-  const lUpper = lElbow.clone().sub(worldPos(l.s.upperarm)).normalize();
-  const lFore = wrist.clone().sub(lElbow).normalize();
-  turnTo(l.s.upperarm, l.hinge, lUpper, lFore.clone().cross(lUpper).normalize());
-  aim(l.s.lowerarm, l.s.hand, wrist);
-  turnTo(l.s.lowerarm, l.radial, lFore, thumbIn);
-  setWorldQuat(l.s.hand, restQ);
-  return { l: { grip: rest, handle: X.clone() }, r: right, bar: right.grip.clone(), pulley };
+  // The left fist holds the left thigh pad from above, round its length, the elbow back and out.
+  const pad = new THREE.Vector3(S.padHold, pull.padY, P.padAhead);
+  const left = holdAlong(pull.padHand, pad, X.clone().negate(), new THREE.Vector3(0.4, 0, -1).normalize(), true);
+  return { l: left, r: right, bar: right.grip.clone(), pulley };
 }
