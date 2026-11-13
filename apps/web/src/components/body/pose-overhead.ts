@@ -17,6 +17,7 @@
 import * as THREE from "three";
 
 import { enableArmTwist } from "./arm-twist";
+import { enableShoulderCorrectives } from "./shoulder-correctives";
 import { readBody } from "./contact";
 import { aim, deg, readRig, rotateWorld, setWorldQuat, twoBoneIK, worldPos, type Rig } from "./pose";
 import { holdArm, standFeet } from "./pose-curl";
@@ -33,7 +34,7 @@ export const OVERHEAD_ONE = {
   cameraTarget: [0, 1.22, 0] as [number, number, number],
 };
 
-export type OverheadRig = { rig: Rig; l: PressSide; r: PressSide; waist: { l: THREE.Vector3; r: THREE.Vector3 } };
+export type OverheadRig = { root: THREE.Object3D; rig: Rig; l: PressSide; r: PressSide; waist: { l: THREE.Vector3; r: THREE.Vector3 } };
 
 // With the arm overhead the shoulder blade turns up about 60 degrees, mostly from the clavicle
 // rolling back about its own length (about 30) and partly from it rising, so the shoulder comes up
@@ -74,6 +75,7 @@ export function readOverheadRig(root: THREE.Object3D): OverheadRig {
   readTraps(rig);
   return {
     rig,
+    root,
     l: readSide(root, rig, "l"),
     r: readSide(root, rig, "r"),
     waist: { l: new THREE.Vector3(side, y, z), r: new THREE.Vector3(-side, y, z) },
@@ -155,6 +157,7 @@ function handOnHip(a: PressSide, waist: THREE.Vector3) {
 
 // One arm, the right: depth 0 = arm up, 1 = dumbbell lowered behind the head.
 export function poseOverheadOne(o: OverheadRig, depth: number) {
+  enableShoulderCorrectives(o.root, false); // sculpted only for both arms (poseOverheadTwo)
   const { armOut, armForward, across, topBend, lowBend, stance, toeOut } = OVERHEAD_ONE;
   const { rig } = o;
   toRest(rig);
@@ -295,6 +298,8 @@ function foreTo(elbow: THREE.Vector3, upper: THREE.Vector3, foreLen: number, ben
 
 // Both hands under the dumbbell's top head: depth 0 = arms up, 1 = lowered behind the head.
 export function poseOverheadTwo(o: OverheadRig, depth: number) {
+  // Its own shoulder shape, sculpted at the bottom (shoulder-correctives.ts).
+  enableShoulderCorrectives(o.root, "overheadTwo");
   const { armInTop, armInLow, armForward, topBend, lowBend, handsApart, palmSkin, stance, toeOut } = OVERHEAD_TWO;
   const { rig } = o;
   toRest(rig);

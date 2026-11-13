@@ -17,8 +17,7 @@ Steps (Blender 4.5; `$D` is a folder outside the repo):
    - `5_side_line.py $D target_v5.bin target_v6.bin`: skin past the straight side line drawn back in
 3. To look or sculpt by hand: `review.py $D target_v6.bin out.blend` (objects `target` and `now`),
    then `blender out.blend --background --python export_target.py -- $D target_v6.bin`.
-4. Into the app: `node tools/body/correctives/make-data.mjs $D $D/target_v6.bin`
-   (writes `shoulder-correctives-data.ts`).
+4. Into the app: `node tools/body/correctives/make-data.mjs $D $D/target_v6.bin pulldown-single`.
 
 ## Sculpting a new corrective by hand (2026-11-13)
 
@@ -34,5 +33,13 @@ For the owner or an artist to sculpt a pose's shape, instead of scripted steps:
    An unsculpted file gives back the app's skin exactly (checked: 0.0 mm at every point), and for
    the single-arm pulldown `make-data.mjs` on it gives back the approved shape (within 0.1 mm; 8 of
    581 points under 0.1 mm drop out).
-4. Into the app: the app takes one shape today (`shoulder-correctives-data.ts`, the single-arm pulldown);
-   a second shape needs `shoulder-correctives.ts` to hold several, each blending in by the arm's direction.
+4. Into the app: `node tools/body/correctives/make-data.mjs $D $D/target.bin <lift> [mirrored]`
+   writes `shoulder-correctives-<lift>.ts` (`pulldown-single`, `overhead-two`). Each lift has its own
+   shape, turned on by its pose (`enableShoulderCorrectives(root, "overheadTwo")`); a new lift adds its
+   file to `SHAPES` in `shoulder-correctives.ts`. Only the right side is kept and the left is its mirror;
+   `mirrored` (both shoulders sculpted at once) halves points on the middle line; `both` also keeps
+   the left as sculpted instead of mirroring the right (the overhead and neutral-grip shapes: their
+   posed skin isn't symmetric). Each shape fades by how far the arm turns from its sculpted
+   direction (`FADE` in `shoulder-correctives.ts`; the pulldowns over the whole pull).
+   Shapes in the app now (owner, 2026-11-13): pulldown-single (v5), pulldown-neutral (v2),
+   overhead-two.

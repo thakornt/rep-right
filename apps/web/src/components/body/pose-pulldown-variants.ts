@@ -118,9 +118,10 @@ function slerpDir(a: THREE.Vector3, b: THREE.Vector3, t: number) {
 
 export function posePulldownVariant(pull: PulldownVariantRig, depth: number) {
   const { rig } = pull;
-  // The shoulder's corrective shape was sculpted at the single arm's top (shoulder-correctives.ts);
-  // on the neutral grip it smeared the armpit.
-  enableShoulderCorrectives(pull.root, pull.grip === "single");
+  // Each grip has its own shoulder shape, sculpted at its top (shoulder-correctives.ts). The single
+  // arm's on the neutral grip, its arms pointing the same way, flared both lats out and tore the left
+  // shoulder's back, where the posed skin sits up to 2 cm off the right's mirror image (2026-11-13).
+  enableShoulderCorrectives(pull.root, pull.grip === "single" ? "pulldownSingle" : "pulldownNeutral");
   const P = LAT_PULLDOWN;
   const V = pull.grip === "single" ? PULLDOWN_SINGLE : PULLDOWN_NEUTRAL;
   for (const [b, r] of rig.rest) {

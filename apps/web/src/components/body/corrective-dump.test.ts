@@ -1,6 +1,6 @@
 // Writes the skin as drawn at a lift's pose, for sculpting a corrective shape in Blender
 // (tools/body/correctives/README.md). Skipped unless CORRECTIVE_DUMP names a folder. CORRECTIVE_POSE
-// picks the lift (pulldown_single, the default, or overhead_two) and DEPTH how far into it.
+// picks the lift (pulldown_single, the default, pulldown_neutral or overhead_two) and DEPTH how far into it.
 import fs from "node:fs";
 import * as THREE from "three";
 import { test } from "vitest";
@@ -18,6 +18,7 @@ test.skipIf(!process.env.CORRECTIVE_DUMP)("dump the skin for Blender", async () 
   const lift = process.env.CORRECTIVE_POSE ?? "pulldown_single";
   if (lift === "overhead_two") poseOverheadTwo(readOverheadRig(root), Number(process.env.DEPTH ?? 1));
   else if (lift === "pulldown_single") posePulldownVariant(readPulldownVariantRig(root, "single"), Number(process.env.DEPTH ?? 0));
+  else if (lift === "pulldown_neutral") posePulldownVariant(readPulldownVariantRig(root, "neutral"), Number(process.env.DEPTH ?? 0));
   else throw new Error(`no lift ${lift}`);
   const mesh = body.mesh;
   (mesh.userData.beforeSkin as () => void)();
