@@ -27,9 +27,12 @@ For the owner or an artist to sculpt a pose's shape, instead of scripted steps:
 1. Dump the pose (in `apps/web`): `CORRECTIVE_POSE=overhead_two DEPTH=1 CORRECTIVE_DUMP=$D npx vitest run src/components/body/corrective-dump.test.ts`
    (`CORRECTIVE_POSE` is `pulldown_single` or `overhead_two`)
 2. Make the file: `blender --background --python sculpt_file.py -- $D $D/<name>.blend`
-   "target" starts as the skin the app draws now; away from the shoulders it is masked, and
-   sculpting mirrors left to right. The steps, in Thai, are in the file's text "วิธีปั้น".
+   "target" starts as the skin the app draws now, with any approved corrective on (`shown.bin`);
+   away from the raised shoulders it is masked. With both arms up sculpting mirrors left to right;
+   with one (the single-arm pulldown) only that shoulder is free and mirroring is off. The steps, in Thai, are in the file's text "วิธีปั้น".
 3. Sculpt "target", save, then `blender $D/<name>.blend --background --python export_target.py -- $D $D/target.bin`.
-   An unsculpted file gives back the app's skin exactly (checked: 0.0 mm at every point).
+   An unsculpted file gives back the app's skin exactly (checked: 0.0 mm at every point), and for
+   the single-arm pulldown `make-data.mjs` on it gives back the approved shape (within 0.1 mm; 8 of
+   581 points under 0.1 mm drop out).
 4. Into the app: the app takes one shape today (`shoulder-correctives-data.ts`, the single-arm pulldown);
    a second shape needs `shoulder-correctives.ts` to hold several, each blending in by the arm's direction.

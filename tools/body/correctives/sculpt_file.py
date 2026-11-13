@@ -13,8 +13,13 @@ a = sys.argv[sys.argv.index("--") + 1:]
 D = a[0] + "/"; OUT = a[1]
 REACH, FADE = 0.16, 0.04  # metres from a shoulder joint where sculpting is free, and fades to masked
 
+import os
 meta = json.load(open(D + "meta.json")); n = meta["n"]
-now = np.fromfile(D + "final.bin", dtype=np.float32).reshape(-1, 3)
+# The skin as drawn, with any corrective already on (shown.bin; older dumps have only final.bin).
+now = np.fromfile(D + ("shown.bin" if os.path.exists(D + "shown.bin") else "final.bin"), dtype=np.float32).reshape(-1, 3)
+# Which shoulders are raised: both mirror together; one alone (the single-arm pulldown) is the
+# only one free, without mirroring, so the lowered side keeps its shape.
+up = [s for s, e in (("R", meta["elevation"]), ("L", meta.get("elevationL", meta["elevation"]))) if e > 90] or ["R", "L"]
 Rr = np.fromfile(D + "rest.bin", dtype=np.float32).reshape(-1, 3)
 T = np.fromfile(D + "index.bin", dtype=np.uint32).reshape(-1, 3)
 key = {}; place = np.zeros(n, dtype=np.int64)
@@ -38,11 +43,11 @@ def make(name, pts, dx):
 ref = make("now", now, 0.8)
 ref.hide_select = True
 t = make("target", now, 0.0)
-t.data.use_mirror_x = True  # sculpt both shoulders at once
+t.data.use_mirror_x = len(up) == 2  # sculpt both shoulders at once
 
 # Masked (1) away from the shoulders, free (0) near them.
 p = now[rep]
-d = np.minimum(np.linalg.norm(p - np.array(meta["shoulderR"]), axis=1), np.linalg.norm(p - np.array(meta["shoulderL"]), axis=1))
+d = np.min([np.linalg.norm(p - np.array(meta["shoulder" + s]), axis=1) for s in up], axis=0)
 mask = np.clip((d - REACH) / FADE, 0, 1).astype(np.float32)
 attr = t.data.attributes.new(".sculpt_mask", "FLOAT", "POINT")
 attr.data.foreach_set("value", mask)
@@ -57,20 +62,21 @@ for scr in bpy.data.screens:
             sh.type = "SOLID"; sh.light = "MATCAP"; sh.show_cavity = True; sh.cavity_type = "BOTH"
             sp.overlay.show_floor = False
             r3 = sp.region_3d
-            mid = (np.array(meta["shoulderR"]) + np.array(meta["shoulderL"])) / 2
+            mid = np.mean([meta["shoulder" + s] for s in up], axis=0)
             r3.view_location = (float(mid[0]), float(-mid[2]), float(mid[1]) - 0.05)
             r3.view_distance = 1.3
             from mathutils import Euler
             r3.view_rotation = Euler((1.3, 0, 0.6)).to_quaternion()
 
 how = bpy.data.texts.new("วิธีปั้น")
-how.write(f"""ปั้นรูปทรงแก้ข้อต่อ: ท่านี้ยกแขน {meta['elevation']:.0f} องศา
+side = "ทั้งสองไหล่พร้อมกันได้ (สะท้อนซ้ายขวาเปิดไว้แล้ว: X ที่มุมขวาบนของหน้าต่าง 3D)" if len(up) == 2 else     "เฉพาะไหล่ข้างที่ยกแขน (ปิดสะท้อนซ้ายขวาไว้ เพราะอีกข้างแขนลงอยู่ ในแอปอีกข้างจะได้รูปทรงสะท้อนเองตอนยกแขน)"
+how.write(f"""ปั้นรูปทรงแก้ข้อต่อ: ท่านี้ยกแขน {max(meta['elevation'], meta.get('elevationL', 0)):.0f} องศา
 
 1. เลือก object "target" (อยู่กลาง) แล้วเข้า Sculpt Mode (Ctrl+Tab)
-   ปั้นทั้งสองไหล่พร้อมกันได้ (สะท้อนซ้ายขวาเปิดไว้แล้ว: X ที่มุมขวาบนของหน้าต่าง 3D)
+   ปั้น{side}
 2. ส่วนที่ห่างไหล่เกิน {int(REACH*100)} ซม. ถูก mask ไว้ (สีเข้ม) แปรงไม่โดน
    ถ้าต้องแก้ไกลกว่านั้น: เมนู Mask > Clear Mask
-3. "now" (ทางขวา) คือผิวที่แอปวาดตอนนี้ ไว้เทียบ ล็อกไว้ ไม่ต้องแก้
+3. "now" (ทางขวา) คือผิวที่แอปวาดตอนนี้ (รวมรูปทรงแก้ที่อนุมัติไว้แล้ว ถ้าท่านี้มี) ไว้เทียบ ล็อกไว้ ไม่ต้องแก้
 4. แปรงที่ใช้บ่อย: Grab (G) ดันก้อน, Inflate (I) เพิ่มปริมาตรกล้าม, Smooth (Shift ค้าง) เกลี่ย,
    Clay Strips (C) เติมเนื้อ, Crease ทำร่องรักแร้ ย่อขยายแปรง F, แรง Shift+F
 5. ห้ามเพิ่มหรือลบจุด (ห้าม Dyntopo, Remesh, Subdivide, Multires apply) ต้องมีจุดเท่าเดิมทุกจุด
