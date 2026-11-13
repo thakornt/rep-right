@@ -26,6 +26,7 @@ type Exercise struct {
 	Category    string
 	IsLowerBody bool
 	Muscles     []string
+	Equipment   []string
 }
 
 type RefreshToken struct {

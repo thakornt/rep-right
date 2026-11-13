@@ -8,7 +8,7 @@ import { useReportNavigating } from "@/lib/navigating";
 
 import { ExercisePicker } from "../exercise-picker";
 
-/** Public exercise list; ?muscle=chest preselects the muscle filter. */
+/** Public exercise list; ?muscle=chest and ?equipment=dumbbell preselect the filters. */
 export function LibraryView() {
   const router = useRouter();
   const params = useSearchParams();
@@ -28,13 +28,15 @@ export function LibraryView() {
   if (!exercises) return <p className="text-sm text-muted">กำลังโหลด…</p>;
 
   const muscles = params.getAll("muscle");
+  const equipment = params.getAll("equipment");
   return (
     // Next keeps this page's state between visits, so remount the picker when
-    // ?muscle= changes; otherwise a second visit keeps the old filter.
+    // ?muscle= or ?equipment= changes; otherwise a second visit keeps the old filter.
     <ExercisePicker
-      key={muscles.join(",")}
+      key={`${muscles.join(",")}|${equipment.join(",")}`}
       exercises={exercises}
       initialMuscles={muscles}
+      initialEquipment={equipment}
       mark3d
       onPick={(e) => startOpening(() => router.push(`/exercises/${e.slug}`))}
     />

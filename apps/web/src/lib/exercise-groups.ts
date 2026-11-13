@@ -29,6 +29,17 @@ export const MUSCLES: [string, string][] = [
 
 export const muscleLabel = (m: string) => MUSCLES.find(([k]) => k === m)?.[1] ?? m;
 
+// What loads the exercise; keys match exercises.equipment in the API (migration 00011).
+// Ones no exercise uses yet (the band) stay out of the picker until one does.
+export const EQUIPMENT: [string, string][] = [
+  ["dumbbell", "ดัมเบล"],
+  ["barbell", "บาร์เบล"],
+  ["bodyweight", "น้ำหนักตัว"],
+  ["band", "ยางยืด"],
+  ["cable", "สายเคเบิล"],
+  ["machine", "เครื่อง"],
+];
+
 // Exercises with a 3D viewer; keep in step with exercises/[slug]/exercise-detail.tsx.
 export const SLUGS_WITH_3D = new Set([
   "back-squat",

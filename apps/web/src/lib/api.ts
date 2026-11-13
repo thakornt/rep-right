@@ -147,6 +147,8 @@ export type Exercise = {
   category: string;
   is_lower_body: boolean;
   muscles: string[];
+  /** What loads it; keys match EQUIPMENT in exercise-groups.ts. */
+  equipment: string[];
 };
 
 export type SetEntry = { exercise_id: number; weight_kg: number; reps: number; rpe: number | null };
@@ -168,7 +170,9 @@ const json = (body: unknown): RequestInit => ({
 export async function getExercises(): Promise<Exercise[]> {
   const res = await fetch(`${apiUrl}/v1/exercises`);
   if (!res.ok) throw await parseError(res);
-  return ((await res.json()) as { exercises: Exercise[] }).exercises;
+  const { exercises } = (await res.json()) as { exercises: (Omit<Exercise, "equipment"> & { equipment?: string[] })[] };
+  // An API deployed before migration 00011 sends no equipment; the filter then just has no options.
+  return exercises.map((e) => ({ ...e, equipment: e.equipment ?? [] }));
 }
 
 export const createSession = (s: SessionInput) =>

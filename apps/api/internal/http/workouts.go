@@ -52,6 +52,7 @@ type exerciseJSON struct {
 	Category    string   `json:"category"`
 	IsLowerBody bool     `json:"is_lower_body"`
 	Muscles     []string `json:"muscles"`
+	Equipment   []string `json:"equipment"`
 }
 
 type setJSON struct {

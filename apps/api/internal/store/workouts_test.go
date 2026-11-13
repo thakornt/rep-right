@@ -50,6 +50,14 @@ func TestWorkoutStore(t *testing.T) {
 		if len(e.Muscles) == 0 {
 			t.Errorf("%s has no primary muscles", e.Slug)
 		}
+		// Migration 00011 lists every exercise; a new one must say what it is loaded with.
+		if len(e.Equipment) == 0 {
+			t.Errorf("%s has no equipment", e.Slug)
+		}
+	}
+	if su, err := s.ExerciseBySlug(ctx, "shrug"); err != nil ||
+		len(su.Equipment) != 2 || su.Equipment[0] != "barbell" || su.Equipment[1] != "dumbbell" {
+		t.Errorf("shrug equipment from migration 00011: %+v, %v", su, err)
 	}
 	if lr, err := s.ExerciseBySlug(ctx, "leg-raise"); err != nil || lr.Category != "core" || lr.IsLowerBody ||
 		len(lr.Muscles) != 1 || lr.Muscles[0] != "abs" {

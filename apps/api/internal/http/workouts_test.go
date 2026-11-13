@@ -18,7 +18,7 @@ import (
 
 var (
 	fixedNow = time.Date(2026, 10, 30, 15, 0, 0, 0, time.UTC)
-	squat    = workout.Exercise{ID: 1, Slug: "back-squat", NameTH: "สควอท", NameEN: "Back Squat", Category: "legs", IsLowerBody: true, Muscles: []string{"quads", "glutes"}}
+	squat    = workout.Exercise{ID: 1, Slug: "back-squat", NameTH: "สควอท", NameEN: "Back Squat", Category: "legs", IsLowerBody: true, Muscles: []string{"quads", "glutes"}, Equipment: []string{"barbell"}}
 )
 
 // fakeWorkouts keeps sessions of every user in one map, so a handler that
@@ -165,7 +165,8 @@ func TestExercisesArePublic(t *testing.T) {
 	w := send(newWorkoutRouter(newFakeWorkouts()), http.MethodGet, "/v1/exercises", "", nil)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"slug":"back-squat"`) ||
 		!strings.Contains(w.Body.String(), `"is_lower_body":true`) ||
-		!strings.Contains(w.Body.String(), `"muscles":["quads","glutes"]`) {
+		!strings.Contains(w.Body.String(), `"muscles":["quads","glutes"]`) ||
+		!strings.Contains(w.Body.String(), `"equipment":["barbell"]`) {
 		t.Fatalf("got %d %s", w.Code, w.Body)
 	}
 }
