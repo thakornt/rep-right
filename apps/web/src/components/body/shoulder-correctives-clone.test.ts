@@ -44,3 +44,18 @@ test("the neutral-grip pulldown's shape reaches the viewer's clone, both sides",
   posePulldownVariant(readPulldownVariantRig(body, "neutral"), 0);
   expect(largest(body)).toBeGreaterThan(2);
 });
+
+// The dev server reloads this module while the loaded body (and its geometry) stays cached, and the
+// shapes kept for that geometry are lost with the old module: the viewer threw on the first frame
+// (owner, 2026-11-13). Any geometry that carries the shape attributes but has no shapes kept for it
+// gets them made again.
+test("a body whose geometry has no shapes kept for it still draws them", async () => {
+  const body = cloneSkinned(await loadBody());
+  body.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (m.isSkinnedMesh) m.geometry = m.geometry.clone();
+  });
+  followShoulderCorrectives(body);
+  posePulldownVariant(readPulldownVariantRig(body, "neutral"), 0);
+  expect(largest(body)).toBeGreaterThan(2);
+});

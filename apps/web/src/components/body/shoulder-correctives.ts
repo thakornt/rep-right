@@ -73,7 +73,56 @@ export function armOffShape(mesh: THREE.SkinnedMesh, root: THREE.Object3D, tag: 
   return THREE.MathUtils.radToDeg(dir.angleTo(MADE_AT[shape]));
 }
 
-const SHAPES_OF = new WeakMap<THREE.BufferGeometry, Record<CorrectiveShape, { right: Float32Array; left: Float32Array }>>();
+type Shapes = Record<CorrectiveShape, { right: Float32Array; left: Float32Array }>;
+// The shader reads the shape of the lift on screen; followShoulderCorrectives swaps it in. Kept by
+// geometry, which a viewer's clone of the body shares (userData is copied through JSON, which turns
+// the arrays into plain objects), and made again for a geometry that has none kept: one copied, or
+// one cached across a reload of this module (the dev server), which empties this map.
+const SHAPES_OF = new WeakMap<THREE.BufferGeometry, Shapes>();
+function shapesOf(geometry: THREE.BufferGeometry) {
+  const kept = SHAPES_OF.get(geometry);
+  if (kept) return kept;
+  const { position } = geometry.attributes;
+  const place = new Map<string, number[]>();
+  const key = (x: number, y: number, z: number) => `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
+  for (let i = 0; i < position.count; i++) {
+    const k = key(position.getX(i), position.getY(i), position.getZ(i));
+    (place.get(k) ?? place.set(k, []).get(k)!).push(i);
+  }
+  const shapes = {} as Shapes;
+  const decode = (data: string, scale: number) => {
+    const out = new Float32Array(position.count * 3);
+    const view = new DataView(Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)).buffer);
+    for (let at = 0; at < view.byteLength; at += 10) {
+      const i = view.getUint32(at, true);
+      for (let k = 0; k < 3; k++) out[i * 3 + k] = view.getInt16(at + 4 + k * 2, true) / scale;
+    }
+    return out;
+  };
+  for (const [name, shape] of Object.entries(SHAPES) as [CorrectiveShape, (typeof SHAPES)[CorrectiveShape]][]) {
+    const right = decode(shape.data, shape.scale);
+    // A shape sculpted on both sides keeps the left as sculpted (its posed skin needn't be the right's
+    // mirror image).
+    if (shape.left) {
+      shapes[name] = { right, left: decode(shape.left, shape.scale) };
+      continue;
+    }
+    // Otherwise the left side's shape: each right point's offset, mirrored across the body's middle,
+    // on the point at the mirrored place.
+    const left = new Float32Array(position.count * 3);
+    for (let i = 0; i < position.count; i++) {
+      if (!right[i * 3] && !right[i * 3 + 1] && !right[i * 3 + 2]) continue;
+      for (const j of place.get(key(-position.getX(i), position.getY(i), position.getZ(i))) ?? []) {
+        left[j * 3] = -right[i * 3];
+        left[j * 3 + 1] = right[i * 3 + 1];
+        left[j * 3 + 2] = right[i * 3 + 2];
+      }
+    }
+    shapes[name] = { right, left };
+  }
+  SHAPES_OF.set(geometry, shapes);
+  return shapes;
+}
 
 // Call once on the loaded model at its bind pose, after its geometry is final.
 export function addShoulderCorrectives(root: THREE.Object3D) {
@@ -83,47 +132,7 @@ export function addShoulderCorrectives(root: THREE.Object3D) {
     const mesh = o as THREE.SkinnedMesh;
     if (!mesh.isSkinnedMesh) return;
     const { position } = mesh.geometry.attributes;
-    const place = new Map<string, number[]>();
-    const key = (x: number, y: number, z: number) => `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`;
-    for (let i = 0; i < position.count; i++) {
-      const k = key(position.getX(i), position.getY(i), position.getZ(i));
-      (place.get(k) ?? place.set(k, []).get(k)!).push(i);
-    }
-    const shapes = {} as Record<CorrectiveShape, { right: Float32Array; left: Float32Array }>;
-    const decode = (data: string, scale: number) => {
-      const out = new Float32Array(position.count * 3);
-      const view = new DataView(Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)).buffer);
-      for (let at = 0; at < view.byteLength; at += 10) {
-        const i = view.getUint32(at, true);
-        for (let k = 0; k < 3; k++) out[i * 3 + k] = view.getInt16(at + 4 + k * 2, true) / scale;
-      }
-      return out;
-    };
-    for (const [name, shape] of Object.entries(SHAPES) as [CorrectiveShape, (typeof SHAPES)[CorrectiveShape]][]) {
-      const right = decode(shape.data, shape.scale);
-      // A shape sculpted on both sides keeps the left as sculpted (its posed skin needn't be the right's
-      // mirror image).
-      if (shape.left) {
-        shapes[name] = { right, left: decode(shape.left, shape.scale) };
-        continue;
-      }
-      // Otherwise the left side's shape: each right point's offset, mirrored across the body's middle,
-      // on the point at the mirrored place.
-      const left = new Float32Array(position.count * 3);
-      for (let i = 0; i < position.count; i++) {
-        if (!right[i * 3] && !right[i * 3 + 1] && !right[i * 3 + 2]) continue;
-        for (const j of place.get(key(-position.getX(i), position.getY(i), position.getZ(i))) ?? []) {
-          left[j * 3] = -right[i * 3];
-          left[j * 3 + 1] = right[i * 3 + 1];
-          left[j * 3 + 2] = right[i * 3 + 2];
-        }
-      }
-      shapes[name] = { right, left };
-    }
-    // The shader reads the shape of the lift on screen; followShoulderCorrectives swaps it in. Kept by
-    // geometry, which a viewer's clone of the body shares (userData is copied through JSON, which
-    // turns the arrays into plain objects).
-    SHAPES_OF.set(mesh.geometry, shapes);
+    shapesOf(mesh.geometry);
     mesh.geometry.setAttribute("aCorrR", new THREE.BufferAttribute(new Float32Array(position.count * 3), 3));
     mesh.geometry.setAttribute("aCorrL", new THREE.BufferAttribute(new Float32Array(position.count * 3), 3));
   });
@@ -174,12 +183,12 @@ export function followShoulderCorrectives(root: THREE.Object3D) {
     if (!mesh.isSkinnedMesh || !mesh.geometry.getAttribute("aCorrR")) return;
     const c: Corrective = { weights: new THREE.Vector2(), bone: mesh.skeleton.bones.findIndex((b) => b.name === CORRECTIVE_BONE) };
     mesh.userData.shoulderCorrective = c;
-    const shapes = SHAPES_OF.get(mesh.geometry)!;
     let loaded: CorrectiveShape | undefined;
     const drive = () => {
       const shape = root.userData.shoulderCorrectives as CorrectiveShape | false | undefined;
       if (shape && shape !== loaded) {
         loaded = shape;
+        const shapes = shapesOf(mesh.geometry);
         for (const [name, from] of [["aCorrR", shapes[shape].right], ["aCorrL", shapes[shape].left]] as const) {
           const a = mesh.geometry.getAttribute(name) as THREE.BufferAttribute;
           (a.array as Float32Array).set(from);
