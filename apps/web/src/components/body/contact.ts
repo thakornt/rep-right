@@ -4,6 +4,8 @@
 
 import * as THREE from "three";
 
+import { correctiveAt } from "./shoulder-correctives";
+
 export type Part = "armL" | "armR" | "core" | "legL" | "legR" | "none";
 
 // Skin owned mostly (>= 80%) by one bone group; blended skin at the joints
@@ -50,6 +52,8 @@ function skin(body: Body) {
   (mesh.userData.beforeSkin as (() => void) | undefined)?.();
   const g = mesh.geometry;
   const mush = g.getAttribute("aMush") as THREE.BufferAttribute | undefined; // the shoulders' corrective smoothing
+  const corr = new THREE.Vector3();
+  const worldTurn = new THREE.Matrix3().setFromMatrix4(mesh.matrixWorld);
   const sk = mesh.skeleton;
   // Same as three's skinning shader: world <- bind space, per bone.
   const toWorld = mesh.matrixWorld.clone().multiply(mesh.bindMatrixInverse);
@@ -73,6 +77,8 @@ function skin(body: Body) {
     p.fromBufferAttribute(g.attributes.position, i);
     if (mush) p.add(new THREE.Vector3(mush.getX(i), mush.getY(i), mush.getZ(i)));
     p.applyMatrix4(m);
+    // The shoulders' corrective shapes, after skinning (shoulder-correctives.ts).
+    p.add(correctiveAt(mesh, i, corr).applyMatrix3(worldTurn));
     q.fromBufferAttribute(g.attributes.normal, i).transformDirection(m);
     p.toArray(pos, i * 3);
     q.toArray(nor, i * 3);

@@ -14,6 +14,7 @@
 
 import * as THREE from "three";
 
+import { enableShoulderCorrectives } from "./shoulder-correctives";
 import { aim, deg, keepHinge, qx, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos } from "./pose";
 import { frame, readSide, turnTo, type PressSide } from "./pose-press";
 import { LAT_PULLDOWN, readPulldownRig, type PulldownRig } from "./pose-pulldown";
@@ -61,7 +62,7 @@ export const PULLDOWN_SINGLE = {
   cameraReach: 0.75,
 };
 
-export type PulldownVariantRig = PulldownRig & { grip: PulldownGrip; hands: { l: PressSide; r: PressSide } };
+export type PulldownVariantRig = PulldownRig & { grip: PulldownGrip; root: THREE.Object3D; hands: { l: PressSide; r: PressSide } };
 
 const X = new THREE.Vector3(1, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -70,7 +71,7 @@ const FRONT = new THREE.Vector3(0, 0, 1);
 // Call once with the body at rest. The seat and pads fit as for the wide grip.
 export function readPulldownVariantRig(root: THREE.Object3D, grip: PulldownGrip): PulldownVariantRig {
   const base = readPulldownRig(root);
-  return { ...base, grip, hands: { l: readSide(root, base.rig, "l"), r: readSide(root, base.rig, "r") } };
+  return { ...base, grip, root, hands: { l: readSide(root, base.rig, "l"), r: readSide(root, base.rig, "r") } };
 }
 
 export const variantPulley = (grip: PulldownGrip) =>
@@ -117,6 +118,9 @@ function slerpDir(a: THREE.Vector3, b: THREE.Vector3, t: number) {
 
 export function posePulldownVariant(pull: PulldownVariantRig, depth: number) {
   const { rig } = pull;
+  // The shoulder's corrective shape was sculpted at the single arm's top (shoulder-correctives.ts);
+  // on the neutral grip it smeared the armpit.
+  enableShoulderCorrectives(pull.root, pull.grip === "single");
   const P = LAT_PULLDOWN;
   const V = pull.grip === "single" ? PULLDOWN_SINGLE : PULLDOWN_NEUTRAL;
   for (const [b, r] of rig.rest) {

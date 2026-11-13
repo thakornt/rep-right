@@ -10,6 +10,7 @@ import { addArmTwist, followArmTwist } from "./arm-twist";
 import { shortenPalms, slimThighs } from "./body-proportions";
 import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
+import { addShoulderCorrectives, CORRECTIVE_AFTER_SKIN, CORRECTIVE_HEAD, followShoulderCorrectives } from "./shoulder-correctives";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
@@ -154,6 +155,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     color: "#b9b2ab",
     roughness: 0.62,
   });
+  const corr = { weights: new THREE.Vector2(), bone: { value: 0 } }; // set per draw by shoulder-correctives.ts
+  mat.userData.shoulderCorrective = corr;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTint = { value: tints };
     shader.uniforms.uAmt = { value: amounts };
@@ -161,6 +164,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     shader.uniforms.uBiceps = biceps;
     shader.uniforms.uTriceps = triceps;
     shader.uniforms.uTraps = traps;
+    shader.uniforms.uCorr = { value: corr.weights };
+    shader.uniforms.uCorrBone = corr.bone;
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
@@ -174,7 +179,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
         uniform vec2 uTraps;
-        varying vec2 vMapUv;`,
+        varying vec2 vMapUv;
+        ${CORRECTIVE_HEAD}`,
       )
       .replace(
         "#include <beginnormal_vertex>",
@@ -192,7 +198,10 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         transformed += normal * dot(aTraps, uTraps);
         transformed += aMush; // the shoulders' corrective smoothing (delta-mush.ts)
         vMapUv = uv;`,
-      );
+      )
+      // The shoulders' corrective shapes, after skinning (shoulder-correctives.ts).
+      .replace("#include <skinning_vertex>", `#include <skinning_vertex>
+        ${CORRECTIVE_AFTER_SKIN}`);
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
@@ -295,9 +304,11 @@ export function useBody() {
     setShoulderWeights(scene);
     addArmTwist(scene);
     prepareDeltaMush(scene);
+    addShoulderCorrectives(scene);
     const body = cloneSkinned(scene);
     followArmTwist(body);
     followDeltaMush(body);
+    followShoulderCorrectives(body);
     return body;
   }, [scene]);
 }
