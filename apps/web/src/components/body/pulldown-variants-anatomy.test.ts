@@ -25,6 +25,7 @@ const MAX_HANDLE_OFF_SQUARE = 10; // degrees the handle may be off square to the
 const MAX_ELBOW_OUT = 0.04; // metres the elbow may sit outside the shoulder: a little out as the owner asked (2026-11-12), not flared
 const MAX_ELBOW_IN = 0.04; // metres the elbow may come in from the shoulder: it drives down, it doesn't fold in toward the body (owner, 2026-11-12)
 const MAX_GRIPS_APART = 6; // degrees the two fists' grips may be off parallel: one rigid handle
+const MAX_SIDE_DIP = 0.02; // metres the side of the back, seen from behind, may fall inside the line from the ribs to the armpit with the arm up: the lat runs up to the arm (owner, 2026-11-13)
 const MAX_S_CURVE = 12;
 const MIN_PATH_STEP = 0.004;
 const MAX_STEP = 0.012; // metres a hand or elbow may move per 1% of the lift
@@ -166,4 +167,51 @@ describe.each(["neutral", "single"] as const)("lat pulldown, %s", (grip) => {
         expect(worldPos(rigs.single.rig.l.hand).distanceTo(at)).toBeLessThan(MAX_STILL);
       }
     });
+});
+
+// Every skin vertex where it's drawn now, as the GPU skins it (with the shoulders' smoothing).
+function posedSkin() {
+  const mesh = body.mesh;
+  (mesh.userData.beforeSkin as (() => void) | undefined)?.();
+  const g = mesh.geometry;
+  const mush = g.getAttribute("aMush") as THREE.BufferAttribute | undefined;
+  const sk = mesh.skeleton;
+  const toWorld = mesh.matrixWorld.clone().multiply(mesh.bindMatrixInverse);
+  const mats = sk.bones.map((b, i) => toWorld.clone().multiply(b.matrixWorld).multiply(sk.boneInverses[i]).multiply(mesh.bindMatrix));
+  const out: THREE.Vector3[] = [];
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < g.attributes.position.count; i++) {
+    m.elements.fill(0);
+    for (let k = 0; k < 4; k++) {
+      const w = g.attributes.skinWeight.getComponent(i, k);
+      if (!w) continue;
+      const be = mats[g.attributes.skinIndex.getComponent(i, k)].elements;
+      for (let j = 0; j < 16; j++) m.elements[j] += be[j] * w;
+    }
+    const p = new THREE.Vector3().fromBufferAttribute(g.attributes.position, i);
+    if (mush) p.add(new THREE.Vector3(mush.getX(i), mush.getY(i), mush.getZ(i)));
+    out.push(p.applyMatrix4(m));
+  }
+  return out;
+}
+
+test("with the arm up, the lat runs from the ribs up to the arm with no hollow under the armpit", () => {
+  for (const d of [0, 0.1, 0.2, 0.3]) {
+    posePulldownVariant(rigs.single, d);
+    const pts = posedSkin();
+    const sh = worldPos(rigs.single.rig.r.upperarm);
+    // The right side's outline seen from behind: how far out the skin reaches at each height.
+    const outline: [number, number][] = [];
+    for (let y = sh.y - 0.24; y <= sh.y + 0.03; y += 0.02) {
+      let o = -Infinity;
+      for (const p of pts) if (Math.abs(p.y - y) < 0.01 && p.z < sh.z + 0.15) o = Math.max(o, -p.x);
+      outline.push([y, o]);
+    }
+    const [y0, o0] = outline[0];
+    const [y1, o1] = outline[outline.length - 1];
+    for (const [y, o] of outline) {
+      const line = o0 + ((o1 - o0) * (y - y0)) / (y1 - y0);
+      expect(line - o, `side dips at ${((y - sh.y) * 100).toFixed(0)} cm, depth ${d}`).toBeLessThan(MAX_SIDE_DIP);
+    }
+  }
 });

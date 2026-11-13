@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
+import { addLatStretch, followLatStretch } from "./lat-helper";
 import { shortenPalms, slimThighs } from "./body-proportions";
 import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
@@ -294,9 +295,11 @@ export function useBody() {
     slimThighs(scene);
     setShoulderWeights(scene);
     addArmTwist(scene);
+    addLatStretch(scene);
     prepareDeltaMush(scene);
     const body = cloneSkinned(scene);
     followArmTwist(body);
+    followLatStretch(body);
     followDeltaMush(body);
     return body;
   }, [scene]);
