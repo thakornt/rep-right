@@ -45,6 +45,7 @@ import {
   readPulldownVariantRig,
   type PulldownGrip,
 } from "./pose-pulldown-variants";
+import { enableShoulderCorrectives } from "./shoulder-correctives";
 import {
   LEG_EXTENSION,
   poseLegExtension,
@@ -169,6 +170,7 @@ type Lift = {
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
+  enableShoulderCorrectives(root, false); // the single-arm pulldown turns it on as it poses
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
     return {
