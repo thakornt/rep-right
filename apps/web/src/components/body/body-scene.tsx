@@ -89,7 +89,9 @@ const TOUCHES = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 const PAN_LIMIT = 0.12; // how far the view may slide from where it looks at the body, per metre of the camera's distance, so zoomed in it slides less
 
-export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; target?: THREE.Vector3; reach?: number }) {
+// `reach`: metres either side of the target to keep in frame across; `tall`: up and down, for a lift
+// that spans more height than standing (hanging from a bar).
+export function CameraRig({ view, target = TARGET, reach = 0, tall = 0 }: { view: View; target?: THREE.Vector3; reach?: number; tall?: number }) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / s.size.height);
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
@@ -97,7 +99,8 @@ export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; ta
 
   const fov = (camera as THREE.PerspectiveCamera).fov;
   const from = new THREE.Vector3(...CAMERA[view]).distanceTo(target);
-  const fit = view === "side" ? 1 : Math.max(1, reach / (Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect) / from);
+  const half = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+  const fit = Math.max(view === "side" ? 1 : Math.max(1, reach / (half * aspect) / from), tall / half / from);
 
   useEffect(() => {
     goal.current = new THREE.Vector3(...CAMERA[view]).sub(target).multiplyScalar(fit).add(target);

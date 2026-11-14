@@ -244,6 +244,17 @@ export function PressViewer({
             </li>
           ))}
         </ul>
+        {content.grips && (
+          <div className="mt-2 flex flex-col gap-3 rounded-2xl bg-raised p-4">
+            <h3 className="text-sm font-semibold">จับคว่ำมือกับหงายมือต่างกันอย่างไร</h3>
+            {content.grips.map((g) => (
+              <div key={g.label} className="text-sm leading-relaxed">
+                <div className="font-semibold">{g.label}</div>
+                <div className="text-fg/90">{g.text}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-3">

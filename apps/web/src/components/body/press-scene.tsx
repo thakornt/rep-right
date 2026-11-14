@@ -45,7 +45,9 @@ import {
   readPulldownVariantRig,
   type PulldownGrip,
 } from "./pose-pulldown-variants";
+import { posePullUp, PULL_UP, readPullUpRig } from "./pose-pullup";
 import { enableShoulderCorrectives } from "./shoulder-correctives";
+import { enableArmTwist } from "./arm-twist";
 import {
   LEG_EXTENSION,
   poseLegExtension,
@@ -125,6 +127,8 @@ const SPECS = {
   rdl: DUMBBELL_RDL,
   facePull: FACE_PULL,
   legExtension: LEG_EXTENSION,
+  pullUp: PULL_UP,
+  chinUp: PULL_UP,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -138,6 +142,8 @@ const REACH: Partial<Record<PressExercise, number>> = {
   rdl: DUMBBELL_RDL.cameraReach,
   facePull: FACE_PULL.cameraReach,
   legExtension: LEG_EXTENSION.cameraReach,
+  pullUp: PULL_UP.cameraReach,
+  chinUp: PULL_UP.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -167,10 +173,12 @@ type Lift = {
   pinSide?: "l" | "r"; // the arm the elbow and dumbbell pins sit on
   mat?: boolean;
   support?: THREE.Vector3; // where the free hand presses on a support box, for its top
+  pullBar?: number; // the height of the fixed bar the body hangs from
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
   enableShoulderCorrectives(root, false); // the single-arm pulldown turns it on as it poses
+  enableArmTwist(root, false); // the pull-up turns it on as it reads its rig
   if (exercise === "hammer") {
     const curl = readCurlRig(root);
     return {
@@ -298,6 +306,16 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       rope: pushdownPulley(),
     };
   }
+  if (exercise === "pullUp" || exercise === "chinUp") {
+    const pull = readPullUpRig(root, exercise === "chinUp" ? "underhand" : "overhand");
+    return {
+      rig: pull.rig,
+      pose: (depth: number) => posePullUp(pull, depth),
+      biceps: () => 0,
+      bench: null,
+      pullBar: pull.barY,
+    };
+  }
   if (exercise === "legExtension") {
     const ext = readLegExtensionRig(root);
     return {
@@ -349,6 +367,7 @@ export default memo(function PressScene(props: Props) {
         view={props.view}
         target={target}
         reach={REACH[props.exercise] ?? 0}
+        tall={props.exercise === "pullUp" || props.exercise === "chinUp" ? PULL_UP.cameraTall : 0}
       />
     </Canvas>
   );
@@ -683,6 +702,33 @@ function PulldownMachine({
   );
 }
 
+// The pull-up bar at its height, on two see-through uprights wide of the hands, so no set view
+// looks through them at the body.
+function PullUpRack({ y }: { y: number }) {
+  const { barLength } = PULL_UP;
+  const wide = barLength / 2;
+  return (
+    <group>
+      <mesh position={[0, y, 0]} rotation-z={Math.PI / 2}>
+        <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
+        <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * wide, y / 2, 0]}>
+          <boxGeometry args={[0.06, y + 0.04, 0.06]} />
+          <FrameMat />
+        </mesh>
+      ))}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * wide, 0.025, 0]}>
+          <boxGeometry args={[0.08, 0.05, 0.9]} />
+          <FrameMat />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // Machine frames stand round the body, so they let it show through from every view.
 function FrameMat() {
   return (
@@ -972,7 +1018,9 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: legExt && g.pad
         ? g.pad.clone().add(new THREE.Vector3(0.06, 0.05, 0.04)) // on the shin pad
-        : worldPos(rig.l.ball).setY(0.03),
+        : lift.pullBar
+          ? worldPos(rig.l.ball) // the feet hang
+          : worldPos(rig.l.ball).setY(0.03),
       back: worldPos(rig.spine3).addScaledVector(chestFront, -0.14),
       elbow: legExt
         ? worldPos(rig.l.calf).add(new THREE.Vector3(0.09, 0, 0)) // beside the knee, in line with the pivot
@@ -1004,6 +1052,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
                   exercise === "pulldown" ||
                   exercise === "pulldownNeutral" ||
                   exercise === "pulldownSingle" ||
+                  exercise === "pullUp" ||
+                  exercise === "chinUp" ||
                   exercise === "pushdown" ||
                   exercise === "pushup" ||
                   exercise === "crunch"
@@ -1049,6 +1099,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         <Mat />
       ) : lift.rope ? (
         <CableTower rope={ropeRef} pulley={lift.rope} />
+      ) : lift.pullBar ? (
+        <PullUpRack y={lift.pullBar} />
       ) : lift.legMachine ? (
         <LegExtensionMachine machine={lift.legMachine} lever={leverRef} />
       ) : lift.machine ? (
