@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { PageLoader } from "../logo-loader";
 import { RequireAuth } from "../require-auth";
 import { LogForm } from "./log-form";
 
@@ -15,7 +16,7 @@ export default function LogPage() {
       <h1 className="text-[1.75rem] leading-tight font-semibold tracking-tight">บันทึกการซ้อม</h1>
       <RequireAuth>
         {/* LogForm reads ?add= via useSearchParams, which needs a Suspense boundary. */}
-        <Suspense fallback={<p className="text-sm text-muted">กำลังโหลด…</p>}>
+        <Suspense fallback={<PageLoader label="กำลังโหลด…" />}>
           <LogForm />
         </Suspense>
       </RequireAuth>

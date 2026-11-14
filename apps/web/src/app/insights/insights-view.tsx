@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { getLoadInsights, getReturnPlan, type LoadReport, type ReturnPlan } from "@/lib/api";
 
+import { PageLoader } from "../logo-loader";
 import { btnPrimary } from "../ui";
 import { LoadWarnings } from "./load-warnings";
 
@@ -23,7 +24,7 @@ export function InsightsView() {
       .catch(() => setState({ kind: "error" }));
   }, []);
 
-  if (state.kind === "loading") return <p className="text-sm text-muted">กำลังวิเคราะห์…</p>;
+  if (state.kind === "loading") return <PageLoader label="กำลังวิเคราะห์…" />;
   if (state.kind === "error") return <p className="text-sm text-danger">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้า</p>;
 
   const { load, plans } = state;

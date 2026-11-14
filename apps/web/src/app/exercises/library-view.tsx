@@ -7,14 +7,10 @@ import { getExercises, type Exercise } from "@/lib/api";
 import { useReportNavigating } from "@/lib/navigating";
 
 import { ExercisePicker } from "../exercise-picker";
-import { LogoLoader } from "../logo-loader";
+import { PageLoader } from "../logo-loader";
 
-/**
- * The splash's logo and bar while the list loads (the free API host can take a while to
- * wake). splash-in waits a beat before showing, so a fast load never flashes it.
- */
 export function ExercisesLoading() {
-  return <LogoLoader label="กำลังโหลดรายชื่อท่า…" className="splash-in min-h-[45dvh]" />;
+  return <PageLoader label="กำลังโหลดรายชื่อท่า…" />;
 }
 
 /** Public exercise list; ?muscle=chest and ?equipment=dumbbell preselect the filters. */
