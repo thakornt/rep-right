@@ -7,6 +7,11 @@ import { getExercises, type Exercise } from "@/lib/api";
 import { useReportNavigating } from "@/lib/navigating";
 
 import { ExercisePicker } from "../exercise-picker";
+import { PageLoader } from "../logo-loader";
+
+export function ExercisesLoading() {
+  return <PageLoader label="กำลังโหลดรายชื่อท่า…" />;
+}
 
 /** Public exercise list; ?muscle=chest and ?equipment=dumbbell preselect the filters. */
 export function LibraryView() {
@@ -25,7 +30,7 @@ export function LibraryView() {
   }, []);
 
   if (error) return <p className="text-sm text-danger">โหลดรายชื่อท่าไม่สำเร็จ ลองรีเฟรชหน้า</p>;
-  if (!exercises) return <p className="text-sm text-muted">กำลังโหลด…</p>;
+  if (!exercises) return <ExercisesLoading />;
 
   const muscles = params.getAll("muscle");
   const equipment = params.getAll("equipment");
