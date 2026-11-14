@@ -50,35 +50,35 @@ const REST: RestDay = { rest: true };
 
 // Main muscles of each example exercise, from apps/api/db/migrations/00004_exercise_muscles.sql.
 export const EXERCISE_MUSCLES: Record<string, Muscle[]> = {
-  "back-squat": ["quads", "glutes"],
+  "barbell-squat": ["quads", "glutes"],
   "dumbbell-squat": ["quads", "glutes"],
   "romanian-deadlift": ["hamstrings", "glutes"],
   "push-up": ["chest", "triceps"],
   "incline-dumbbell-press": ["chest", "shoulders"],
-  "seated-dumbbell-shoulder-press": ["shoulders", "triceps"],
+  "overhead-press": ["shoulders", "triceps"],
   "dumbbell-lateral-raise": ["shoulders"],
   "lat-pulldown": ["back", "biceps"],
   "single-arm-dumbbell-row": ["back"],
   "hammer-curl": ["biceps"],
   "rope-triceps-pushdown": ["triceps"],
-  "overhead-dumbbell-triceps-extension": ["triceps"],
+  "overhead-triceps-extension": ["triceps"],
   crunch: ["abs"],
 };
 
 // Thai names of the example exercises, from apps/api/db/migrations/00002_workouts.sql and later.
 export const EXERCISE_NAMES: Record<string, string> = {
-  "back-squat": "สควอทบาร์หลัง",
+  "barbell-squat": "บาร์เบลสควอท",
   "dumbbell-squat": "ดัมเบลสควอท",
   "romanian-deadlift": "โรมาเนียนเดดลิฟต์",
   "push-up": "วิดพื้น",
   "incline-dumbbell-press": "อินไคลน์ดัมเบลเพรส",
-  "seated-dumbbell-shoulder-press": "ดัมเบลชอลเดอร์เพรส (นั่ง)",
+  "overhead-press": "โอเวอร์เฮดเพรส",
   "dumbbell-lateral-raise": "ดัมเบลแลตเทอรัลเรส",
   "lat-pulldown": "แลตพูลดาวน์",
   "single-arm-dumbbell-row": "ดัมเบลโรว์ แขนเดียว",
   "hammer-curl": "แฮมเมอร์เคิร์ล",
   "rope-triceps-pushdown": "ไตรเซปส์พุชดาวน์ (เชือก)",
-  "overhead-dumbbell-triceps-extension": "ไตรเซปส์เอ็กซ์เทนชันเหนือหัว (ดัมเบล)",
+  "overhead-triceps-extension": "ไตรเซปส์เอ็กซ์เทนชันเหนือหัว",
   crunch: "ครันช์",
 };
 
@@ -88,7 +88,7 @@ const FULL_BODY: TrainingDay = {
   title: "ทั้งตัว",
   focus: ["quads", "glutes", "hamstrings", "chest", "back", "shoulders"],
   helpers: ["triceps", "biceps", "abs", "lower_back", "traps", "calves"],
-  exercises: ["dumbbell-squat", "romanian-deadlift", "push-up", "lat-pulldown", "seated-dumbbell-shoulder-press", "crunch"],
+  exercises: ["dumbbell-squat", "romanian-deadlift", "push-up", "lat-pulldown", "overhead-press", "crunch"],
 };
 
 const UPPER: TrainingDay = {
@@ -98,7 +98,7 @@ const UPPER: TrainingDay = {
   exercises: [
     "incline-dumbbell-press",
     "lat-pulldown",
-    "seated-dumbbell-shoulder-press",
+    "overhead-press",
     "single-arm-dumbbell-row",
     "hammer-curl",
     "rope-triceps-pushdown",
@@ -109,7 +109,7 @@ const LOWER: TrainingDay = {
   title: "ช่วงล่าง + หน้าท้อง",
   focus: ["quads", "glutes", "hamstrings", "calves", "abs"],
   helpers: ["lower_back"],
-  exercises: ["back-squat", "romanian-deadlift", "dumbbell-squat", "crunch"],
+  exercises: ["barbell-squat", "romanian-deadlift", "dumbbell-squat", "crunch"],
 };
 
 const PUSH: TrainingDay = {
@@ -119,7 +119,7 @@ const PUSH: TrainingDay = {
   exercises: [
     "incline-dumbbell-press",
     "push-up",
-    "seated-dumbbell-shoulder-press",
+    "overhead-press",
     "dumbbell-lateral-raise",
     "rope-triceps-pushdown",
   ],
@@ -136,7 +136,7 @@ const LEGS: TrainingDay = {
   title: "ขา + หน้าท้อง",
   focus: ["quads", "glutes", "hamstrings", "calves", "abs"],
   helpers: ["lower_back"],
-  exercises: ["back-squat", "romanian-deadlift", "dumbbell-squat", "crunch"],
+  exercises: ["barbell-squat", "romanian-deadlift", "dumbbell-squat", "crunch"],
 };
 
 // --- Programs ---------------------------------------------------------------
@@ -204,19 +204,19 @@ export const PROGRAMS: Program[] = [
         title: "ไหล่",
         focus: ["shoulders", "traps"],
         helpers: ["triceps"],
-        exercises: ["seated-dumbbell-shoulder-press", "dumbbell-lateral-raise"],
+        exercises: ["overhead-press", "dumbbell-lateral-raise"],
       },
       {
         title: "ขา",
         focus: ["quads", "glutes", "hamstrings", "calves"],
         helpers: ["lower_back"],
-        exercises: ["back-squat", "romanian-deadlift", "dumbbell-squat"],
+        exercises: ["barbell-squat", "romanian-deadlift", "dumbbell-squat"],
       },
       {
         title: "แขน + หน้าท้อง",
         focus: ["biceps", "triceps", "abs"],
         helpers: [],
-        exercises: ["hammer-curl", "rope-triceps-pushdown", "overhead-dumbbell-triceps-extension", "crunch"],
+        exercises: ["hammer-curl", "rope-triceps-pushdown", "overhead-triceps-extension", "crunch"],
       },
       REST,
       REST,

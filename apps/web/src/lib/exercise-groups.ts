@@ -42,16 +42,16 @@ export const EQUIPMENT: [string, string][] = [
 
 // Exercises with a 3D viewer; keep in step with exercises/[slug]/exercise-detail.tsx.
 export const SLUGS_WITH_3D = new Set([
-  "back-squat",
+  "barbell-squat",
   "incline-dumbbell-press",
-  "seated-dumbbell-shoulder-press",
+  "overhead-press",
   "hammer-curl",
   "dumbbell-lateral-raise",
   "dumbbell-squat",
   "lat-pulldown",
   "rope-triceps-pushdown",
   "push-up",
-  "overhead-dumbbell-triceps-extension",
+  "overhead-triceps-extension",
   "crunch",
   "single-arm-dumbbell-row",
   "romanian-deadlift",

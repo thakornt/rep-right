@@ -10,7 +10,7 @@ import type { PressExercise } from "@/components/body/press";
 import { SquatViewer } from "@/components/body/squat-viewer";
 import { WaySwitch } from "@/components/body/way-switch";
 import { FormSteps } from "@/components/form-steps";
-import { LAT_PULLDOWN_GRIPS, PULL_UP_GRIPS, type FormCues } from "@/content/form-cues";
+import { BARBELL_SQUAT_BARS, LAT_PULLDOWN_GRIPS, OVERHEAD_EXTENSION_TOOLS, OVERHEAD_PRESS_WAYS, PULL_UP_GRIPS, type FormCues } from "@/content/form-cues";
 import { getExercises, type Exercise } from "@/lib/api";
 import { muscleLabel } from "@/lib/exercise-groups";
 
@@ -19,7 +19,6 @@ import { btnPrimary } from "../../ui";
 // Exercises shown with the dumbbell, cable and floor viewer, by slug.
 const PRESS_SLUGS: Record<string, PressExercise> = {
   "incline-dumbbell-press": "incline",
-  "seated-dumbbell-shoulder-press": "shoulder",
   "hammer-curl": "hammer",
   "dumbbell-lateral-raise": "raise",
   "dumbbell-squat": "squat",
@@ -41,11 +40,26 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
   // The pull-up's grip, the same way: overhand or underhand (the chin-up).
   const [hold, setHold] = useState(PULL_UP_GRIPS[0].key);
   const pullUp = slug === "pull-up";
+  // The barbell squat's bar, the same way: on the upper back or across the front of the shoulders.
+  const [bar, setBar] = useState(BARBELL_SQUAT_BARS[0].key);
+  const squat = slug === "barbell-squat";
+  // The overhead press, the same way: seated with dumbbells or standing with a bar.
+  const [way, setWay] = useState(OVERHEAD_PRESS_WAYS[0].key);
+  const ohp = slug === "overhead-press";
+  // The overhead triceps extension, the same way: with a dumbbell or a cable.
+  const [tool, setTool] = useState(OVERHEAD_EXTENSION_TOOLS[0].key);
+  const extension = slug === "overhead-triceps-extension";
   const form = pulldown
     ? LAT_PULLDOWN_GRIPS.find((g) => g.key === grip)!.form
     : pullUp
       ? PULL_UP_GRIPS.find((g) => g.key === hold)!.form
-      : ownForm;
+      : squat
+        ? BARBELL_SQUAT_BARS.find((b) => b.key === bar)!.form
+        : ohp
+          ? OVERHEAD_PRESS_WAYS.find((w) => w.key === way)!.form
+          : extension
+            ? OVERHEAD_EXTENSION_TOOLS.find((t) => t.key === tool)!.form
+            : ownForm;
 
   useEffect(() => {
     getExercises()
@@ -56,11 +70,40 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
   // With a 3D view, the form's key points sit under its controls, above the muscles.
   const steps = <FormSteps cues={form.cues} />;
   const press = PRESS_SLUGS[slug];
+  const barSwitch = squat && (
+    <WaySwitch ways={BARBELL_SQUAT_BARS.map((b) => [b.key, b.label] as const)} value={bar} onChange={setBar} />
+  );
+  const waySwitch = ohp && (
+    <WaySwitch ways={OVERHEAD_PRESS_WAYS.map((w) => [w.key, w.label] as const)} value={way} onChange={setWay} />
+  );
+  const toolSwitch = extension && (
+    <WaySwitch ways={OVERHEAD_EXTENSION_TOOLS.map((t) => [t.key, t.label] as const)} value={tool} onChange={setTool} />
+  );
   const viewer =
-    slug === "back-squat" ? (
-      <SquatViewer steps={steps} />
-    ) : slug === "overhead-dumbbell-triceps-extension" ? (
-      <OverheadViewer steps={steps} />
+    extension && tool === "dumbbell" ? (
+      <OverheadViewer switcher={toolSwitch} steps={steps} />
+    ) : extension ? (
+      // The cable one has no 3D view yet: only the switch and its key points.
+      <div className="flex flex-col gap-3">
+        {toolSwitch}
+        {steps}
+      </div>
+    ) : ohp && way === "seated" ? (
+      <PressViewer exercise="shoulder" switcher={waySwitch} steps={steps} />
+    ) : ohp ? (
+      // The standing press has no 3D view yet: only the switch and its key points.
+      <div className="flex flex-col gap-3">
+        {waySwitch}
+        {steps}
+      </div>
+    ) : squat && bar === "back" ? (
+      <SquatViewer switcher={barSwitch} steps={steps} />
+    ) : squat ? (
+      // The front squat has no 3D view yet: only the switch and its key points.
+      <div className="flex flex-col gap-3">
+        {barSwitch}
+        {steps}
+      </div>
     ) : pulldown ? (
       <PressViewer
         key={grip}
