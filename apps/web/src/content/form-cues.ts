@@ -346,15 +346,19 @@ export const OVERHEAD_PRESS_WAYS: { key: string; label: string; form: FormCues }
 
 // The overhead triceps extension's tools, chosen on its page as the overhead press's ways are (the
 // owner had the dumbbell and cable ones merged, 2026-11-14). The dumbbell's cues are the exercise's
-// own; only it has a 3D view so far.
+// own; the cable's follow the owner's reference clip (2026-11-14).
 export const OVERHEAD_EXTENSION_TOOLS: { key: string; label: string; form: FormCues }[] = [
   { key: "dumbbell", label: "ดัมเบล", form: FORM_CUES["overhead-triceps-extension"] },
   { key: "cable", label: "เคเบิล", form: {
     cues: [
-      "หันหลังให้เคเบิล จับเชือกเหนือหัว ศอกชี้ไปข้างหน้า",
-      "เหยียดแขนไปข้างหน้าและขึ้นจนตรง ต้นแขนไม่ขยับ",
-      "ผ่อนกลับช้าๆ จนรู้สึกยืดหลังแขน",
+      "ตั้งรอกประมาณระดับสะดือ ใส่เชือก จับปลายเชือกแล้วหมุนตัวหันหลังให้เครื่อง ยกเชือกขึ้นไปไว้หลังหัว ยืนตัวตรง",
+      "ต้นแขนตั้งขึ้นข้างหัว ศอกชี้ขึ้นและเก็บเข้า แล้วเหยียดแขนขึ้นจนเกือบตรง มือเข้ามาใกล้กันเหนือหัว หายใจออก",
+      "ผ่อนลงช้าๆ ให้มือลงไปหลังหัวจนรู้สึกยืดหลังแขน หายใจเข้า ศอกอยู่ที่เดิม",
     ],
-    mistakes: ["ศอกกางออกด้านข้าง", "แอ่นหลังล่าง"],
+    mistakes: [
+      "ศอกกางออกด้านข้างตอนผ่อนลง",
+      "ตั้งรอกสูงแล้วต้องโน้มตัวและบิดตัวเข้าท่า หรือตั้งต่ำสุดจนต้องก้มหยิบ",
+      "แอ่นหลังล่างหรือปล่อยน้ำหนักลงเร็วจนไม่ได้ควบคุม",
+    ],
   } },
 ];

@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -86,7 +86,7 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "hamstrings", role: "stabilizer", amount: 0.3 },
     ];
   }
-  if (exercise === "overheadOne" || exercise === "overheadTwo") {
+  if (exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable") {
     // The back of the arm straightens the elbow against the weight, its long head stretched most
     // with the dumbbell low behind the head; the shoulder holds the arm up meanwhile.
     return [
@@ -429,6 +429,24 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอและไหล่ยกได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและดัมเบลยังห่างท้ายทอย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  overheadCable: {
+    cues: {
+      feet: "ตั้งรอกไว้ประมาณระดับสะดือ ใส่เชือก จับปลายเชือกสองข้างแล้วหมุนตัวหันหลังให้เครื่อง ยกเชือกข้ามขึ้นไปไว้หลังหัว ยืนห่างเครื่องประมาณหนึ่งก้าว เท้ากว้างประมาณช่วงสะโพก",
+      back: "ยืนตัวตรง ไม่ต้องโน้มตัวหรือบิดตัว ไม่แอ่นหลังล่างตอนดันขึ้น ศีรษะตั้งตรง",
+      elbow: "ต้นแขนตั้งขึ้นข้างหัว ศอกชี้ขึ้นและเก็บเข้า ไม่กางออกด้านข้าง ศอกอยู่ที่เดิมเป็นจุดหมุน ขึ้นสุดแขนเกือบตรงแต่ไม่ล็อกศอก",
+      dumbbell: "กำปลายเชือกแบบฝ่ามือหันเข้าหากัน ลดมือลงไปหลังหัวจนรู้สึกยืดหลังแขน แล้วดันขึ้นจนมือเข้ามาใกล้กันเหนือหัว",
+      core: "เกร็งท้องเบา ๆ ซี่โครงไม่บานออก ดันขึ้นหายใจออก ผ่อนลงช้า ๆ หายใจเข้า",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ตั้งรอกต่ำสุดจะต้องก้มหยิบ ตั้งสูงจะต้องโน้มตัวและบิดตัว ระดับสะดือหมุนตัวเข้าท่าได้ง่ายและปลอดภัยกว่า",
+      "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและไหล่ยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   pushup: {

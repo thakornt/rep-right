@@ -73,6 +73,9 @@ import {
 import {
   OVERHEAD_ONE,
   OVERHEAD_TWO,
+  OVERHEAD_CABLE,
+  overheadCablePulley,
+  poseOverheadCable,
   SHOULDER_GIRDLE,
   poseOverheadOne,
   poseOverheadTwo,
@@ -122,6 +125,7 @@ const SPECS = {
   pushup: PUSH_UP,
   overheadOne: OVERHEAD_ONE,
   overheadTwo: OVERHEAD_TWO,
+  overheadCable: OVERHEAD_CABLE,
   crunch: CRUNCH,
   row: DUMBBELL_ROW,
   rdl: DUMBBELL_RDL,
@@ -141,6 +145,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   row: DUMBBELL_ROW.cameraReach,
   rdl: DUMBBELL_RDL.cameraReach,
   facePull: FACE_PULL.cameraReach,
+  overheadCable: OVERHEAD_CABLE.cameraReach,
   legExtension: LEG_EXTENSION.cameraReach,
   pullUp: PULL_UP.cameraReach,
   chinUp: PULL_UP.cameraReach,
@@ -235,6 +240,17 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       biceps: () => 0,
       bench: null,
       machine: pull,
+    };
+  }
+  if (exercise === "overheadCable") {
+    const o = readOverheadRig(root);
+    const pulley = overheadCablePulley(o);
+    return {
+      rig: o.rig,
+      pose: (depth: number) => poseOverheadCable(o, depth, pulley),
+      biceps: () => 0,
+      bench: null,
+      rope: pulley,
     };
   }
   if (exercise === "overheadOne" || exercise === "overheadTwo") {
@@ -367,7 +383,13 @@ export default memo(function PressScene(props: Props) {
         view={props.view}
         target={target}
         reach={REACH[props.exercise] ?? 0}
-        tall={props.exercise === "pullUp" || props.exercise === "chinUp" ? PULL_UP.cameraTall : 0}
+        tall={
+          props.exercise === "pullUp" || props.exercise === "chinUp"
+            ? PULL_UP.cameraTall
+            : props.exercise === "overheadCable"
+              ? OVERHEAD_CABLE.cameraTall
+              : 0
+        }
       />
     </Canvas>
   );
@@ -780,28 +802,33 @@ function span(
 
 // A cable tower with its rope. A real one's column stands in front of the lifter, which would
 // hide the body, so two uprights stand wide of it with the pulley on a beam between them, as on
-// a functional trainer. The cable, knot and two strands move.
+// a functional trainer. The tower stands beyond the pulley, on whichever side of the lifter that
+// is. With `top`, the uprights rise that high and the pulley rides on a carriage beam lower down,
+// as a functional trainer's adjustable pulley does. The cable, knot and two strands move.
 function CableTower({
   rope,
   pulley,
+  top,
 }: {
   rope: React.RefObject<THREE.Group | null>;
   pulley: THREE.Vector3;
+  top?: number;
 }) {
   const frameMat = <FrameMat />; // see-through: the uprights and beams stand in front of the body from some views
   const ropeMat = <meshStandardMaterial color="#14191b" roughness={0.9} />;
   const { ropeRadius, stopperRadius } = ROPE_PUSHDOWN; // the face pull's rope is the same
   const pulleyHeight = pulley.y;
-  const pulleyAhead = pulley.z;
   const WIDE = 0.95; // metres from the middle to each upright: wide enough to stay out of the 45 degree view
   const BEHIND = 0.14; // metres the uprights stand beyond the pulley
-  const z = pulleyAhead + BEHIND;
+  const away = Math.sign(pulley.z) || 1; // which way beyond the pulley is, from the lifter
+  const z = pulley.z + away * BEHIND;
+  const height = top ?? pulleyHeight + 0.06; // the top beam's
   const unit = <cylinderGeometry args={[ropeRadius, ropeRadius, 1, 10]} />;
   return (
     <group>
       {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * WIDE, (pulleyHeight + 0.1) / 2, z]}>
-          <boxGeometry args={[0.08, pulleyHeight + 0.1, 0.08]} />
+        <mesh key={side} position={[side * WIDE, (height + 0.04) / 2, z]}>
+          <boxGeometry args={[0.08, height + 0.04, 0.08]} />
           {frameMat}
         </mesh>
       ))}
@@ -809,15 +836,21 @@ function CableTower({
         <boxGeometry args={[WIDE * 2, 0.05, 0.08]} />
         {frameMat}
       </mesh>
-      <mesh position={[0, pulleyHeight + 0.06, z]}>
+      <mesh position={[0, height, z]}>
         <boxGeometry args={[WIDE * 2, 0.08, 0.08]} />
         {frameMat}
       </mesh>
-      <mesh position={[0, pulleyHeight + 0.06, pulleyAhead + BEHIND / 2]}>
+      {top !== undefined && (
+        <mesh position={[0, pulleyHeight + 0.06, z]}>
+          <boxGeometry args={[WIDE * 2, 0.06, 0.06]} />
+          {frameMat}
+        </mesh>
+      )}
+      <mesh position={[0, pulleyHeight + 0.06, pulley.z + (away * BEHIND) / 2]}>
         <boxGeometry args={[0.08, 0.08, BEHIND]} />
         {frameMat}
       </mesh>
-      <mesh position={[0, pulleyHeight, pulleyAhead]} rotation-z={Math.PI / 2}>
+      <mesh position={[0, pulleyHeight, pulley.z]} rotation-z={Math.PI / 2}>
         <cylinderGeometry args={[0.035, 0.035, 0.03, 20]} />
         {frameMat}
       </mesh>
@@ -932,7 +965,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
     // The upper trapezius thickens on the side whose arm is overhead.
     const traps =
-      exercise === "overheadOne" || exercise === "overheadTwo"
+      exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable"
         ? SHOULDER_GIRDLE.trapsBulge
         : 0;
     body.setTraps(exercise === "overheadOne" ? 0 : traps, traps);
@@ -1011,7 +1044,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       worldQuat(rig.spine3).multiply(rig.spine3Rest.clone().invert()),
     );
     const arm = rig[lift.pinSide ?? "l"];
-    const overhead = exercise === "overheadOne" || exercise === "overheadTwo";
+    const overhead = exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable";
     const row = exercise === "row";
     const facePull = exercise === "facePull";
     const legExt = exercise === "legExtension";
@@ -1098,7 +1131,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       {lift.bare ? null : lift.mat ? (
         <Mat />
       ) : lift.rope ? (
-        <CableTower rope={ropeRef} pulley={lift.rope} />
+        <CableTower rope={ropeRef} pulley={lift.rope} top={exercise === "overheadCable" ? OVERHEAD_CABLE.towerTop : undefined} />
       ) : lift.pullBar ? (
         <PullUpRack y={lift.pullBar} />
       ) : lift.legMachine ? (
