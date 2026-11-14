@@ -20,6 +20,7 @@ import { HEALTH_CONSENT_TEXT } from "@/lib/consent-text";
 import { TERMS_VERSION } from "@/lib/legal";
 
 import { Avatar } from "../avatar";
+import { LogoLoader } from "../logo-loader";
 import { GoogleG, LineIcon } from "../provider-icons";
 import { btnPrimary, btnQuiet, btnText, iconBtn } from "../ui";
 
@@ -104,7 +105,7 @@ export function AccountView() {
         <h2 className="text-xs font-medium tracking-wide text-faint">ข้อมูลสุขภาพ (อาการเจ็บ)</h2>
         <div className="flex flex-col gap-4 rounded-3xl bg-surface p-5">
           {consents === null ? (
-            <p className="text-sm text-muted">กำลังโหลด…</p>
+            <LogoLoader size="sm" label="กำลังโหลดความยินยอม…" className="py-3" />
           ) : (
             <p className={`flex items-center gap-2 font-medium ${health ? "text-health" : "text-muted"}`}>
               {health ? <ShieldCheck aria-hidden size={20} /> : <ShieldOff aria-hidden size={20} />}

@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 
 import { signInFailed, signInLine } from "@/lib/auth";
 
+import { PageLoader } from "../../../logo-loader";
+
 /**
  * LINE sends the browser here with ?code&state (or ?error when the user
  * cancels). The API checks state against the cookie it set when the login
@@ -29,5 +31,5 @@ export function LineCallback() {
     })();
   }, [router]);
 
-  return <p className="text-sm text-faint">กำลังเข้าสู่ระบบด้วย LINE…</p>;
+  return <PageLoader label="กำลังเข้าสู่ระบบด้วย LINE…" />;
 }

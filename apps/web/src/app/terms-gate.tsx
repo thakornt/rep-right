@@ -7,6 +7,7 @@ import { useState } from "react";
 import { signOut } from "@/lib/auth";
 import { acceptTerms, retryTerms, type TermsState } from "@/lib/terms";
 
+import { PageLoader } from "./logo-loader";
 import { btnPrimary, btnQuiet } from "./ui";
 
 const link = "text-primary underline-offset-4 hover:underline";
@@ -16,7 +17,7 @@ export function TermsGate({ state }: { state: TermsState }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  if (state === "checking") return <p className="text-sm text-faint">กำลังโหลด…</p>;
+  if (state === "checking") return <PageLoader label="กำลังโหลดข้อมูลบัญชี…" />;
   if (state === "error") {
     return (
       <div className="flex flex-col items-start gap-4 py-6">

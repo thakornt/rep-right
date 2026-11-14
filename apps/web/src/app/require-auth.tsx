@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { useTerms } from "@/lib/terms";
 
+import { PageLoader } from "./logo-loader";
 import { TermsGate } from "./terms-gate";
 import { btnPrimary } from "./ui";
 
@@ -20,7 +21,7 @@ export function RequireAuth({ children, needTerms = true }: { children: ReactNod
   const auth = useAuth();
   const terms = useTerms();
   if (auth.kind === "checking") {
-    return <p className="text-sm text-faint">กำลังตรวจสอบการเข้าสู่ระบบ…</p>;
+    return <PageLoader label="กำลังตรวจสอบการเข้าสู่ระบบ…" />;
   }
   if (auth.kind === "signed-out") {
     return (

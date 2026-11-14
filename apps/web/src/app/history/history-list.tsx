@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { deleteSession, getExercises, listSessions, type Exercise, type Session } from "@/lib/api";
 
+import { PageLoader } from "../logo-loader";
 import { btnPrimary, iconBtn } from "../ui";
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; sessions: Session[] };
@@ -28,7 +29,7 @@ export function HistoryList() {
       .catch(() => setState({ kind: "error" }));
   }, []);
 
-  if (state.kind === "loading") return <p className="text-sm text-muted">กำลังโหลด…</p>;
+  if (state.kind === "loading") return <PageLoader label="กำลังโหลดประวัติการซ้อม…" />;
   if (state.kind === "error") return <p className="text-sm text-danger">โหลดประวัติไม่สำเร็จ ลองรีเฟรชหน้า</p>;
   if (state.sessions.length === 0) {
     return (
