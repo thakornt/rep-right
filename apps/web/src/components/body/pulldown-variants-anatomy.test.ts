@@ -10,7 +10,8 @@ import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
-import { posePulldownVariant, readPulldownVariantRig, type PulldownGrip, type PulldownVariantRig } from "./pose-pulldown-variants";
+import { LAT_PULLDOWN } from "./pose-pulldown";
+import { PULLDOWN_SINGLE, posePulldownVariant, readPulldownVariantRig, type PulldownGrip, type PulldownVariantRig } from "./pose-pulldown-variants";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
 const THROUGH = 0.01;
@@ -19,7 +20,7 @@ const MAX_WRIST = 10; // degrees the wrist may bend either way: the hand carries
 const MIN_ELBOW_TOP = 10; // degrees the elbow stays bent at the top: nearly straight, not locked
 const MAX_ELBOW_TOP = 35;
 const MIN_ELBOW_BOTTOM = 100; // and how far it folds at the bottom
-const MAX_STILL = 0.002; // metres the resting left hand may move in the single arm
+const MAX_STILL = 0.002; // metres the left fist's grip may move off the thigh pad in the single arm
 const MAX_FOREARM_OFF_CABLE = 10; // degrees the forearm may be off the cable's line: it pulls the way the cable runs (owner's clip)
 const MAX_HANDLE_OFF_SQUARE = 10; // degrees the handle may be off square to the cable: it hangs from it
 const MAX_ELBOW_OUT = 0.04; // metres the elbow may sit outside the shoulder: a little out as the owner asked (2026-11-12), not flared
@@ -158,12 +159,14 @@ describe.each(["neutral", "single"] as const)("lat pulldown, %s", (grip) => {
     });
 
   if (grip === "single")
-    test("the free hand rests on its thigh and stays there", () => {
-      posePulldownVariant(rigs.single, 0);
-      const at = worldPos(rigs.single.rig.l.hand);
+    // The fist holds the pad (owner, 2026-11-13): its grip stays on the pad's line, where the pad is,
+    // while the hand may roll a little round the pad as the trunk leans back.
+    test("the free hand holds its thigh pad and stays there", () => {
+      const pad = new THREE.Vector3(PULLDOWN_SINGLE.padHold, rigs.single.padY, LAT_PULLDOWN.padAhead);
       for (const d of DEPTHS) {
-        posePulldownVariant(rigs.single, d);
-        expect(worldPos(rigs.single.rig.l.hand).distanceTo(at)).toBeLessThan(MAX_STILL);
+        const held = posePulldownVariant(rigs.single, d).l;
+        expect(held.grip.distanceTo(pad), `grip off the pad at ${d}`).toBeLessThan(MAX_STILL);
+        expect(Math.abs(held.handle.x), `fist square to the pad at ${d}`).toBeGreaterThan(0.99);
       }
     });
 });
