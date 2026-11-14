@@ -57,8 +57,9 @@ const CUES: Record<string, string> = {
 
 const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
 
-// `steps`, the form's key points, sit above the muscles.
-export function SquatViewer({ steps }: { steps?: React.ReactNode }) {
+// `switcher` picks another way of doing the lift, shown above the 3D view; `steps`, the form's
+// key points, sit above the muscles.
+export function SquatViewer({ switcher, steps }: { switcher?: React.ReactNode; steps?: React.ReactNode }) {
   const state = useRef<SquatState>({ depth: 0.55, playing: true, faults: NO_FAULTS });
   const [view, setView] = useState<View>("angle");
   const [faults, setFaults] = useState<SquatFaults>(NO_FAULTS);
@@ -104,42 +105,45 @@ export function SquatViewer({ steps }: { steps?: React.ReactNode }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative mx-4 h-[min(68vh,560px)] overflow-hidden rounded-3xl border border-faint/50 bg-inset shadow-inset sm:mx-0">
-        <BodyScene
-          state={state}
-          view={view}
-          onPinMove={onPinMove}
-          onFrame={onFrame}
-        />
-        {SQUAT_PINS.map((p, i) => {
-          const warn = p.warn(faults);
-          const active = activePin === p.id;
-          return (
-            <button
-              key={p.id}
-              ref={(el) => void (pinEls.current[p.id] = el)}
-              type="button"
-              data-pin
-              onClick={() => onPin(p.id)}
-              aria-label={`จุดจัดท่าที่ ${i + 1}`}
-              style={{ visibility: "hidden" }}
-              className={`absolute top-0 left-0 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-xs font-bold shadow-lg ${
-                warn ? "bg-danger text-danger-fg" : active ? "bg-fg text-bg" : "bg-primary text-primary-fg"
-              }`}
-            >
-              {i + 1}
-            </button>
-          );
-        })}
-        <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
-          {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
-        </div>
-        {activePin && (
-          <div ref={popup} className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
-            <span className="font-semibold text-primary">{SQUAT_PINS.findIndex((p) => p.id === activePin) + 1}. </span>
-            {CUES[activePin]}
+      <div className="flex flex-col gap-3">
+        {switcher}
+        <div className="relative mx-4 h-[min(68vh,560px)] overflow-hidden rounded-3xl border border-faint/50 bg-inset shadow-inset sm:mx-0">
+          <BodyScene
+            state={state}
+            view={view}
+            onPinMove={onPinMove}
+            onFrame={onFrame}
+          />
+          {SQUAT_PINS.map((p, i) => {
+            const warn = p.warn(faults);
+            const active = activePin === p.id;
+            return (
+              <button
+                key={p.id}
+                ref={(el) => void (pinEls.current[p.id] = el)}
+                type="button"
+                data-pin
+                onClick={() => onPin(p.id)}
+                aria-label={`จุดจัดท่าที่ ${i + 1}`}
+                style={{ visibility: "hidden" }}
+                className={`absolute top-0 left-0 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-xs font-bold shadow-lg ${
+                  warn ? "bg-danger text-danger-fg" : active ? "bg-fg text-bg" : "bg-primary text-primary-fg"
+                }`}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+          <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
+            {phase === "down" ? "กำลังลง" : "กำลังดันขึ้น"} · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
           </div>
-        )}
+          {activePin && (
+            <div ref={popup} className="absolute inset-x-3 bottom-3 rounded-2xl bg-bg/90 p-3 text-sm leading-relaxed">
+              <span className="font-semibold text-primary">{SQUAT_PINS.findIndex((p) => p.id === activePin) + 1}. </span>
+              {CUES[activePin]}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto">

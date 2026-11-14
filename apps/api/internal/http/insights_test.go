@@ -48,7 +48,7 @@ func TestLoadInsights(t *testing.T) {
 		t.Fatalf("body = %s", w.Body)
 	}
 	e := body.Exercises[0]
-	if e.Slug != "back-squat" || e.Advice != "hold" || len(e.Findings) != 1 || e.Findings[0].Rule != "weight_jump" {
+	if e.Slug != "barbell-squat" || e.Advice != "hold" || len(e.Findings) != 1 || e.Findings[0].Rule != "weight_jump" {
 		t.Errorf("exercise = %+v", e)
 	}
 	// The handler asked for the last 8 weeks.
@@ -79,7 +79,7 @@ func TestReturnPlanInsights(t *testing.T) {
 		t.Fatalf("only the exercise with a break needs a plan: %s", w.Body)
 	}
 	p := body.Exercises[0]
-	if p.Slug != "back-squat" || p.DaysOff != 30 || p.StartWeightKg != 70 || p.RampWeeks != 3 || len(p.Steps) != 4 ||
+	if p.Slug != "barbell-squat" || p.DaysOff != 30 || p.StartWeightKg != 70 || p.RampWeeks != 3 || len(p.Steps) != 4 ||
 		p.LastPerformedAt != today.AddDate(0, 0, -30).Format(dateLayout) {
 		t.Errorf("plan = %+v", p)
 	}

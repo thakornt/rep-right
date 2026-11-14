@@ -4,21 +4,13 @@
 export type FormCues = { cues: string[]; mistakes: string[] };
 
 export const FORM_CUES: Record<string, FormCues> = {
-  "back-squat": {
+  "barbell-squat": {
     cues: [
       "วางบาร์บนกล้ามเนื้อหลังบน เท้ากว้างประมาณช่วงไหล่ ปลายเท้าแบะออกเล็กน้อย",
       "หายใจเข้าเกร็งท้องก่อนลง แล้วนั่งลงโดยให้เข่าชี้ไปทางเดียวกับปลายเท้า",
       "ลงลึกเท่าที่หลังยังตรงอยู่ แล้วดันพื้นขึ้นทั้งฝ่าเท้า ให้บาร์อยู่เหนือกลางเท้าตลอด",
     ],
     mistakes: ["เข่าบีบเข้าหากันตอนดันขึ้น", "ส้นเท้ายกหรือลำตัวโน้มไปข้างหน้ามากเกินไป"],
-  },
-  "front-squat": {
-    cues: [
-      "วางบาร์บนไหล่ด้านหน้า ศอกยกสูงขนานพื้น",
-      "ลำตัวตั้งตรงกว่าแบบบาร์หลัง เกร็งท้องตลอด",
-      "นั่งลงตรงๆ ให้เข่าเดินไปข้างหน้าได้ แล้วดันขึ้นโดยศอกยังสูง",
-    ],
-    mistakes: ["ศอกตกทำให้บาร์ไหลไปข้างหน้า", "หลังส่วนบนงอ"],
   },
   "dumbbell-squat": {
     cues: [
@@ -115,14 +107,6 @@ export const FORM_CUES: Record<string, FormCues> = {
       "ล็อกแขนเหนือหัว บาร์อยู่เหนือกลางเท้า",
     ],
     mistakes: ["แอ่นหลังล่างมากเพื่อดันขึ้น", "ดันบาร์ไปข้างหน้าแทนขึ้นตรง"],
-  },
-  "seated-dumbbell-shoulder-press": {
-    cues: [
-      "นั่งพิงพนักที่เอนเล็กน้อย ดัมเบลเริ่มเหนือไหล่ด้านหน้า ศอกหุบมาข้างหน้าเล็กน้อย ปลายแขนตั้งตรง",
-      "ดันขึ้นเป็นเส้นตรงเหนือหัวจนแขนเกือบตรง",
-      "ลดลงช้าๆ กลับเหนือไหล่ด้านหน้า ศอกไม่กางตรงออกข้าง หลังบนกับก้นแนบเบาะตลอด หลังล่างมีช่องว่างตามธรรมชาติได้",
-    ],
-    mistakes: ["แอ่นหลังล่างมากเกินจนหลังบนลอยจากพนัก", "ลดดัมเบลต่ำเกินจนไหล่ตึงเจ็บ"],
   },
   "barbell-row": {
     cues: [
@@ -260,15 +244,7 @@ export const FORM_CUES: Record<string, FormCues> = {
     ],
     mistakes: ["ศอกกางหรือเลื่อนขึ้นลง", "โน้มตัวใช้น้ำหนักตัวกด"],
   },
-  "overhead-cable-triceps-extension": {
-    cues: [
-      "หันหลังให้เคเบิล จับเชือกเหนือหัว ศอกชี้ไปข้างหน้า",
-      "เหยียดแขนไปข้างหน้าและขึ้นจนตรง ต้นแขนไม่ขยับ",
-      "ผ่อนกลับช้าๆ จนรู้สึกยืดหลังแขน",
-    ],
-    mistakes: ["ศอกกางออกด้านข้าง", "แอ่นหลังล่าง"],
-  },
-  "overhead-dumbbell-triceps-extension": {
+  "overhead-triceps-extension": {
     cues: [
       "ถือดัมเบลหนึ่งลูกด้วยสองมือเหนือหัว นั่งหรือยืนลำตัวตรง",
       "ลดดัมเบลลงด้านหลังหัว ศอกชี้ขึ้นและชิดหัว",
@@ -335,5 +311,50 @@ export const PULL_UP_GRIPS: { key: string; label: string; form: FormCues }[] = [
       "ลดตัวลงช้าๆ 4-5 วินาที จนแขนตรง",
     ],
     mistakes: ["จับหงายมือกว้างเกินไหล่จนข้อมือและศอกฝืน", "ยักไหล่ขึ้นหาหูตอนอยู่บน", "เหวี่ยงขาหรือปล่อยตัวลงแรงจนตัวแกว่ง"],
+  } },
+];
+
+// The barbell squat's bar positions, chosen on its page as the lat pulldown's grips are (the owner
+// had the back and front squats merged, 2026-11-14). The back squat's cues are the exercise's own;
+// only it has a 3D view so far.
+export const BARBELL_SQUAT_BARS: { key: string; label: string; form: FormCues }[] = [
+  { key: "back", label: "บาร์หลัง", form: FORM_CUES["barbell-squat"] },
+  { key: "front", label: "บาร์หน้า", form: {
+    cues: [
+      "วางบาร์บนไหล่ด้านหน้า ศอกยกสูงขนานพื้น",
+      "ลำตัวตั้งตรงกว่าแบบบาร์หลัง เกร็งท้องตลอด",
+      "นั่งลงตรงๆ ให้เข่าเดินไปข้างหน้าได้ แล้วดันขึ้นโดยศอกยังสูง",
+    ],
+    mistakes: ["ศอกตกทำให้บาร์ไหลไปข้างหน้า", "หลังส่วนบนงอ"],
+  } },
+];
+
+// The overhead press's ways, chosen on its page as the barbell squat's bars are (the owner had the
+// seated dumbbell press and the standing barbell press merged, 2026-11-14). Seated comes first: only
+// it has a 3D view so far. Standing's cues are the exercise's own.
+export const OVERHEAD_PRESS_WAYS: { key: string; label: string; form: FormCues }[] = [
+  { key: "seated", label: "นั่ง", form: {
+    cues: [
+      "นั่งพิงพนักที่เอนเล็กน้อย ดัมเบลเริ่มเหนือไหล่ด้านหน้า ศอกหุบมาข้างหน้าเล็กน้อย ปลายแขนตั้งตรง",
+      "ดันขึ้นเป็นเส้นตรงเหนือหัวจนแขนเกือบตรง",
+      "ลดลงช้าๆ กลับเหนือไหล่ด้านหน้า ศอกไม่กางตรงออกข้าง หลังบนกับก้นแนบเบาะตลอด หลังล่างมีช่องว่างตามธรรมชาติได้",
+    ],
+    mistakes: ["แอ่นหลังล่างมากเกินจนหลังบนลอยจากพนัก", "ลดดัมเบลต่ำเกินจนไหล่ตึงเจ็บ"],
+  } },
+  { key: "standing", label: "ยืน", form: FORM_CUES["overhead-press"] },
+];
+
+// The overhead triceps extension's tools, chosen on its page as the overhead press's ways are (the
+// owner had the dumbbell and cable ones merged, 2026-11-14). The dumbbell's cues are the exercise's
+// own; only it has a 3D view so far.
+export const OVERHEAD_EXTENSION_TOOLS: { key: string; label: string; form: FormCues }[] = [
+  { key: "dumbbell", label: "ดัมเบล", form: FORM_CUES["overhead-triceps-extension"] },
+  { key: "cable", label: "เคเบิล", form: {
+    cues: [
+      "หันหลังให้เคเบิล จับเชือกเหนือหัว ศอกชี้ไปข้างหน้า",
+      "เหยียดแขนไปข้างหน้าและขึ้นจนตรง ต้นแขนไม่ขยับ",
+      "ผ่อนกลับช้าๆ จนรู้สึกยืดหลังแขน",
+    ],
+    mistakes: ["ศอกกางออกด้านข้าง", "แอ่นหลังล่าง"],
   } },
 ];

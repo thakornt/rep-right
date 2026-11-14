@@ -18,7 +18,7 @@ import (
 
 var (
 	fixedNow = time.Date(2026, 10, 30, 15, 0, 0, 0, time.UTC)
-	squat    = workout.Exercise{ID: 1, Slug: "back-squat", NameTH: "สควอท", NameEN: "Back Squat", Category: "legs", IsLowerBody: true, Muscles: []string{"quads", "glutes"}, Equipment: []string{"barbell"}}
+	squat    = workout.Exercise{ID: 1, Slug: "barbell-squat", NameTH: "สควอท", NameEN: "Barbell Squat", Category: "legs", IsLowerBody: true, Muscles: []string{"quads", "glutes"}, Equipment: []string{"barbell"}}
 )
 
 // fakeWorkouts keeps sessions of every user in one map, so a handler that
@@ -163,7 +163,7 @@ func createSession(t *testing.T, r http.Handler) sessionJSON {
 
 func TestExercisesArePublic(t *testing.T) {
 	w := send(newWorkoutRouter(newFakeWorkouts()), http.MethodGet, "/v1/exercises", "", nil)
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"slug":"back-squat"`) ||
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"slug":"barbell-squat"`) ||
 		!strings.Contains(w.Body.String(), `"is_lower_body":true`) ||
 		!strings.Contains(w.Body.String(), `"muscles":["quads","glutes"]`) ||
 		!strings.Contains(w.Body.String(), `"equipment":["barbell"]`) {
@@ -176,7 +176,7 @@ func TestSessionsRequireAuth(t *testing.T) {
 	for _, tc := range []struct{ method, path string }{
 		{http.MethodGet, "/v1/sessions"},
 		{http.MethodPost, "/v1/sessions"},
-		{http.MethodGet, "/v1/sessions/last?exercise=back-squat"},
+		{http.MethodGet, "/v1/sessions/last?exercise=barbell-squat"},
 		{http.MethodGet, "/v1/sessions/" + uuid.NewString()},
 		{http.MethodPut, "/v1/sessions/" + uuid.NewString()},
 		{http.MethodDelete, "/v1/sessions/" + uuid.NewString()},
@@ -208,7 +208,7 @@ func TestSessionCRUD(t *testing.T) {
 		t.Errorf("put: %d %s", w.Code, w.Body)
 	}
 
-	w = send(r, http.MethodGet, "/v1/sessions/last?exercise=back-squat", "", bearer)
+	w = send(r, http.MethodGet, "/v1/sessions/last?exercise=barbell-squat", "", bearer)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"weight_kg":105`) {
 		t.Errorf("last: %d %s", w.Code, w.Body)
 	}
@@ -272,7 +272,7 @@ func TestSessionValidation(t *testing.T) {
 	if w := send(r, http.MethodGet, "/v1/sessions/last?exercise=nope", "", bearer); w.Code != http.StatusUnprocessableEntity {
 		t.Errorf("last unknown exercise: %d", w.Code)
 	}
-	if w := send(r, http.MethodGet, "/v1/sessions/last?exercise=back-squat", "", bearer); w.Code != http.StatusNotFound {
+	if w := send(r, http.MethodGet, "/v1/sessions/last?exercise=barbell-squat", "", bearer); w.Code != http.StatusNotFound {
 		t.Errorf("last with no history: %d", w.Code)
 	}
 }

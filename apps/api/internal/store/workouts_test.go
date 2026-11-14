@@ -63,9 +63,9 @@ func TestWorkoutStore(t *testing.T) {
 		len(lr.Muscles) != 1 || lr.Muscles[0] != "abs" {
 		t.Errorf("leg-raise from migration 00003: %+v, %v", lr, err)
 	}
-	squat, err := s.ExerciseBySlug(ctx, "back-squat")
+	squat, err := s.ExerciseBySlug(ctx, "barbell-squat")
 	if err != nil || !squat.IsLowerBody {
-		t.Fatalf("back-squat: %+v, %v", squat, err)
+		t.Fatalf("barbell-squat: %+v, %v", squat, err)
 	}
 	bench, _ := s.ExerciseBySlug(ctx, "bench-press")
 	if _, err := s.ExerciseBySlug(ctx, "nope"); !errors.Is(err, workout.ErrNotFound) {

@@ -46,6 +46,13 @@ async function Exercise({ params }: { params: PageProps<"/exercises/[slug]">["pa
   const { slug } = await params;
   // The neutral-grip and single-arm pulldowns are grips of the lat pulldown now.
   if (slug === "neutral-grip-lat-pulldown" || slug === "single-arm-lat-pulldown") redirect("/exercises/lat-pulldown");
+  // The back and front squats are bar positions of the barbell squat now.
+  if (slug === "back-squat" || slug === "front-squat") redirect("/exercises/barbell-squat");
+  // The seated dumbbell shoulder press is a way of doing the overhead press now.
+  if (slug === "seated-dumbbell-shoulder-press") redirect("/exercises/overhead-press");
+  // The dumbbell and cable overhead triceps extensions are tools of one exercise now.
+  if (slug === "overhead-dumbbell-triceps-extension" || slug === "overhead-cable-triceps-extension")
+    redirect("/exercises/overhead-triceps-extension");
   const form = FORM_CUES[slug];
   if (!form) notFound();
   return <ExerciseDetail slug={slug} form={form} />;
