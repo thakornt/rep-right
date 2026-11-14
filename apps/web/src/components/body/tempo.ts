@@ -25,6 +25,8 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   row: 1 - QUICK_UP, // rowed up quickly, lowered slowly
   rdl: 1 - QUICK_UP, // up quickly driving the hips forward, lowered slowly
   legExtension: 1 - QUICK_UP, // straightened quickly breathing out, lowered slowly breathing in
+  pullUp: QUICK_UP, // pulled up quickly breathing out, lowered slowly over 4-5 seconds, as the clip says
+  chinUp: QUICK_UP,
   facePull: QUICK_UP, // pulled in quickly breathing out, let back slowly breathing in, as the clip says
 };
 export const BACK_SQUAT_DOWN_SHARE = 1 - QUICK_UP;

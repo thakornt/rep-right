@@ -5,13 +5,30 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
   // The pulldown's other grips work the same muscles.
   if (exercise === "pulldownNeutral" || exercise === "pulldownSingle") exercise = "pulldown";
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "pullUp" || exercise === "chinUp") {
+    // The back lifts the body, hardest near the top with the elbows coming down to the sides. The
+    // underhand grip turns the front of the upper arm to pull with it, so it works more; overhand,
+    // the back leads. The grip holds the whole body. The work is on the way up.
+    const pull = phase === "down" ? 1 : 0.8;
+    const under = exercise === "chinUp";
+    return [
+      { region: "lats", role: "prime", amount: (0.5 + 0.5 * depth) * pull },
+      { region: "teres", role: "prime", amount: (0.45 + 0.5 * depth) * pull },
+      { region: "biceps", role: under ? "prime" : "synergist", amount: ((under ? 0.4 : 0.25) + 0.5 * depth) * pull },
+      { region: "upper_back", role: "synergist", amount: (0.35 + 0.5 * depth) * pull }, // the shoulder blades pressing down and back
+      { region: "delt_rear", role: "synergist", amount: (0.2 + 0.4 * depth) * pull },
+      { region: "forearms", role: "synergist", amount: 0.6 }, // holding the whole body on the bar
+      { region: "abs", role: "stabilizer", amount: 0.4 }, // the body still, not swinging
+      { region: "chest_lower", role: "stabilizer", amount: 0.2 },
+    ];
+  }
   if (exercise === "legExtension") {
     // The front of the thigh straightens the knee, hardest near straight; the rest of the body
     // just holds still on the seat.
@@ -207,9 +224,30 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
   ];
 }
 
+// How the pull-up's two grips differ, from the owner's reference clip (2026-11-14). General
+// guidance, shown on both grips so each can be read against the other.
+const PULL_UP_GRIP_NOTES = [
+  {
+    label: "คว่ำมือ (Pull-up)",
+    text: "ฝ่ามือหันออก จับกว้างกว่าไหล่เล็กน้อย ศอกลงมาข้างลำตัว ใช้หลังและปีกเป็นหลัก แขนหน้าช่วยน้อยกว่า จึงดึงยากกว่า เหมาะกับการเสริมความแข็งแรงของหลังโดยตรง",
+  },
+  {
+    label: "หงายมือ (Chin-up)",
+    text: "ฝ่ามือหันเข้าหาตัว จับประมาณช่วงไหล่ ศอกลงมาข้างหน้าลำตัว ใช้หลังคู่กับแขนหน้า (ไบเซ็ปส์) แขนช่วยได้มากกว่า จึงดึงง่ายกว่า เหมาะกับคนเริ่มฝึกดึงข้อ",
+  },
+];
+
 export const PRESS_CONTENT: Record<
   PressExercise,
-  { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
+  {
+    cues: Record<PressPin, string>;
+    top: string;
+    bottom: string;
+    rising: string;
+    lowering?: string;
+    notice: string[];
+    grips?: { label: string; text: string }[]; // how the lift's grips differ, under the muscles
+  }
 > = {
   pulldownNeutral: {
     cues: {
@@ -246,6 +284,44 @@ export const PRESS_CONTENT: Record<
       "ดึงลงเท่าที่ไหล่ยังสบายและลำตัวยังไม่บิด ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
+  },
+  pullUp: {
+    cues: {
+      feet: "งอเข่าให้หน้าแข้งไปทางหลัง ขาสองข้างชิดกันนิ่ง ๆ ถ้าบาร์สูงพอจะเหยียดขาตรงก็ได้ แต่อย่าเตะหรือเหวี่ยงขาช่วยดึง",
+      back: "ตอนห้อยตัว ปล่อยไหล่และลำตัวยืดให้สุด แล้วกดไหล่ลงไปทางกระเป๋ากางเกงก่อนเริ่มดึง ตอนขึ้นเอนลำตัวไปข้างหลังเล็กน้อย อกเข้าหาบาร์",
+      elbow: "ดึงศอกลงมาข้างลำตัว ศอกชี้ลงพื้นและกางออกข้างเล็กน้อย ไม่ยักไหล่ขึ้นหาหูตอนอยู่บน",
+      dumbbell: "จับแบบคว่ำมือ ฝ่ามือหันออกจากตัว กว้างกว่าหัวไหล่เล็กน้อย กำรอบบาร์ปกติ ไม่อ้อมมือไปหลังบาร์มากเกิน และข้อมือไม่มุดอยู่ใต้บาร์",
+      core: "หายใจเข้าเตรียมไว้ก่อนดึง เกร็งท้องให้ตัวนิ่ง ดึงขึ้นจนคางพ้นบาร์ คอตรง ไม่ยื่นคางหรือก้มหน้า แล้วลดตัวลงช้า ๆ 4-5 วินาที",
+    },
+    top: "ห้อยตัวยืดสุด",
+    bottom: "ดึงขึ้นสุด",
+    rising: "กำลังลดตัวลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือที่สบายจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ถ้ายังดึงไม่ขึ้น เริ่มจากห้อยตัวแล้วฝึกกดไหล่ลง หรือขึ้นไปค้างด้านบนแล้วค่อย ๆ ลดตัวลงช้า ๆ ก่อน",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+    grips: PULL_UP_GRIP_NOTES,
+  },
+  chinUp: {
+    cues: {
+      feet: "งอเข่าให้หน้าแข้งไปทางหลัง ขาสองข้างชิดกันนิ่ง ๆ ถ้าบาร์สูงพอจะเหยียดขาตรงก็ได้ แต่อย่าเตะหรือเหวี่ยงขาช่วยดึง",
+      back: "ตอนห้อยตัว ปล่อยไหล่และลำตัวยืดให้สุด แล้วกดไหล่ลงไปทางกระเป๋ากางเกงก่อนเริ่มดึง ตอนขึ้นเอนลำตัวไปข้างหลังเล็กน้อย อกเข้าหาบาร์",
+      elbow: "ดึงศอกลงมาข้างหน้าลำตัว ให้ต้นแขนเข้าชิดซี่โครง ไม่กางศอกออกข้าง และไม่ยักไหล่ขึ้นหาหูตอนอยู่บน",
+      dumbbell: "จับแบบหงายมือ ฝ่ามือหันเข้าหาตัว กว้างประมาณช่วงไหล่ ไม่ต้องกว้างกว่านี้ จับกว้างแบบหงายมือจะฝืนข้อมือและศอก",
+      core: "หายใจเข้าเตรียมไว้ก่อนดึง เกร็งท้องให้ตัวนิ่ง ดึงขึ้นจนคางพ้นบาร์ คอตรง ไม่ยื่นคางหรือก้มหน้า แล้วลดตัวลงช้า ๆ 4-5 วินาที",
+    },
+    top: "ห้อยตัวยืดสุด",
+    bottom: "ดึงขึ้นสุด",
+    rising: "กำลังลดตัวลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือที่สบายจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ถ้าข้อมือหรือศอกฝืนตอนหงายมือ ลองขยับมือเข้าหรือออกเล็กน้อยจนสบาย หรือเปลี่ยนไปจับแบบคว่ำมือ",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+    grips: PULL_UP_GRIP_NOTES,
   },
   legExtension: {
     cues: {

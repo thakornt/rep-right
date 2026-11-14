@@ -10,7 +10,7 @@ import type { PressExercise } from "@/components/body/press";
 import { SquatViewer } from "@/components/body/squat-viewer";
 import { WaySwitch } from "@/components/body/way-switch";
 import { FormSteps } from "@/components/form-steps";
-import { LAT_PULLDOWN_GRIPS, type FormCues } from "@/content/form-cues";
+import { LAT_PULLDOWN_GRIPS, PULL_UP_GRIPS, type FormCues } from "@/content/form-cues";
 import { getExercises, type Exercise } from "@/lib/api";
 import { muscleLabel } from "@/lib/exercise-groups";
 
@@ -38,7 +38,14 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
   // The lat pulldown's grip, an option on its page; its cues and mistakes follow it.
   const [grip, setGrip] = useState(LAT_PULLDOWN_GRIPS[0].key);
   const pulldown = slug === "lat-pulldown";
-  const form = pulldown ? LAT_PULLDOWN_GRIPS.find((g) => g.key === grip)!.form : ownForm;
+  // The pull-up's grip, the same way: overhand or underhand (the chin-up).
+  const [hold, setHold] = useState(PULL_UP_GRIPS[0].key);
+  const pullUp = slug === "pull-up";
+  const form = pulldown
+    ? LAT_PULLDOWN_GRIPS.find((g) => g.key === grip)!.form
+    : pullUp
+      ? PULL_UP_GRIPS.find((g) => g.key === hold)!.form
+      : ownForm;
 
   useEffect(() => {
     getExercises()
@@ -60,6 +67,13 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
         exercise={grip === "neutral" ? "pulldownNeutral" : grip === "single" ? "pulldownSingle" : "pulldown"}
         steps={steps}
         switcher={<WaySwitch ways={LAT_PULLDOWN_GRIPS.map((g) => [g.key, g.label] as const)} value={grip} onChange={setGrip} />}
+      />
+    ) : pullUp ? (
+      <PressViewer
+        key={hold}
+        exercise={hold === "underhand" ? "chinUp" : "pullUp"}
+        steps={steps}
+        switcher={<WaySwitch ways={PULL_UP_GRIPS.map((g) => [g.key, g.label] as const)} value={hold} onChange={setHold} />}
       />
     ) : press ? (
       <PressViewer exercise={press} steps={steps} />
