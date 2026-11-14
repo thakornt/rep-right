@@ -80,14 +80,8 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
     <WaySwitch ways={OVERHEAD_EXTENSION_TOOLS.map((t) => [t.key, t.label] as const)} value={tool} onChange={setTool} />
   );
   const viewer =
-    extension && tool === "dumbbell" ? (
-      <OverheadViewer switcher={toolSwitch} steps={steps} />
-    ) : extension ? (
-      // The cable one has no 3D view yet: only the switch and its key points.
-      <div className="flex flex-col gap-3">
-        {toolSwitch}
-        {steps}
-      </div>
+    extension ? (
+      <OverheadViewer cable={tool === "cable"} switcher={toolSwitch} steps={steps} />
     ) : ohp && way === "seated" ? (
       <PressViewer exercise="shoulder" switcher={waySwitch} steps={steps} />
     ) : ohp ? (

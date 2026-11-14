@@ -10,10 +10,12 @@ const WAYS = [
   ["overheadOne", "แขนเดียว"],
 ] as const;
 
-// The overhead triceps extension with a dumbbell, done with both hands on it or one arm at a time.
-// `switcher`, another choice on the exercise's page (dumbbell or cable), sits above this one.
-export function OverheadViewer({ switcher, steps }: { switcher?: React.ReactNode; steps?: React.ReactNode }) {
+// The overhead triceps extension. With a dumbbell, done with both hands on it or one arm at a time;
+// with a cable, both hands on a rope. `switcher`, the choice of tool on the exercise's page, sits
+// above the dumbbell's own choice.
+export function OverheadViewer({ cable, switcher, steps }: { cable?: boolean; switcher?: React.ReactNode; steps?: React.ReactNode }) {
   const [way, setWay] = useState<(typeof WAYS)[number][0]>("overheadTwo");
+  if (cable) return <PressViewer key="cable" exercise="overheadCable" switcher={switcher} steps={steps} />;
   return (
     <PressViewer
       key={way}

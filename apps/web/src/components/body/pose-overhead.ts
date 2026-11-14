@@ -19,7 +19,7 @@ import * as THREE from "three";
 import { enableArmTwist } from "./arm-twist";
 import { enableShoulderCorrectives } from "./shoulder-correctives";
 import { readBody } from "./contact";
-import { aim, deg, readRig, rotateWorld, setWorldQuat, twoBoneIK, worldPos, type Rig } from "./pose";
+import { aim, deg, readRig, rotateWorld, setWorldPos, setWorldQuat, twoBoneIK, worldPos, type Rig } from "./pose";
 import { holdArm, standFeet } from "./pose-curl";
 import { DUMBBELL, frame, readSide, turnTo, type PressSide } from "./pose-press";
 
@@ -347,4 +347,88 @@ export function poseOverheadTwo(o: OverheadRig, depth: number) {
   const held = { grip: centre, handle: hold.clone() };
   for (const a of [o.l, o.r]) wrapFingers(a.s, held, palmTowards(a.s, depth, hold, tilt));
   return { l: held, r: held };
+}
+
+// Cable overhead triceps extension, from the owner's reference clip (2026-11-14). The pulley is set
+// at about the navel, a rope on it; the lifter takes the two ends, turns their back to the tower
+// and brings the rope up over the head, then stands tall. A low pulley needs no bending to pick
+// up, and a high one has the lifter bend over and twist: both the clip warns against. The upper
+// arms stand up beside the head, the elbows pointing up and kept in, not flaring out; the elbows
+// alone do the lift. At the bottom the hands are behind the head, the rope running down from them
+// over the back to the pulley; at the top the arms are straight up and the hands come close
+// together. Pushed up breathing out, lowered slowly breathing in.
+//
+// Depth 0 = arms up, 1 = hands lowered behind the head, as with the dumbbell.
+export const OVERHEAD_CABLE = {
+  armInTop: -8, // degrees each upper arm leans in from straight up at the top, seen from the front (negative: out): the elbows come in only a little on the way up (owner, 2026-11-15), the hands closer over the head
+  armInLow: -26, // and at the bottom: the elbows out to the sides (owner, 2026-11-15)
+  armForward: 16, // degrees it leans forward, seen from the side: enough that the hands go down behind the head side by side rather than over each other (owner, 2026-11-15); less turns the shoulder out past its range with the elbows out
+  foldInTop: 38, // degrees the forearm's way down turns in from straight back: in a little, the points of the elbows facing out and forward. Further and the hands meet over each other behind the head
+  foldInLow: 38, // the same all the way
+  topBend: 25, // degrees the elbow stays bent at the top: the hands come close without the elbows coming in
+  lowBend: 128, // degrees at the bottom: the hands behind the head
+  stance: 0.12, // metres from the middle to each ankle
+  toeOut: 8, // degrees
+  leanForward: 6, // degrees the body leans forward from the ankles in one line, against the cable pulling back and down (owner, 2026-11-15)
+  headDown: 10, // degrees the neck tips the head forward a little, clear of the hands behind it
+  pulleyAboveHips: 0.1, // metres the pulley sits above the hip joints: about the navel, as the clip sets it
+  pulleyBehind: 0.3, // metres behind the hips: close to the tower, so seen from the side the cable runs on nearly in line with the upper arm, within 1-7 degrees through the lift (owner, 2026-11-15)
+  towerTop: 2.1, // metres: the tower's full height, the pulley set low on it
+  strand: 0.33, // metres of rope from the knot to the thumb side of each fist: the pushdown's rope
+  fistHalf: 0.05, // metres along the rope from the middle of the fist to where the rope leaves it
+  ropeEnd: 0.022, // metres the rope carries on past the little finger to its stopper
+  cameraTarget: [0, 1.12, -0.1] as [number, number, number], // halfway between the floor and the hands over the head
+  cameraTall: 1.15, // metres above and below the target the view must hold: the feet and the raised hands
+  cameraReach: 0.7,
+};
+
+// Where the pulley is, from the body standing at rest.
+export const overheadCablePulley = (o: OverheadRig) => {
+  toRest(o.rig);
+  const hips = worldPos(o.rig.pelvis);
+  return new THREE.Vector3(0, hips.y + OVERHEAD_CABLE.pulleyAboveHips, hips.z - OVERHEAD_CABLE.pulleyBehind);
+};
+
+// Both hands on the rope's ends: depth 0 = arms up, 1 = lowered behind the head.
+export function poseOverheadCable(o: OverheadRig, depth: number, pulley: THREE.Vector3) {
+  enableShoulderCorrectives(o.root, false);
+  const P = OVERHEAD_CABLE;
+  const { rig } = o;
+  toRest(rig);
+  const bend = P.topBend + (P.lowBend - P.topBend) * depth;
+  // The whole body leans forward from the planted ankles in one line, the trunk with the legs.
+  const hips = worldPos(rig.pelvis);
+  const ankle = rig.l.ankle;
+  const rise = hips.y - ankle.y;
+  setWorldPos(rig.pelvis, new THREE.Vector3(hips.x, ankle.y + rise * Math.cos(deg(P.leanForward)), hips.z + rise * Math.sin(deg(P.leanForward))));
+  rotateWorld(rig.pelvis, new THREE.Quaternion().setFromAxisAngle(X, deg(P.leanForward)));
+  // The neck takes the lean back, so the head stays as it was, tipped a little forward.
+  rotateWorld(rig.neck, new THREE.Quaternion().setFromAxisAngle(X, deg(P.headDown - P.leanForward)));
+  const hands = [o.l, o.r].map((a) => {
+    const s = a.s;
+    standFeet(a, P.stance, P.toeOut);
+    raiseClavicle(s);
+    // The arm's angles are the trunk's: they lean forward with it.
+    const upper = upward(s.sign, -(P.armInTop + (P.armInLow - P.armInTop) * depth), P.armForward + P.leanForward);
+    // The forearm folds back behind the head and a little in, toward the other hand.
+    const foldIn = deg(P.foldInTop + (P.foldInLow - P.foldInTop) * depth);
+    const way = new THREE.Vector3(-s.sign * Math.sin(foldIn), 0, -Math.cos(foldIn)).applyAxisAngle(X, deg(P.leanForward));
+    way.addScaledVector(upper, -way.dot(upper)).normalize();
+    const hinge = way.clone().cross(upper).normalize();
+    // The hands hold neutral, palms facing: the thumbs point back with the arms up and down toward
+    // the neck with them lowered, the rope leaving each fist at the thumb end toward the pulley.
+    holdArm(a, upper, hinge, upper, bend);
+    const fore = worldPos(s.hand).sub(worldPos(s.lowerarm)).normalize();
+    const thumbs = fore.clone().cross(hinge).normalize();
+    const grip = a.grip.held();
+    const handle = a.grip.dir();
+    const back = handle.dot(thumbs) > 0 ? handle.clone() : handle.clone().negate();
+    return { grip, handle, enter: grip.clone().addScaledVector(back, P.fistHalf), end: grip.clone().addScaledVector(back, -(P.fistHalf + P.ropeEnd)) };
+  });
+  // The knot sits in line between the hands and the pulley, the strands pulled straight.
+  const mid = hands[0].enter.clone().add(hands[1].enter).multiplyScalar(0.5);
+  const toward = pulley.clone().sub(mid).normalize();
+  const half = hands[0].enter.distanceTo(hands[1].enter) / 2;
+  const knot = mid.addScaledVector(toward, Math.sqrt(Math.max(0, P.strand ** 2 - half ** 2)));
+  return { l: hands[0], r: hands[1], knot };
 }
