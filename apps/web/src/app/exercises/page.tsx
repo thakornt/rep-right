@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { Badge3D } from "../badge-3d";
-import { LibraryView } from "./library-view";
+import { ExercisesLoading, LibraryView } from "./library-view";
 
 export const metadata: Metadata = {
   title: "ท่าออกกำลังกายและฟอร์มที่ถูกต้อง — rep-right",
@@ -21,7 +21,7 @@ export default function ExercisesPage() {
         </p>
       </header>
       {/* useSearchParams needs a Suspense boundary so the rest of the page can prerender. */}
-      <Suspense fallback={<p className="text-sm text-muted">กำลังโหลด…</p>}>
+      <Suspense fallback={<ExercisesLoading />}>
         <LibraryView />
       </Suspense>
     </main>
