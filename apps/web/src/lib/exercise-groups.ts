@@ -58,6 +58,7 @@ export const SLUGS_WITH_3D = new Set([
   "face-pull",
   "leg-extension",
   "pull-up",
+  "upright-row",
 ]);
 
 // Muscle groups by body region, for the home page.

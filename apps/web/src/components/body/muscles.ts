@@ -22,13 +22,16 @@ export const REGION_IDS = {
   delt_side: 18,
   delt_rear: 19,
   teres: 20,
+  traps: 22,
 } as const;
 
 export type Region = keyof typeof REGION_IDS;
 // The teres is painted over two muscles, so a lift that doesn't call on it still shows
 // each pixel as the muscle it replaced: id 20 follows upper_back, this id follows lats.
+// The trapezius (22) is part of the upper back too: a lift that calls on upper_back paints it as
+// well, and one that calls on traps paints it alone.
 export const TERES_OVER_LATS = 21;
-export const REGION_COUNT = 22;
+export const REGION_COUNT = 23;
 
 export const REGION_LABELS: Record<Region, string> = {
   quads: "ต้นขาหน้า",
@@ -41,6 +44,7 @@ export const REGION_LABELS: Record<Region, string> = {
   erectors: "กล้ามเนื้อข้างกระดูกสันหลัง",
   lats: "ปีก (หลังด้านข้าง)",
   upper_back: "หลังบนและบ่า",
+  traps: "บ่า",
   chest_upper: "อกส่วนบน",
   chest_mid: "อกส่วนกลาง",
   chest_lower: "อกส่วนล่าง",

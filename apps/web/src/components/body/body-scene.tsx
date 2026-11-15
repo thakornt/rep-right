@@ -254,17 +254,21 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     amounts[i] = amount;
   };
   let teresOwn = false; // this lift calls on the teres itself
+  let trapsOwn = false; // and on the trapezius by itself
   return {
     mat,
     clear: () => {
       amounts.fill(0);
       teresOwn = false;
+      trapsOwn = false;
     },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setTriceps: (left: number, right: number) => triceps.value.set(left, right),
     setTraps: (left: number, right: number) => traps.value.set(left, right),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
+      if (i === REGION_IDS.traps) trapsOwn = true;
+      else if (!trapsOwn && i === REGION_IDS.upper_back) paint(REGION_IDS.traps, color, amount);
       if (i === REGION_IDS.teres) {
         teresOwn = true;
         paint(TERES_OVER_LATS, color, amount);
