@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -37,6 +37,17 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "quads", role: "prime", amount: (0.45 + 0.55 * straight) * effort },
       { region: "abs", role: "stabilizer", amount: 0.25 }, // the trunk still on the back pad
       { region: "forearms", role: "stabilizer", amount: 0.3 }, // holding the handles, pulling into the seat
+    ];
+  }
+  if (exercise === "uprightRow" || exercise === "uprightRowDumbbell") {
+    // The front and side of the shoulder lift the elbows out and up, and the trapezius raises the
+    // shoulder blades with them, across the tops of the shoulders and down the middle of the back,
+    // as the owner outlined (2026-11-15); hardest at the top. The work is on the way up.
+    const lift = phase === "up" ? 1 : 0.8;
+    return [
+      { region: "delt_side", role: "prime", amount: (0.5 + 0.5 * (1 - depth)) * lift },
+      { region: "delt_front", role: "prime", amount: (0.4 + 0.5 * (1 - depth)) * lift },
+      { region: "traps", role: "prime", amount: (0.4 + 0.5 * (1 - depth)) * lift },
     ];
   }
   if (exercise === "facePull") {
@@ -339,6 +350,42 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ความยาวขาไม่เท่ากัน จึงต้องปรับเบาะนั่งและเบาะรองหน้าแข้งทุกครั้งที่ใช้เครื่อง",
       "เหยียดขาเท่าที่เข่ายังสบาย ไม่ต้องล็อกเข่าตึงสุด",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  uprightRow: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย ดันสะโพกไปข้างหลังนิดหน่อย",
+      back: "เอนตัวไปข้างหน้าเล็กน้อยทั้งลำตัว หลังตรง ไม่ห่อไหล่ มองตรงไปข้างหน้า ลำตัวนิ่งตลอด ไม่เหวี่ยงช่วยดึง",
+      elbow: "ยกต้นแขนขึ้นในแนวเดียว ออกด้านข้าง เฉียงมาข้างหน้านิดเดียว จนเกือบขนานพื้น ศอกสูงระดับไหล่ ไม่สูงกว่า ศอกงอเพิ่มไปพร้อมกัน",
+      dumbbell: "จับบาร์แบบคว่ำมือ กว้างกว่าไหล่พอสมควร ดึงบาร์ขึ้นใกล้ลำตัว จากหน้าขาถึงระดับนม ไม่เหวี่ยงออกไปข้างหน้าเหมือนท่ายกแขนไปข้างหน้า",
+      core: "ดึงขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง",
+    },
+    top: "ดึงขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังลดลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "จับแคบแล้วดึงสูงมักทำให้ไหล่รู้สึกติดหรือเจ็บ จับกว้างขึ้นและเอนตัวไปข้างหน้าเล็กน้อยช่วยให้ไหล่ทำงานสบายขึ้น",
+      "ดึงขึ้นเท่าที่ไหล่ยังสบาย ถ้าเริ่มรู้สึกบีบที่หัวไหล่ให้หยุดต่ำกว่านั้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  uprightRowDumbbell: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย ดันสะโพกไปข้างหลังนิดหน่อย",
+      back: "เอนตัวไปข้างหน้าเล็กน้อยทั้งลำตัว หลังตรง ไม่ห่อไหล่ มองตรงไปข้างหน้า ลำตัวนิ่งตลอด ไม่เหวี่ยงช่วยดึง",
+      elbow: "ยกต้นแขนขึ้นในแนวเดียว ออกด้านข้าง เฉียงมาข้างหน้านิดเดียว จนเกือบขนานพื้น ศอกสูงระดับไหล่ ไม่สูงกว่า ศอกงอเพิ่มไปพร้อมกัน",
+      dumbbell: "ถือดัมเบลแบบคว่ำมือ กว้างกว่าไหล่เล็กน้อย บิดฝ่ามือเข้าหาลำตัวได้เล็กน้อยตามที่ข้อมือสบาย ดึงดัมเบลขึ้นใกล้ลำตัว จากหน้าขาถึงระดับนม ไม่เหวี่ยงออกไปข้างหน้า และไม่กางออกด้านข้าง",
+      core: "ดึงขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง",
+    },
+    top: "ดึงขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังลดลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "จับแคบแล้วดึงสูงมักทำให้ไหล่รู้สึกติดหรือเจ็บ ถือกว้างขึ้นและเอนตัวไปข้างหน้าเล็กน้อยช่วยให้ไหล่ทำงานสบายขึ้น",
+      "ดึงขึ้นเท่าที่ไหล่ยังสบาย ถ้าเริ่มรู้สึกบีบที่หัวไหล่ให้หยุดต่ำกว่านั้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   facePull: {

@@ -70,6 +70,7 @@ import {
   ROPE_PUSHDOWN,
   tricepsGather,
 } from "./pose-pushdown";
+import { poseUprightRow, readUprightRowRig, UPRIGHT_ROW } from "./pose-upright-row";
 import {
   OVERHEAD_ONE,
   OVERHEAD_TWO,
@@ -126,6 +127,8 @@ const SPECS = {
   overheadOne: OVERHEAD_ONE,
   overheadTwo: OVERHEAD_TWO,
   overheadCable: OVERHEAD_CABLE,
+  uprightRow: UPRIGHT_ROW,
+  uprightRowDumbbell: UPRIGHT_ROW,
   crunch: CRUNCH,
   row: DUMBBELL_ROW,
   rdl: DUMBBELL_RDL,
@@ -146,6 +149,8 @@ const REACH: Partial<Record<PressExercise, number>> = {
   rdl: DUMBBELL_RDL.cameraReach,
   facePull: FACE_PULL.cameraReach,
   overheadCable: OVERHEAD_CABLE.cameraReach,
+  uprightRow: UPRIGHT_ROW.cameraReach,
+  uprightRowDumbbell: UPRIGHT_ROW.cameraReach,
   legExtension: LEG_EXTENSION.cameraReach,
   pullUp: PULL_UP.cameraReach,
   chinUp: PULL_UP.cameraReach,
@@ -165,7 +170,7 @@ type Lift = {
   pose: (
     left: number,
     right: number,
-  ) => { l: Held; r: Held; bar?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number; pulley?: THREE.Vector3 };
+  ) => { l: Held; r: Held; bar?: THREE.Vector3; barbell?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number; pulley?: THREE.Vector3 };
   biceps: (depth: number) => number;
   triceps?: (depth: number) => number;
   bench: ReturnType<typeof benchLayout> | null;
@@ -179,6 +184,7 @@ type Lift = {
   mat?: boolean;
   support?: THREE.Vector3; // where the free hand presses on a support box, for its top
   pullBar?: number; // the height of the fixed bar the body hangs from
+  barbell?: boolean; // a barbell in both hands, in place of the dumbbells
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
@@ -240,6 +246,16 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       biceps: () => 0,
       bench: null,
       machine: pull,
+    };
+  }
+  if (exercise === "uprightRow" || exercise === "uprightRowDumbbell") {
+    const row = readUprightRowRig(root, exercise === "uprightRow" ? "barbell" : "dumbbell");
+    return {
+      rig: row.rig,
+      pose: (depth: number) => poseUprightRow(row, depth),
+      biceps: () => 0,
+      bench: null,
+      barbell: exercise === "uprightRow",
     };
   }
   if (exercise === "overheadCable") {
@@ -751,6 +767,25 @@ function PullUpRack({ y }: { y: number }) {
   );
 }
 
+// A barbell with a small plate on each end, held across the body.
+function Barbell({ inner }: { inner: React.RefObject<THREE.Group | null> }) {
+  const { barLength, plateRadius, plateWidth, plateAt } = UPRIGHT_ROW;
+  return (
+    <group ref={inner}>
+      <mesh rotation-z={Math.PI / 2}>
+        <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
+        <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position-x={side * plateAt} rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[plateRadius, plateRadius, plateWidth, 32]} />
+          <meshStandardMaterial color="#3f4a4e" metalness={0.4} roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // Machine frames stand round the body, so they let it show through from every view.
 function FrameMat() {
   return (
@@ -910,6 +945,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const left = useRef<THREE.Group>(null);
   const right = useRef<THREE.Group>(null);
   const barRef = useRef<THREE.Group>(null);
+  const barbellRef = useRef<THREE.Group>(null);
   const cableRef = useRef<THREE.Mesh>(null);
   const ropeRef = useRef<THREE.Group>(null);
   const leverRef = useRef<THREE.Group>(null);
@@ -973,6 +1009,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
     right.current?.quaternion.setFromUnitVectors(ALONG, g.r.handle);
+    if (g.barbell) barbellRef.current?.position.copy(g.barbell);
     if (g.bar) {
       barRef.current?.position.copy(g.bar);
       // A handle's grips lie along the hands' (local z), its loop toward the pulley (local y).
@@ -1046,6 +1083,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const arm = rig[lift.pinSide ?? "l"];
     const overhead = exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable";
     const row = exercise === "row";
+    const upright = exercise === "uprightRow" || exercise === "uprightRowDumbbell";
     const facePull = exercise === "facePull";
     const legExt = exercise === "legExtension";
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
@@ -1061,7 +1099,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         ? worldPos(arm.lowerarm).add(
             new THREE.Vector3(arm.sign * 0.06, 0.03, 0.03),
           ) // out beside the raised elbow
-        : row || facePull
+        : row || facePull || upright
           ? worldPos(arm.lowerarm).add(
               new THREE.Vector3(arm.sign * 0.06, 0.04, -0.02),
             ) // out beside the rowing elbow
@@ -1070,7 +1108,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
             ), // behind the elbow in a curl, clear of its crease
       dumbbell: legExt
         ? g.l.grip.clone().add(new THREE.Vector3(0.06, 0.06, 0)) // by the left handle
-        : facePull
+        : facePull || upright
         ? g.l.grip.clone().add(new THREE.Vector3(0.08, 0.06, 0)) // outside the hand, clear of the head
         : row
         ? g.l.grip.clone().add(new THREE.Vector3(arm.sign * 0.12, 0, 0))
@@ -1132,6 +1170,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         <Mat />
       ) : lift.rope ? (
         <CableTower rope={ropeRef} pulley={lift.rope} top={exercise === "overheadCable" ? OVERHEAD_CABLE.towerTop : undefined} />
+      ) : lift.barbell ? (
+        <Barbell inner={barbellRef} />
       ) : lift.pullBar ? (
         <PullUpRack y={lift.pullBar} />
       ) : lift.legMachine ? (

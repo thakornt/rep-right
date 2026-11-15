@@ -6,6 +6,7 @@
 
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const web = new URL("../../apps/web/", import.meta.url);
 const require = createRequire(new URL("package.json", web));
@@ -17,7 +18,7 @@ const gltf = await new Promise((ok, no) => new GLTFLoader().parse(buf.buffer.sli
 let mesh;
 gltf.scene.traverse((o) => { if (!mesh && o.isSkinnedMesh) mesh = o; });
 const uv = mesh.geometry.attributes.uv;
-const { data, info } = await sharp(new URL("public/models/muscles.png", web).pathname).raw().toBuffer({ resolveWithObject: true });
+const { data, info } = await sharp(fileURLToPath(new URL("public/models/muscles.png", web))).raw().toBuffer({ resolveWithObject: true });
 const out = new Uint8Array(uv.count);
 for (let i = 0; i < uv.count; i++) {
   // The map is read with flipY off, so v runs down the image.

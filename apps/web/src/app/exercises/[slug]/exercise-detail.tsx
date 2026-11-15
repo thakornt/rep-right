@@ -10,7 +10,7 @@ import type { PressExercise } from "@/components/body/press";
 import { SquatViewer } from "@/components/body/squat-viewer";
 import { WaySwitch } from "@/components/body/way-switch";
 import { FormSteps } from "@/components/form-steps";
-import { BARBELL_SQUAT_BARS, LAT_PULLDOWN_GRIPS, OVERHEAD_EXTENSION_TOOLS, OVERHEAD_PRESS_WAYS, PULL_UP_GRIPS, type FormCues } from "@/content/form-cues";
+import { BARBELL_SQUAT_BARS, LAT_PULLDOWN_GRIPS, OVERHEAD_EXTENSION_TOOLS, OVERHEAD_PRESS_WAYS, PULL_UP_GRIPS, UPRIGHT_ROW_TOOLS, type FormCues } from "@/content/form-cues";
 import { getExercises, type Exercise } from "@/lib/api";
 import { muscleLabel } from "@/lib/exercise-groups";
 
@@ -49,6 +49,9 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
   // The overhead triceps extension, the same way: with a dumbbell or a cable.
   const [tool, setTool] = useState(OVERHEAD_EXTENSION_TOOLS[0].key);
   const extension = slug === "overhead-triceps-extension";
+  // The upright row, the same way: with a bar or a dumbbell in each hand.
+  const [rowTool, setRowTool] = useState(UPRIGHT_ROW_TOOLS[0].key);
+  const uprightRow = slug === "upright-row";
   const form = pulldown
     ? LAT_PULLDOWN_GRIPS.find((g) => g.key === grip)!.form
     : pullUp
@@ -59,7 +62,9 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
           ? OVERHEAD_PRESS_WAYS.find((w) => w.key === way)!.form
           : extension
             ? OVERHEAD_EXTENSION_TOOLS.find((t) => t.key === tool)!.form
-            : ownForm;
+            : uprightRow
+              ? UPRIGHT_ROW_TOOLS.find((t) => t.key === rowTool)!.form
+              : ownForm;
 
   useEffect(() => {
     getExercises()
@@ -80,7 +85,14 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
     <WaySwitch ways={OVERHEAD_EXTENSION_TOOLS.map((t) => [t.key, t.label] as const)} value={tool} onChange={setTool} />
   );
   const viewer =
-    extension ? (
+    uprightRow ? (
+      <PressViewer
+        key={rowTool}
+        exercise={rowTool === "dumbbell" ? "uprightRowDumbbell" : "uprightRow"}
+        steps={steps}
+        switcher={<WaySwitch ways={UPRIGHT_ROW_TOOLS.map((t) => [t.key, t.label] as const)} value={rowTool} onChange={setRowTool} />}
+      />
+    ) : extension ? (
       <OverheadViewer cable={tool === "cable"} switcher={toolSwitch} steps={steps} />
     ) : ohp && way === "seated" ? (
       <PressViewer exercise="shoulder" switcher={waySwitch} steps={steps} />
