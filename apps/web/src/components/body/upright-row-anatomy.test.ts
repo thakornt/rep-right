@@ -14,7 +14,13 @@ import { contact, readBody, type Body } from "./contact";
 import { loadBody } from "./load-body";
 import { BAR_RADIUS, trunkLean, worldPos } from "./pose";
 import { DUMBBELL } from "./pose-press";
-import { poseUprightRow, readUprightRowRig, UPRIGHT_ROW, type UprightRowRig, type UprightRowTool } from "./pose-upright-row";
+import {
+  poseUprightRow,
+  readUprightRowRig,
+  UPRIGHT_ROW,
+  type UprightRowRig,
+  type UprightRowTool,
+} from "./pose-upright-row";
 
 const ARMPIT_FOLD = 0.045; // skin folding at the shoulder joint; the same allowance as the other lifts
 const THROUGH = 0.01;
@@ -48,22 +54,47 @@ const MAX_LEAN = 18;
 const MIN_TURN_IN = 5; // degrees the dumbbells turn the palms in, from square across: near square, as the owner asked (2026-11-15)
 const MAX_TURN_IN = 30; // and no more: a little
 const MAX_STEP = 0.015; // metres a hand or elbow may move per 1% of the lift: no jumps
+const MAX_S_CURVE = 12; // degrees a hand's or elbow's path may turn against its main direction, in any view
+const MIN_PATH_STEP = 0.004; // metres a joint must move before its direction counts
+// The weight goes straight up, as a person lifts it: seen from the side it may bow off the line from
+// the bottom to the top by this many metres at most, no U and no S (owner, 2026-11-15).
+const MAX_OFF_LINE = 0.01;
+// Metres the elbow may go back on its way forward, or back down on its way up: none, as a person
+// lifts it, the elbow out and forward and up from the start (owner, 2026-11-15).
+const MAX_ELBOW_BACK = 0.005;
+// Every joint of the arm works its way from the bottom to the top together with the others, none
+// turning back: a joint may go past its end or back on itself by this share of its way at most.
+// Moving one joint after another had the shoulder turn the wrong way first by 0.86 of its way.
+const MAX_TURN_BACK_SHARE = 0.05;
+const MIN_JOINT_TRAVEL = 5; // degrees a joint must turn from the bottom to the top to have a share
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 const TOOLS: UprightRowTool[] = ["barbell", "dumbbell"];
 
-const rigs = {} as Record<UprightRowTool, { root: THREE.Object3D; row: UprightRowRig; anatomy: Anatomy; body: Body }>;
+const rigs = {} as Record<
+  UprightRowTool,
+  { root: THREE.Object3D; row: UprightRowRig; anatomy: Anatomy; body: Body }
+>;
 
 beforeAll(async () => {
   // A body each: a rig reads its rest from the body as it finds it.
   for (const tool of TOOLS) {
     const root = await loadBody();
-    rigs[tool] = { root, row: readUprightRowRig(root, tool), anatomy: readAnatomy(root), body: readBody(root) };
+    rigs[tool] = {
+      root,
+      row: readUprightRowRig(root, tool),
+      anatomy: readAnatomy(root),
+      body: readBody(root),
+    };
   }
 });
 
 // Lowest distance from the weight to the skin of the trunk and legs.
-function weightGap(body: Body, tool: UprightRowTool, g: ReturnType<typeof poseUprightRow>) {
+function weightGap(
+  body: Body,
+  tool: UprightRowTool,
+  g: ReturnType<typeof poseUprightRow>,
+) {
   const p = new THREE.Vector3();
   let gap = Infinity;
   body.part.forEach((part, i) => {
@@ -77,8 +108,14 @@ function weightGap(body: Body, tool: UprightRowTool, g: ReturnType<typeof poseUp
       for (const h of [g.l, g.r]) {
         const w = p.clone().sub(h.grip);
         const along = w.dot(h.handle);
-        const past = Math.max(0, Math.abs(along) - (DUMBBELL.headAt + DUMBBELL.headWidth / 2));
-        const out = Math.max(0, w.addScaledVector(h.handle, -along).length() - DUMBBELL.headRadius);
+        const past = Math.max(
+          0,
+          Math.abs(along) - (DUMBBELL.headAt + DUMBBELL.headWidth / 2),
+        );
+        const out = Math.max(
+          0,
+          w.addScaledVector(h.handle, -along).length() - DUMBBELL.headRadius,
+        );
         gap = Math.min(gap, Math.hypot(past, out));
       }
     }
@@ -92,27 +129,38 @@ describe.each(TOOLS)("upright row, %s", (tool) => {
     const g = poseUprightRow(row, depth);
     const problems: string[] = [];
 
-    for (const v of violations(measure(anatomy))) problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
+    for (const v of violations(measure(anatomy)))
+      problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
     const c = contact(body);
     for (const t of c.through) {
       const allowed = t.pair.endsWith("/core") ? ARMPIT_FOLD : THROUGH;
-      if (t.depth > allowed) problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
+      if (t.depth > allowed)
+        problems.push(`${t.pair} ${(t.depth * 100).toFixed(1)} cm through`);
     }
-    if (c.floor > FLOOR) problems.push(`skin ${(c.floor * 100).toFixed(1)} cm under the floor`);
+    if (c.floor > FLOOR)
+      problems.push(`skin ${(c.floor * 100).toFixed(1)} cm under the floor`);
 
     for (const tag of ["l", "r"] as const) {
       const { grip, handle } = g[tag];
       for (const f of ["index", "middle", "ring", "pinky"]) {
         const w = worldPos(root.getObjectByName(`${f}_02_${tag}`)!).sub(grip);
         const gap = w.addScaledVector(handle, -w.dot(handle)).length();
-        if (gap > MAX_FINGER_GAP) problems.push(`${tag} ${f} ${(gap * 100).toFixed(1)} cm from the ${tool === "barbell" ? "bar" : "handle"}`);
+        if (gap > MAX_FINGER_GAP)
+          problems.push(
+            `${tag} ${f} ${(gap * 100).toFixed(1)} cm from the ${tool === "barbell" ? "bar" : "handle"}`,
+          );
       }
       const m = measure(anatomy)[tag] as unknown as Record<string, number>;
-      if (Math.abs(m["wrist.flexion"]) > MAX_WRIST_BEND) problems.push(`${tag} wrist bent ${m["wrist.flexion"].toFixed(0)}`);
-      if (Math.abs(m["wrist.deviation"]) > MAX_WRIST_SIDE) problems.push(`${tag} wrist sideways ${m["wrist.deviation"].toFixed(0)}`);
+      if (Math.abs(m["wrist.flexion"]) > MAX_WRIST_BEND)
+        problems.push(`${tag} wrist bent ${m["wrist.flexion"].toFixed(0)}`);
+      if (Math.abs(m["wrist.deviation"]) > MAX_WRIST_SIDE)
+        problems.push(
+          `${tag} wrist sideways ${m["wrist.deviation"].toFixed(0)}`,
+        );
     }
     const gap = weightGap(body, tool, g);
-    if (gap < MIN_WEIGHT_GAP) problems.push(`weight ${(gap * 100).toFixed(1)} cm from the body`);
+    if (gap < MIN_WEIGHT_GAP)
+      problems.push(`weight ${(gap * 100).toFixed(1)} cm from the body`);
 
     expect(problems.join("; ")).toBe("");
   });
@@ -120,7 +168,11 @@ describe.each(TOOLS)("upright row, %s", (tool) => {
   test("the weight comes straight up near the body, from the thighs to the nipples", () => {
     const { row } = rigs[tool];
     const bottom = poseUprightRow(row, 1).l.grip.clone();
-    expect((measure(rigs[tool].anatomy).l as unknown as Record<string, number>)["elbow.flexion"]).toBeLessThan(MAX_ELBOW_HANG);
+    expect(
+      (measure(rigs[tool].anatomy).l as unknown as Record<string, number>)[
+        "elbow.flexion"
+      ],
+    ).toBeLessThan(MAX_ELBOW_HANG);
     const top = poseUprightRow(row, 0).l.grip.clone();
     const shoulder = worldPos(row.l.s.upperarm);
     expect(shoulder.y - top.y).toBeLessThan(MAX_TOP_BELOW_SHOULDER);
@@ -150,7 +202,8 @@ describe.each(TOOLS)("upright row, %s", (tool) => {
     for (const d of DEPTHS) {
       const g = poseUprightRow(row, d);
       const past = g.l.grip.x - worldPos(row.l.s.upperarm).x;
-      if (tool === "barbell") expect(past).toBeGreaterThan(MIN_GRIP_PAST_SHOULDER);
+      if (tool === "barbell")
+        expect(past).toBeGreaterThan(MIN_GRIP_PAST_SHOULDER);
       else {
         expect(past).toBeGreaterThan(MIN_DUMBBELL_PAST_SHOULDER);
         expect(past).toBeLessThan(MAX_DUMBBELL_PAST_SHOULDER);
@@ -175,10 +228,131 @@ describe.each(TOOLS)("upright row, %s", (tool) => {
       const lean = THREE.MathUtils.radToDeg(trunkLean(row.rig));
       expect(lean).toBeGreaterThan(MIN_LEAN);
       expect(lean).toBeLessThan(MAX_LEAN);
-      const now = [g.l.grip, g.r.grip, worldPos(row.l.s.lowerarm), worldPos(row.r.s.lowerarm)];
-      if (last) now.forEach((p, k) => expect(p.distanceTo(last![k])).toBeLessThan(MAX_STEP));
+      const now = [
+        g.l.grip,
+        g.r.grip,
+        worldPos(row.l.s.lowerarm),
+        worldPos(row.r.s.lowerarm),
+      ];
+      if (last)
+        now.forEach((p, k) =>
+          expect(p.distanceTo(last![k])).toBeLessThan(MAX_STEP),
+        );
       last = now;
       expect(g.l.grip.x + g.r.grip.x).toBeCloseTo(0, 2);
+    }
+  });
+
+  test("the hands and elbows move without an S, seen from above, the side and the front", () => {
+    const { row } = rigs[tool];
+    const paths: Record<string, THREE.Vector3[]> = { hand: [], elbow: [] };
+    for (let i = 0; i <= 100; i++) {
+      poseUprightRow(row, i / 100);
+      paths.hand.push(worldPos(row.l.s.hand));
+      paths.elbow.push(worldPos(row.l.s.lowerarm));
+    }
+    // Degrees the path turns the less-used way: a path bending one way only scores 0.
+    const against = (pts: number[][]) => {
+      const moves: number[][] = [];
+      let last = pts[0];
+      for (const q of pts) {
+        if (Math.hypot(q[0] - last[0], q[1] - last[1]) > MIN_PATH_STEP) {
+          moves.push([q[0] - last[0], q[1] - last[1]]);
+          last = q;
+        }
+      }
+      let one = 0;
+      let other = 0;
+      for (let i = 1; i < moves.length; i++) {
+        const [a, b] = [moves[i - 1], moves[i]];
+        const turn = Math.atan2(
+          a[0] * b[1] - a[1] * b[0],
+          a[0] * b[0] + a[1] * b[1],
+        );
+        if (turn > 0) one += turn;
+        else other -= turn;
+      }
+      return THREE.MathUtils.radToDeg(Math.min(one, other));
+    };
+    for (const [k, path] of Object.entries(paths)) {
+      expect(
+        against(path.map((p) => [p.x, p.z])),
+        `${k} from above`,
+      ).toBeLessThan(MAX_S_CURVE);
+      expect(
+        against(path.map((p) => [p.z, p.y])),
+        `${k} from the side`,
+      ).toBeLessThan(MAX_S_CURVE);
+      expect(
+        against(path.map((p) => [p.x, p.y])),
+        `${k} from the front`,
+      ).toBeLessThan(MAX_S_CURVE);
+    }
+  });
+
+  test("seen from the side the weight goes up a straight line", () => {
+    const { row } = rigs[tool];
+    const [bottom, top] = [
+      poseUprightRow(row, 1).l.grip.clone(),
+      poseUprightRow(row, 0).l.grip.clone(),
+    ];
+    const up = new THREE.Vector2(
+      top.z - bottom.z,
+      top.y - bottom.y,
+    ).normalize();
+    for (let i = 1; i < 100; i++) {
+      const p = poseUprightRow(row, i / 100).l.grip;
+      const off = Math.abs(
+        up.cross(new THREE.Vector2(p.z - bottom.z, p.y - bottom.y)),
+      );
+      expect(off).toBeLessThan(MAX_OFF_LINE);
+    }
+  });
+
+  test("the elbow goes out and up, never back or back down", () => {
+    const { row } = rigs[tool];
+    let [ahead, high] = [-Infinity, -Infinity];
+    for (let i = 0; i <= 100; i++) {
+      poseUprightRow(row, 1 - i / 100);
+      const e = worldPos(row.l.s.lowerarm);
+      ahead = Math.max(ahead, e.z);
+      high = Math.max(high, e.y);
+      expect(ahead - e.z, `back at ${i}%`).toBeLessThan(MAX_ELBOW_BACK);
+      expect(high - e.y, `down at ${i}%`).toBeLessThan(MAX_ELBOW_BACK);
+    }
+  });
+
+  test("every joint of the arm works its way up together, none turning back", () => {
+    const { row, anatomy } = rigs[tool];
+    // The joints the owner watches: the shoulder lifting, the elbow bending, the forearm turning and
+    // the wrist bending. One that hardly moves has no way to keep to. Not the upper arm's turn: it is
+    // read against the arm's lift, so with the elbows going out from the start it turns in as the
+    // forearms come across the front, then back as they point forward at the top, smoothly and
+    // within its range (owner told, 2026-11-15).
+    const JOINTS = [
+      "shoulder.elevation",
+      "elbow.flexion",
+      "forearm.pronation",
+      "wrist.flexion",
+    ];
+    const at = (d: number) => {
+      poseUprightRow(row, d);
+      const m = measure(anatomy).l as unknown as Record<string, number>;
+      return JOINTS.map((k) => m[k]);
+    };
+    const [bottom, top] = [at(1), at(0)];
+    const last = JOINTS.map(() => 0);
+    for (let i = 1; i <= 100; i++) {
+      const now = at(1 - i / 100);
+      JOINTS.forEach((k, j) => {
+        if (Math.abs(top[j] - bottom[j]) < MIN_JOINT_TRAVEL) return;
+        const share = (now[j] - bottom[j]) / (top[j] - bottom[j]);
+        expect(share, `${k} at ${i}%`).toBeGreaterThan(
+          last[j] - MAX_TURN_BACK_SHARE,
+        );
+        expect(share, `${k} at ${i}%`).toBeLessThan(1 + MAX_TURN_BACK_SHARE);
+        last[j] = Math.max(last[j], share);
+      });
     }
   });
 });
@@ -186,7 +360,10 @@ describe.each(TOOLS)("upright row, %s", (tool) => {
 test("the dumbbells stay level all the way", () => {
   for (const d of DEPTHS) {
     const g = poseUprightRow(rigs.dumbbell.row, d);
-    for (const h of [g.l.handle, g.r.handle]) expect(THREE.MathUtils.radToDeg(Math.asin(Math.abs(h.y)))).toBeLessThan(MAX_DUMBBELL_TILT);
+    for (const h of [g.l.handle, g.r.handle])
+      expect(THREE.MathUtils.radToDeg(Math.asin(Math.abs(h.y)))).toBeLessThan(
+        MAX_DUMBBELL_TILT,
+      );
   }
 });
 
