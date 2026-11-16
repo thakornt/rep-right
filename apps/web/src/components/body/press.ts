@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -27,6 +27,20 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "forearms", role: "synergist", amount: 0.6 }, // holding the whole body on the bar
       { region: "abs", role: "stabilizer", amount: 0.4 }, // the body still, not swinging
       { region: "chest_lower", role: "stabilizer", amount: 0.2 },
+    ];
+  }
+  if (exercise === "hipThrust") {
+    // The buttocks drive the hips up, hardest at the top with the hips straight; the back of the
+    // thigh helps, the front of the thigh holds the knee, and the trunk holds one straight line.
+    const up = 1 - depth;
+    return [
+      { region: "glutes", role: "prime", amount: (0.45 + 0.55 * up) * effort },
+      { region: "hamstrings", role: "synergist", amount: (0.25 + 0.35 * up) * effort },
+      { region: "adductors", role: "synergist", amount: (0.2 + 0.3 * depth) * effort }, // lower down, where the hips are bent
+      { region: "quads", role: "synergist", amount: 0.3 }, // holding the knee at its bend
+      { region: "abs", role: "stabilizer", amount: 0.45 }, // the ribs down, so the lower back doesn't arch
+      { region: "erectors", role: "stabilizer", amount: 0.3 },
+      { region: "forearms", role: "stabilizer", amount: 0.2 }, // keeping the bar from rolling
     ];
   }
   if (exercise === "legExtension") {
@@ -333,6 +347,24 @@ export const PRESS_CONTENT: Record<
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
     grips: PULL_UP_GRIP_NOTES,
+  },
+  hipThrust: {
+    cues: {
+      feet: "เท้าวางเต็มพื้น กว้างประมาณช่วงสะโพก ปลายเท้าแบะออกเล็กน้อย วางเท้าให้ตอนดันขึ้นสุดหน้าแข้งตั้งตรง ไม่เอียงไปหน้าหรือหลัง",
+      back: "พิงหลังส่วนบนใต้สะบักกับขอบม้านั่ง หลังตรงเป็นเส้นเดียวตลอด ไม่แอ่นหลังล่างตอนขึ้นสุด คางชิดอกเล็กน้อย ตามองไปข้างหน้า",
+      elbow: "ศอกงอลงข้างลำตัว มือแค่ประคองบาร์ไม่ให้กลิ้ง ไม่ได้ใช้แขนดัน",
+      dumbbell: "วางบาร์บนรอยพับสะโพก มีแผ่นรองบาร์ จับบาร์กว้างกว่าสะโพกเล็กน้อย",
+      core: "ดันสะโพกขึ้นเร็วพร้อมหายใจออก จนไหล่ สะโพก และเข่าอยู่ในแนวเดียวกัน บีบก้นค้างไว้ครู่หนึ่ง แล้วลดลงช้า ๆ หายใจเข้า ลงเท่าที่เข่ายังงอเพิ่มได้ หลังพิงม้านั่งที่จุดเดิม ไม่ไถลขึ้นลง",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความสูงของม้านั่งที่เหมาะจึงต่างกัน ปรับระยะเท้าให้หน้าแข้งตั้งตรงตอนขึ้นสุด",
+      "ลงเท่าที่หลังยังตรงและก้นยังไม่กระแทกพื้น ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่หลังล่างหรือสะโพก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
   },
   legExtension: {
     cues: {

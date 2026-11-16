@@ -84,6 +84,7 @@ import {
 } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
 import { FACE_PULL, poseFacePull, readFacePullRig } from "./pose-face-pull";
+import { HIP_THRUST, poseHipThrust, readHipThrustRig, type HipThrustRig } from "./pose-hip-thrust";
 import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
@@ -136,6 +137,7 @@ const SPECS = {
   legExtension: LEG_EXTENSION,
   pullUp: PULL_UP,
   chinUp: PULL_UP,
+  hipThrust: HIP_THRUST,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -154,6 +156,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   legExtension: LEG_EXTENSION.cameraReach,
   pullUp: PULL_UP.cameraReach,
   chinUp: PULL_UP.cameraReach,
+  hipThrust: HIP_THRUST.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -185,6 +188,7 @@ type Lift = {
   support?: THREE.Vector3; // where the free hand presses on a support box, for its top
   pullBar?: number; // the height of the fixed bar the body hangs from
   barbell?: boolean; // a barbell in both hands, in place of the dumbbells
+  thrust?: HipThrustRig; // the hip thrust's bench, fitted to the body, and its padded bar
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
@@ -356,6 +360,17 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       biceps: () => 0,
       bench: null,
       legMachine: ext,
+    };
+  }
+  if (exercise === "hipThrust") {
+    const thrust = readHipThrustRig(root);
+    return {
+      rig: thrust.rig,
+      pose: (depth: number) => poseHipThrust(thrust, depth),
+      biceps: () => 0,
+      bench: null,
+      barbell: true,
+      thrust,
     };
   }
   if (exercise === "facePull") {
@@ -767,19 +782,41 @@ function PullUpRack({ y }: { y: number }) {
   );
 }
 
-// A barbell with a small plate on each end, held across the body.
-function Barbell({ inner }: { inner: React.RefObject<THREE.Group | null> }) {
-  const { barLength, plateRadius, plateWidth, plateAt } = UPRIGHT_ROW;
+// A barbell with a plate on each end, held across the body; with `pad`, a foam pad round its middle.
+function Barbell({
+  inner,
+  spec = UPRIGHT_ROW,
+  pad,
+}: {
+  inner: React.RefObject<THREE.Group | null>;
+  spec?: { barLength: number; plateRadius: number; plateWidth: number; plateAt: number };
+  pad?: { radius: number; length: number };
+}) {
+  const { barLength, plateRadius, plateWidth, plateAt } = spec;
   return (
     <group ref={inner}>
       <mesh rotation-z={Math.PI / 2}>
         <cylinderGeometry args={[BAR_RADIUS, BAR_RADIUS, barLength, 16]} />
         <meshStandardMaterial color="#9aa6ab" metalness={0.8} roughness={0.3} />
       </mesh>
+      {pad && (
+        <mesh rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[pad.radius, pad.radius, pad.length, 24]} />
+          <meshStandardMaterial color="#1b2742" roughness={0.85} />
+        </mesh>
+      )}
       {[-1, 1].map((side) => (
         <mesh key={side} position-x={side * plateAt} rotation-z={Math.PI / 2}>
           <cylinderGeometry args={[plateRadius, plateRadius, plateWidth, 32]} />
-          <meshStandardMaterial color="#3f4a4e" metalness={0.4} roughness={0.6} />
+          {/* Big plates by the hips would hide them from the side, so they let the body show through. */}
+          <meshStandardMaterial
+            color="#3f4a4e"
+            metalness={0.4}
+            roughness={0.6}
+            transparent={!!pad}
+            opacity={pad ? 0.35 : 1}
+            depthWrite={!pad}
+          />
         </mesh>
       ))}
     </group>
@@ -808,6 +845,28 @@ function SupportBox({ at }: { at: THREE.Vector3 }) {
       <boxGeometry args={[SIZE, at.y, SIZE]} />
       <meshStandardMaterial color="#20292c" roughness={0.75} />
     </mesh>
+  );
+}
+
+// The flat bench the upper back rests on in the hip thrust, its long edge under the back.
+function ThrustBench({ thrust }: { thrust: HipThrustRig }) {
+  const { benchDepth, benchLength } = HIP_THRUST;
+  const { y: top, z: edge } = thrust.edge;
+  const PAD = 0.06; // metres thick
+  const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
+  return (
+    <group>
+      <mesh position={[0, top - PAD / 2, edge - benchDepth / 2]}>
+        <boxGeometry args={[benchLength, PAD, benchDepth]} />
+        {padMat}
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (benchLength / 2 - 0.12), (top - PAD) / 2, edge - benchDepth / 2]}>
+          <boxGeometry args={[0.06, top - PAD, benchDepth - 0.04]} />
+          <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -1086,6 +1145,17 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const upright = exercise === "uprightRow" || exercise === "uprightRowDumbbell";
     const facePull = exercise === "facePull";
     const legExt = exercise === "legExtension";
+    let thrustPins: Record<(typeof PRESS_PINS)[number], THREE.Vector3> | null = null;
+    if (exercise === "hipThrust" && g.barbell) {
+      // Lying back on the bench: the pins sit beside the body, where each view can see them.
+      thrustPins = {
+        feet: worldPos(rig.l.ball).setY(0.03),
+        back: worldPos(rig.spine3).add(new THREE.Vector3(0.17, 0.04, 0)), // beside the upper back, at the bench
+        elbow: worldPos(rig.l.lowerarm).add(new THREE.Vector3(0.06, 0.03, 0)),
+        dumbbell: g.barbell.clone().add(new THREE.Vector3(0.12, 0.1, 0)), // on the bar, by the pad
+        core: worldPos(rig.spine1).add(new THREE.Vector3(0, 0.16, 0)), // over the belly
+      };
+    }
     const at: Record<(typeof PRESS_PINS)[number], THREE.Vector3> = {
       feet: legExt && g.pad
         ? g.pad.clone().add(new THREE.Vector3(0.06, 0.05, 0.04)) // on the shin pad
@@ -1135,6 +1205,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         ? worldPos(rig.l.thigh).lerp(worldPos(rig.l.calf), 0.5).add(new THREE.Vector3(0, 0.08, 0)) // on the front of the thigh
         : worldPos(rig.spine1).addScaledVector(chestFront, 0.16),
     };
+    if (thrustPins) Object.assign(at, thrustPins);
     // A pin turns see-through where it sits over the body, so the body stays in view.
     const over = overBody(
       rig,
@@ -1166,12 +1237,19 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
       <primitive object={scene} />
       {lift.bench && <Bench layout={lift.bench} />}
       {lift.support && <SupportBox at={lift.support} />}
+      {lift.thrust && <ThrustBench thrust={lift.thrust} />}
       {lift.bare ? null : lift.mat ? (
         <Mat />
       ) : lift.rope ? (
         <CableTower rope={ropeRef} pulley={lift.rope} top={exercise === "overheadCable" ? OVERHEAD_CABLE.towerTop : undefined} />
       ) : lift.barbell ? (
-        <Barbell inner={barbellRef} />
+        <Barbell
+          inner={barbellRef}
+          {...(lift.thrust && {
+            spec: HIP_THRUST,
+            pad: { radius: HIP_THRUST.padRadius, length: HIP_THRUST.padLength },
+          })}
+        />
       ) : lift.pullBar ? (
         <PullUpRack y={lift.pullBar} />
       ) : lift.legMachine ? (
