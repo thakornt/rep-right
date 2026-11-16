@@ -67,6 +67,36 @@ export const ROLE_LABELS: Record<Role, { name: string; hint: string }> = {
   stabilizer: { name: "กล้ามทรงตัว", hint: "เกร็งค้างไว้ให้ลำตัวและข้อต่อนิ่ง" },
 };
 
+export const REGION_LABELS_EN: Record<Region, string> = {
+  quads: "Quads (front of thigh)",
+  hamstrings: "Hamstrings (back of thigh)",
+  adductors: "Inner thigh",
+  glutes: "Glutes",
+  calves: "Calves",
+  abs: "Abs",
+  obliques: "Side abs (obliques)",
+  erectors: "Muscles along the spine",
+  lats: "Lats (sides of the back)",
+  upper_back: "Upper back and traps",
+  traps: "Traps",
+  chest_upper: "Upper chest",
+  chest_mid: "Middle chest",
+  chest_lower: "Lower chest",
+  delt_front: "Front of shoulder",
+  delt_side: "Side of shoulder",
+  delt_rear: "Back of shoulder",
+  teres: "Below the armpit (teres)",
+  biceps: "Biceps (front of arm)",
+  triceps: "Triceps (back of arm)",
+  forearms: "Forearms",
+};
+
+export const ROLE_LABELS_EN: Record<Role, { name: string; hint: string }> = {
+  prime: { name: "Main muscles", hint: "do most of the lifting" },
+  synergist: { name: "Helping muscles", hint: "help the main muscles" },
+  stabilizer: { name: "Steadying muscles", hint: "hold the body and joints still" },
+};
+
 // Shared by the body shader and the legend swatches.
 export const ROLE_COLORS: Record<Role | "warn", string> = {
   prime: "#f97316",

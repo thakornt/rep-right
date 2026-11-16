@@ -4,11 +4,13 @@ import { Pause, Play } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 
+import { useLocale, useMessages } from "@/lib/i18n/client";
+
 import type { View } from "./body-scene";
-import { REGION_LABELS, ROLE_COLORS, ROLE_LABELS, type Role } from "./muscles";
+import { REGION_LABELS, REGION_LABELS_EN, ROLE_COLORS, ROLE_LABELS, ROLE_LABELS_EN, type Role } from "./muscles";
 import type { CurlSide } from "./pose-curl";
+import { pressContent } from "./press-en";
 import {
-  PRESS_CONTENT,
   PRESS_PINS,
   pressActivation,
   type PressExercise,
@@ -22,26 +24,16 @@ import type { Phase } from "./squat";
 // three.js only runs in the browser; the text around it is server-rendered.
 const PressScene = dynamic(() => import("./press-scene"), {
   ssr: false,
-  loading: () => (
-    <div className="grid h-full place-items-center text-sm text-faint">
-      กำลังโหลดโมเดล 3 มิติ…
-    </div>
-  ),
+  loading: () => <Loading3D />,
 });
 
-const VIEWS: [View, string][] = [
-  ["side", "ด้านข้าง"],
-  ["front", "ด้านหน้า"],
-  ["back", "ด้านหลัง"],
-  ["angle", "เฉียง 45°"],
-];
+function Loading3D() {
+  return <div className="grid h-full place-items-center text-sm text-faint">{useMessages().viewer.loading}</div>;
+}
+
+const VIEWS: View[] = ["side", "front", "back", "angle"];
 
 const ROLES: Role[] = ["prime", "synergist", "stabilizer"];
-
-const CURL_WAYS = [
-  [false, "ยกพร้อมกัน"],
-  [true, "สลับข้าง"],
-] as const;
 
 // `switcher` picks another way of doing the lift, shown above the 3D view; `steps`, the form's
 // key points, sit under the view's controls, above the muscles.
@@ -54,7 +46,15 @@ export function PressViewer({
   switcher?: React.ReactNode;
   steps?: React.ReactNode;
 }) {
-  const content = PRESS_CONTENT[exercise];
+  const locale = useLocale();
+  const t = useMessages().viewer;
+  const content = pressContent(exercise, locale);
+  const regionLabels = locale === "en" ? REGION_LABELS_EN : REGION_LABELS;
+  const roleLabels = locale === "en" ? ROLE_LABELS_EN : ROLE_LABELS;
+  const curlWays = [
+    [false, t.together],
+    [true, t.alternate],
+  ] as const;
   const state = useRef<PressState>({
     depth: 0.5,
     playing: true,
@@ -79,7 +79,8 @@ export function PressViewer({
     state.current.side = s;
   }, []);
 
-  const arm = side === "l" ? "แขนซ้าย" : "แขนขวา";
+  const arm = side === "l" ? t.leftArm : t.rightArm;
+  const phaseText = phase === "down" ? (content.lowering ?? t.lowering) : content.rising;
 
   const onPinMove = useCallback(
     (id: string, x: number, y: number, visible: boolean, front: boolean) => {
@@ -108,7 +109,7 @@ export function PressViewer({
       <div className="flex flex-col gap-3">
         {exercise === "hammer" ? (
           <WaySwitch
-            ways={CURL_WAYS}
+            ways={curlWays}
             value={alternate}
             onChange={(value) => {
               state.current.alternate = value;
@@ -133,7 +134,7 @@ export function PressViewer({
               type="button"
               data-pin
               onClick={() => setActivePin((cur) => (cur === id ? null : id))}
-              aria-label={`จุดจัดท่าที่ ${i + 1}`}
+              aria-label={t.pin(i + 1)}
               style={{ visibility: "hidden" }}
               className={`absolute top-0 left-0 grid h-7 w-7 cursor-pointer place-items-center rounded-full text-xs font-bold shadow-lg ${
                 activePin === id
@@ -145,11 +146,7 @@ export function PressViewer({
             </button>
           ))}
           <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-bg/70 px-3 py-1 text-xs text-muted">
-            {alternate && arm}
-            {phase === "down"
-              ? (content.lowering ?? "กำลังลง")
-              : content.rising}{" "}
-            · ลากเพื่อหมุนดู · กดตัวเลขดูวิธีจัดท่า
+            {alternate ? t.withArm(arm, phaseText) : phaseText} · {t.howTo}
           </div>
           {activePin && (
             <div
@@ -166,7 +163,7 @@ export function PressViewer({
       </div>
 
       <div className="flex gap-2 overflow-x-auto">
-        {VIEWS.map(([v, label]) => (
+        {VIEWS.map((v) => (
           <button
             key={v}
             type="button"
@@ -177,7 +174,7 @@ export function PressViewer({
                 : "bg-raised text-fg hover:bg-hover"
             }`}
           >
-            {label}
+            {t.views[v]}
           </button>
         ))}
       </div>
@@ -186,13 +183,13 @@ export function PressViewer({
         <button
           type="button"
           onClick={togglePlay}
-          aria-label={playing ? "หยุด" : "เล่น"}
+          aria-label={playing ? t.pause : t.play}
           className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full bg-raised text-fg hover:bg-hover"
         >
           {playing ? <Pause size={20} /> : <Play size={20} />}
         </button>
         <label className="flex flex-1 flex-col gap-1">
-          <span className="sr-only">ระยะการยก</span>
+          <span className="sr-only">{t.range}</span>
           <input
             type="range"
             min={0}
@@ -209,10 +206,8 @@ export function PressViewer({
             className="w-full accent-[var(--primary)]"
           />
           <span aria-hidden className="flex justify-between text-xs text-faint">
-            <span>{alternate ? `${arm}${content.top}` : content.top}</span>
-            <span>
-              {alternate ? `${arm}${content.bottom}` : content.bottom}
-            </span>
+            <span>{alternate ? t.withArm(arm, content.top) : content.top}</span>
+            <span>{alternate ? t.withArm(arm, content.bottom) : content.bottom}</span>
           </span>
         </label>
       </div>
@@ -220,9 +215,7 @@ export function PressViewer({
       {steps}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-faint">
-          กล้ามเนื้อที่ทำงาน
-        </h2>
+        <h2 className="text-xs font-medium tracking-wide text-faint">{t.muscles}</h2>
         <ul className="flex flex-col gap-3">
           {ROLES.map((role) => (
             <li key={role} className="flex gap-3">
@@ -232,12 +225,12 @@ export function PressViewer({
                 style={{ background: ROLE_COLORS[role] }}
               />
               <div className="text-sm leading-relaxed">
-                <span className="font-semibold">{ROLE_LABELS[role].name}</span>
-                <span className="text-muted"> — {ROLE_LABELS[role].hint}</span>
+                <span className="font-semibold">{roleLabels[role].name}</span>
+                <span className="text-muted"> — {roleLabels[role].hint}</span>
                 <div className="text-fg/90">
                   {roles
                     .filter((a) => a.role === role)
-                    .map((a) => REGION_LABELS[a.region])
+                    .map((a) => regionLabels[a.region])
                     .join(", ")}
                 </div>
               </div>
@@ -246,7 +239,7 @@ export function PressViewer({
         </ul>
         {content.grips && (
           <div className="mt-2 flex flex-col gap-3 rounded-2xl bg-raised p-4">
-            <h3 className="text-sm font-semibold">จับคว่ำมือกับหงายมือต่างกันอย่างไร</h3>
+            <h3 className="text-sm font-semibold">{t.grips}</h3>
             {content.grips.map((g) => (
               <div key={g.label} className="text-sm leading-relaxed">
                 <div className="font-semibold">{g.label}</div>
@@ -258,17 +251,14 @@ export function PressViewer({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-faint">
-          สังเกตร่างกายระหว่างเล่น
-        </h2>
+        <h2 className="text-xs font-medium tracking-wide text-faint">{t.notice}</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed text-fg/90">
           {content.notice.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
         <p className="text-xs leading-relaxed text-faint">
-          ภาพและสีกล้ามเนื้อเป็นแนวทางทั่วไปเพื่อช่วยเข้าใจท่า
-          ไม่ใช่คำวินิจฉัยหรือคำแนะนำทางการแพทย์
+          {t.disclaimer}
         </p>
       </section>
     </div>

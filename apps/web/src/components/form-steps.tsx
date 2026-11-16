@@ -1,9 +1,9 @@
 // The numbered key points of an exercise's form. On a page with a 3D view it sits under the
 // view's controls, above the muscles; elsewhere it follows the page's header.
-export function FormSteps({ cues }: { cues: string[] }) {
+export function FormSteps({ cues, title }: { cues: string[]; title: string }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xs font-medium tracking-wide text-faint">จุดสำคัญของฟอร์ม</h2>
+      <h2 className="text-xs font-medium tracking-wide text-faint">{title}</h2>
       <ol className="flex flex-col">
         {cues.map((c, i) => (
           <li key={c} className="relative flex gap-4 pb-6 last:pb-0">

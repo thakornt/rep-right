@@ -6,6 +6,7 @@
 // This is general guidance, not a prescription: the page says so.
 
 import { MUSCLES } from "../lib/exercise-groups";
+import type { Locale } from "../lib/i18n/locale";
 
 export type Muscle = (typeof MUSCLES)[number][0];
 
@@ -267,13 +268,107 @@ export function weekdayIndex(date: Date): number {
   return (date.getDay() + 6) % 7;
 }
 
-/** The program's plan for a date: the weekday's Thai name and that day's session or rest. */
-export function planFor(program: Program, date: Date): { weekday: string; day: Day } {
+/** The program's plan for a date: the weekday's name and that day's session or rest. */
+export function planFor(program: Program, date: Date, locale: Locale): { weekday: string; day: Day } {
   const i = weekdayIndex(date);
-  return { weekday: WEEKDAYS[i], day: program.week[i] };
+  return { weekday: weekdays(locale)[i], day: program.week[i] };
 }
 
 /** Exercise library link filtered to a training day's main muscle groups. */
 export function exercisesHref(day: TrainingDay): string {
   return `/exercises?${day.focus.map((m) => `muscle=${m}`).join("&")}`;
+}
+
+// --- English -------------------------------------------------------------------
+// The Thai above is the source; these follow it by program id and day title.
+
+const WEEKDAYS_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export const weekdays = (locale: Locale) => (locale === "en" ? WEEKDAYS_EN : WEEKDAYS);
+
+// English names of the example exercises, as the API's name_en.
+export const EXERCISE_NAMES_EN: Record<string, string> = {
+  "barbell-squat": "Barbell Squat",
+  "dumbbell-squat": "Dumbbell Squat",
+  "romanian-deadlift": "Romanian Deadlift",
+  "push-up": "Push-up",
+  "incline-dumbbell-press": "Incline Dumbbell Press",
+  "overhead-press": "Overhead Press",
+  "dumbbell-lateral-raise": "Dumbbell Lateral Raise",
+  "lat-pulldown": "Lat Pulldown",
+  "single-arm-dumbbell-row": "Single-arm Dumbbell Row",
+  "hammer-curl": "Hammer Curl",
+  "rope-triceps-pushdown": "Rope Triceps Pushdown",
+  "overhead-triceps-extension": "Overhead Triceps Extension",
+  crunch: "Crunch",
+};
+
+export const exerciseNames = (locale: Locale) => (locale === "en" ? EXERCISE_NAMES_EN : EXERCISE_NAMES);
+
+export const DAY_TITLES_EN: Record<string, string> = {
+  ทั้งตัว: "Full body",
+  ช่วงบน: "Upper body",
+  "ช่วงล่าง + หน้าท้อง": "Lower body + abs",
+  "ดัน (อก ไหล่ หลังแขน)": "Push (chest, shoulders, triceps)",
+  "ดึง (หลัง หน้าแขน)": "Pull (back, biceps)",
+  "ขา + หน้าท้อง": "Legs + abs",
+  อก: "Chest",
+  "หลัง + หน้าท้อง": "Back + abs",
+  ไหล่: "Shoulders",
+  ขา: "Legs",
+  "แขน + หน้าท้อง": "Arms + abs",
+};
+
+type ProgramText = Pick<Program, "name" | "why" | "setsPerSession" | "timesPerWeek" | "note">;
+
+export const PROGRAM_TEXT_EN: Record<string, ProgramText> = {
+  "full-body-2": {
+    name: "Full body, 2 days a week",
+    why: "With only 2 days, splitting the body up would train each muscle group just once a week. Training the whole body each time works every group twice a week, with long rest days in between so your body recovers in time.",
+    setsPerSession: "3–4 sets",
+    timesPerWeek: "Twice a week",
+  },
+  "full-body-3": {
+    name: "Full body, 3 days a week",
+    why: "The best fit for beginners. You repeat the same exercises often, so your form improves quickly. Every group is trained 3 times a week, with a rest day after each session, so no muscle works 2 days in a row.",
+    setsPerSession: "2–3 sets",
+    timesPerWeek: "3 times a week",
+  },
+  "upper-lower": {
+    name: "Upper / lower, alternating × 2",
+    why: "Training the whole body on 4 days would mean working the same muscles 2 days in a row, so the week alternates upper body and lower body. While the upper body rests, the lower body works. Every group is still trained twice a week.",
+    setsPerSession: "3–4 sets",
+    timesPerWeek: "Twice a week",
+  },
+  "ppl-upper-lower": {
+    name: "Push / pull / legs + upper / lower",
+    why: "The first 3 days split into pushing, pulling and legs, so each day fits several exercises without wearing you out. After 1 rest day come an upper-body day and a lower-body day. Every group is trained twice a week, and none works 2 days in a row.",
+    setsPerSession: "3–4 sets",
+    timesPerWeek: "Twice a week",
+  },
+  "bro-split": {
+    name: "One muscle group a day",
+    why: "Each day focuses on one group, so you can do several exercises for it. The days are ordered so the shoulders and triceps, which help on chest day, get to rest first. But each group is trained only once a week.",
+    setsPerSession: "6–8 sets",
+    timesPerWeek: "Once a week",
+    note: "For beginners, push / pull / legs + upper / lower usually works better: each group gets trained more often, and you don't have to cram many sets into one day.",
+  },
+  "ppl-2": {
+    name: "Push / pull / legs × 2",
+    why: "Cycle through pushing, pulling and legs twice. The pushing muscles (chest, shoulders, triceps) and the pulling muscles (back, biceps) are different, so they can be trained on back-to-back days. Every group gets 2 days of rest before it's trained again.",
+    setsPerSession: "2–3 sets",
+    timesPerWeek: "Twice a week",
+    note: "6 days a week can wear you down. If you're just starting, try the 3-day program for 2–3 months first, then add days.",
+  },
+};
+
+/** The program with its words in the given language; the schedule is the same. */
+export function localizeProgram(program: Program, locale: Locale): Program {
+  if (locale !== "en") return program;
+  const text = PROGRAM_TEXT_EN[program.id];
+  return {
+    ...program,
+    ...text,
+    week: program.week.map((d) => (d.rest ? d : { ...d, title: DAY_TITLES_EN[d.title] ?? d.title })),
+  };
 }

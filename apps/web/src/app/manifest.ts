@@ -1,12 +1,19 @@
 import type { MetadataRoute } from "next";
+import { cookies, headers } from "next/headers";
 
-// Lets phones install the app to the home screen and open it full screen.
-export default function manifest(): MetadataRoute.Manifest {
+import { LOCALE_COOKIE, pickLocale } from "@/lib/i18n/locale";
+import { MESSAGES } from "@/lib/i18n/messages";
+
+// Lets phones install the app to the home screen and open it full screen,
+// named in the language the visitor uses (their saved choice, else the browser's).
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const locale = pickLocale((await cookies()).get(LOCALE_COOKIE)?.value, (await headers()).get("accept-language"));
+  const t = MESSAGES[locale].meta;
   return {
-    name: "rep-right — ฟอร์มถูก ยกปลอดภัย",
+    name: t.siteTitle,
     short_name: "rep-right",
-    description: "ดูฟอร์มท่าเวทแบบ 3D บันทึกการซ้อมเร็ว และเตือนเมื่อเพิ่มโหลดเร็วเกินไป",
-    lang: "th",
+    description: t.appDescription,
+    lang: locale,
     start_url: "/",
     scope: "/",
     display: "standalone",
