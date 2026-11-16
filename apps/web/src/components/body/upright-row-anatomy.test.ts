@@ -7,7 +7,10 @@
 // wider than the shoulders; all else is the same.
 
 import * as THREE from "three";
-import { beforeAll, describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test, vi } from "vitest";
+
+// Each test poses the body at every 1% of the lift; on the CI runner that can pass 5 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 import { measure, readAnatomy, violations, type Anatomy } from "./anatomy";
 import { contact, readBody, type Body } from "./contact";

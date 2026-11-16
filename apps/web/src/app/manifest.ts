@@ -1,13 +1,13 @@
 import type { MetadataRoute } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 
 import { LOCALE_COOKIE, pickLocale } from "@/lib/i18n/locale";
 import { MESSAGES } from "@/lib/i18n/messages";
 
 // Lets phones install the app to the home screen and open it full screen,
-// named in the language the visitor uses (their saved choice, else the browser's).
+// named in the language the visitor uses (their saved choice, else Thai).
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const locale = pickLocale((await cookies()).get(LOCALE_COOKIE)?.value, (await headers()).get("accept-language"));
+  const locale = pickLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = MESSAGES[locale].meta;
   return {
     name: t.siteTitle,
