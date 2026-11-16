@@ -79,7 +79,8 @@ function PrivacyTh() {
       <Section title="คุกกี้และที่เก็บในเบราว์เซอร์">
         <p>
           เราใช้คุกกี้สำหรับคงการเข้าสู่ระบบ (อายุไม่เกิน 30 วัน) และตอนเข้าสู่ระบบด้วย LINE จะมีคุกกี้ชั่วคราวอีกตัว (อายุไม่เกิน 10 นาที)
-          ไว้ตรวจว่าคำขอกลับมาจาก LINE จริง ทั้งสองตัวสคริปต์ในหน้าเว็บอ่านไม่ได้ ไม่มีคุกกี้โฆษณาหรือคุกกี้ติดตาม
+          ไว้ตรวจว่าคำขอกลับมาจาก LINE จริง ทั้งสองตัวสคริปต์ในหน้าเว็บอ่านไม่ได้ และมีคุกกี้จำภาษาที่คุณเลือกในหน้าโปรไฟล์
+          (อายุไม่เกิน 1 ปี) ซึ่งเก็บแค่ว่าเลือกภาษาไทยหรืออังกฤษ ใช้ได้โดยไม่ต้องเข้าสู่ระบบ ไม่มีคุกกี้โฆษณาหรือคุกกี้ติดตาม
           และไม่มีระบบวิเคราะห์ผู้เข้าชม หน้าต่างเลือกบัญชีของ Google และหน้าเข้าสู่ระบบของ LINE เป็นของผู้ให้บริการนั้น
           จึงอยู่ภายใต้นโยบายของผู้ให้บริการนั้นด้วย
         </p>
@@ -213,7 +214,8 @@ function PrivacyEn() {
         <p>
           We use a cookie to keep you signed in (for up to 30 days). When you sign in with LINE there is one more,
           short-lived cookie (up to 10 minutes) to check the request really came back from LINE. Scripts on the page
-          can&apos;t read either of them. There are no advertising or
+          can&apos;t read either of them. One more cookie remembers the language you pick on your profile page (for up
+          to 1 year); it holds only “English” or “Thai” and works without signing in. There are no advertising or
           tracking cookies and no visitor analytics. Google&apos;s account chooser and LINE&apos;s sign-in page belong to
           those providers, so their own policies apply there too.
         </p>
