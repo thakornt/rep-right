@@ -205,7 +205,8 @@ body {
   }
   .region-photo {
     z-index: -2;
-    opacity: 0.55;
+    /* Per card, set from region-cards.tsx so a brighter photo can sit lower. */
+    opacity: var(--photo-opacity, 0.55);
     filter: grayscale(0.25) contrast(1.12) brightness(1.1);
     -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 98%);
     mask-image: linear-gradient(to left, #000 40%, transparent 98%);
@@ -225,7 +226,7 @@ body {
       opacity: 1;
     }
     .region-card:hover .region-photo {
-      opacity: 0.68;
+      opacity: calc(var(--photo-opacity, 0.55) + 0.13);
       transform: scale(1.04);
     }
   }
