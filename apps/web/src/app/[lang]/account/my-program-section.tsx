@@ -2,7 +2,6 @@
 
 import { CalendarDays, ChevronDown, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { localizeProgram, weekdayIndex } from "@/content/programs";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +17,6 @@ import { btnPrimary, btnQuiet } from "../ui";
  * week and the buttons to change it or delete it to start over.
  */
 export function MyProgramSection() {
-  const router = useRouter();
   const mine = useMyProgram();
   const locale = useLocale();
   const t = MESSAGES[locale].myProgram;
@@ -63,7 +61,6 @@ export function MyProgramSection() {
                 className={`${btnQuiet.replace("text-fg", "text-danger")} whitespace-nowrap`}
                 onClick={() => {
                   void clearMyProgram();
-                  router.push("/programs");
                 }}
               >
                 <Trash2 aria-hidden size={18} /> {t.remove}
