@@ -315,8 +315,8 @@ export const en: Messages = {
     none: "No program chosen yet. Let us help you pick one for the days you can make it.",
     help: "Help me pick a program",
     summary: (days: number, alias: string) => `${days} days a week · known in gyms as: ${alias}`,
-    change: "Change program",
-    remove: "Remove program",
+    change: "Change",
+    remove: "Remove",
     savedOnAccount:
       "This program is saved to your account, so you'll see it on any device. Remove it and the home page goes back to offering help picking one.",
     savedHere:

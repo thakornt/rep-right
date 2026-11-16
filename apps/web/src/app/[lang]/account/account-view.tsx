@@ -3,7 +3,7 @@
 import { Check, CircleAlert, Pencil, ShieldCheck, ShieldOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   HEALTH_CONSENT_VERSION,
@@ -33,7 +33,8 @@ const fullDate = (iso: string, locale: Locale) =>
 // Errors are kept as keys, so they show in whatever language the page is in.
 type AccountError = keyof Messages["account"]["errors"];
 
-export function AccountView() {
+/** `afterProfile` sits right under the picture, name and email. */
+export function AccountView({ afterProfile }: { afterProfile?: ReactNode }) {
   const auth = useAuth();
   const router = useRouter();
   const [consents, setConsents] = useState<Consent[] | null>(null);
@@ -71,6 +72,7 @@ export function AccountView() {
   return (
     <div className="flex flex-col gap-10">
       <ProfileCard user={auth.user} t={t} />
+      {afterProfile}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-medium tracking-wide text-faint">{t.signedInWith}</h2>
