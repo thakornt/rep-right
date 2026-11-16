@@ -3,6 +3,7 @@
 import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { EquipmentIcon } from "@/components/equipment-icon";
 import type { Exercise } from "@/lib/api";
 import { countWith, matchesFilter, type ExerciseFilter } from "@/lib/exercise-filter";
 import { CATEGORIES, EQUIPMENT, MUSCLES, SLUGS_WITH_3D, exerciseName, localized, muscleLabel } from "@/lib/exercise-groups";
@@ -55,6 +56,7 @@ export function ExercisePicker({
   const clear = (group?: Group) =>
     setPicked((cur) => (group ? { ...cur, [group]: new Set() } : { muscles: new Set(), equipment: new Set() }));
 
+  const equipmentNames = localized(EQUIPMENT, locale);
   // Options no exercise uses at all are left out; ones the other group rules out are dimmed.
   const options = (group: Group, list: [string, string][]) =>
     localized(list, locale)
@@ -119,6 +121,18 @@ export function ExercisePicker({
                         {e.muscles.map((m) => muscleLabel(m, locale)).join(", ")}
                       </span>
                     </span>
+                    {e.equipment.length > 0 && (
+                      <span className="flex shrink-0 items-center gap-1.5 text-primary">
+                        {equipmentNames
+                          .filter(([k]) => e.equipment.includes(k))
+                          .map(([k, name]) => (
+                            <span key={k} title={name}>
+                              <EquipmentIcon kind={k} />
+                              <span className="sr-only">{name}</span>
+                            </span>
+                          ))}
+                      </span>
+                    )}
                     {mark3d && SLUGS_WITH_3D.has(e.slug) && <Badge3D />}
                     <ChevronRight
                       aria-hidden
@@ -162,6 +176,8 @@ export function ExercisePicker({
                       on ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
                     }`}
                   >
+                    {/* Primary icon on the plain chip; on the picked (primary) chip it takes the text colour. */}
+                    {group === "equipment" && <EquipmentIcon kind={value} className={on ? "" : "text-primary"} />}
                     {name}
                     <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
                   </button>
