@@ -122,7 +122,7 @@ export function ExercisePicker({
                       </span>
                     </span>
                     {e.equipment.length > 0 && (
-                      <span className="flex shrink-0 items-center gap-1.5 text-primary">
+                      <span className="flex shrink-0 items-center gap-1.5 text-fg">
                         {equipmentNames
                           .filter(([k]) => e.equipment.includes(k))
                           .map(([k, name]) => (
@@ -176,8 +176,7 @@ export function ExercisePicker({
                       on ? "bg-primary font-semibold text-primary-fg" : "bg-raised text-fg hover:bg-hover"
                     }`}
                   >
-                    {/* Primary icon on the plain chip; on the picked (primary) chip it takes the text colour. */}
-                    {group === "equipment" && <EquipmentIcon kind={value} className={on ? "" : "text-primary"} />}
+                    {group === "equipment" && <EquipmentIcon kind={value} />}
                     {name}
                     <span className={`num text-xs ${on ? "opacity-70" : "text-faint"}`}>{count}</span>
                   </button>
