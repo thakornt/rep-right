@@ -6,9 +6,11 @@ import {
   DAY_CHOICES,
   EXERCISE_MUSCLES,
   EXERCISE_NAMES,
+  EXERCISE_NAMES_EN,
   PROGRAMS,
   backToBackMuscles,
   exercisesHref,
+  localizeProgram,
   planFor,
   weekdayIndex,
   musclesWorked,
@@ -92,17 +94,41 @@ describe("planFor", () => {
   it("maps Monday to the first day of the week", () => {
     // 2026-11-09 is a Monday.
     expect(weekdayIndex(new Date(2026, 10, 9))).toBe(0);
-    expect(planFor(ppl, new Date(2026, 10, 9)).weekday).toBe("จันทร์");
+    expect(planFor(ppl, new Date(2026, 10, 9), "th").weekday).toBe("จันทร์");
+    expect(planFor(ppl, new Date(2026, 10, 9), "en").weekday).toBe("Monday");
   });
 
   it("maps Sunday to the last day, a rest day in every program", () => {
     expect(weekdayIndex(new Date(2026, 10, 15))).toBe(6);
-    for (const p of PROGRAMS) expect(planFor(p, new Date(2026, 10, 15)).day.rest).toBe(true);
+    for (const p of PROGRAMS) expect(planFor(p, new Date(2026, 10, 15), "th").day.rest).toBe(true);
   });
 
   it("links a training day to the exercise library filtered by its main groups", () => {
-    const { day } = planFor(ppl, new Date(2026, 10, 10)); // Tuesday: pull
+    const { day } = planFor(ppl, new Date(2026, 10, 10), "th"); // Tuesday: pull
     expect(day.rest).toBeFalsy();
     if (!day.rest) expect(exercisesHref(day)).toBe("/exercises?muscle=back&muscle=biceps");
+  });
+});
+
+describe("English", () => {
+  it("has every program, day title and example exercise in English", () => {
+    for (const p of PROGRAMS) {
+      const en = localizeProgram(p, "en");
+      for (const text of [en.name, en.why, en.setsPerSession, en.timesPerWeek, en.note ?? ""]) {
+        expect(text).not.toMatch(/[\u0E00-\u0E7F]/);
+      }
+      expect(Boolean(en.note)).toBe(Boolean(p.note));
+      en.week.forEach((day, i) => {
+        expect(day.rest).toBe(p.week[i].rest);
+        if (!day.rest) {
+          expect(day.title).not.toMatch(/[\u0E00-\u0E7F]/);
+          for (const slug of day.exercises) expect(EXERCISE_NAMES_EN[slug]).toBeTruthy();
+        }
+      });
+    }
+  });
+
+  it("leaves the Thai program as it is", () => {
+    for (const p of PROGRAMS) expect(localizeProgram(p, "th")).toBe(p);
   });
 });

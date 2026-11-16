@@ -15,10 +15,14 @@ import {
   updateDisplayName,
   type User,
 } from "./api";
+import type { Messages } from "./i18n/messages";
+
+/** Why the last sign-in failed; the page shows it in the visitor's language. */
+export type AuthError = keyof Messages["auth"]["errors"];
 
 export type AuthState =
   | { kind: "checking" }
-  | { kind: "signed-out"; error?: string }
+  | { kind: "signed-out"; error?: AuthError }
   | { kind: "signed-in"; user: User };
 
 let state: AuthState = { kind: "checking" };
@@ -69,7 +73,7 @@ async function signInWith(attempt: () => Promise<User>) {
   try {
     set({ kind: "signed-in", user: await attempt() });
   } catch {
-    set({ kind: "signed-out", error: "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง" });
+    set({ kind: "signed-out", error: "failed" });
   }
 }
 
@@ -79,7 +83,7 @@ export const signIn = (proof: { id_token: string } | { code: string }) => signIn
 export const signInLine = (code: string, state: string) => signInWith(() => signInWithLine(code, state));
 
 /** Shows a sign-in error on the home page (e.g. the user cancelled at LINE). */
-export function signInFailed(error: string) {
+export function signInFailed(error: AuthError) {
   decided();
   set({ kind: "signed-out", error });
 }
