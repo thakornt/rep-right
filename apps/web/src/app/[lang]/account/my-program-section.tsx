@@ -55,12 +55,12 @@ export function MyProgramSection() {
             <WeekTable program={program} today={weekdayIndex(new Date())} />
 
             <div className="grid grid-cols-2 gap-2">
-              <Link href={`/programs?days=${program.daysPerWeek}`} className={btnQuiet}>
+              <Link href={`/programs?days=${program.daysPerWeek}`} className={`${btnQuiet} whitespace-nowrap`}>
                 {t.change}
               </Link>
               <button
                 type="button"
-                className={btnQuiet.replace("text-fg", "text-danger")}
+                className={`${btnQuiet.replace("text-fg", "text-danger")} whitespace-nowrap`}
                 onClick={() => {
                   void clearMyProgram();
                   router.push("/programs");
