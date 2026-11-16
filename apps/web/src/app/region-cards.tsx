@@ -2,12 +2,13 @@ import Link from "next/link";
 
 import { REGIONS, muscleLabel } from "@/lib/exercise-groups";
 
-// Background photo per region, in REGIONS order.
+// Background photo per region, in REGIONS order. opacity defaults to 0.55;
+// the legs photo is brighter than the others, so it sits lower to match.
 // Photos: Unsplash License and one supplied by the owner; see public/images/regions/CREDITS.md.
-const LOOKS: { photo: string; focus: string }[] = [
+const LOOKS: { photo: string; focus: string; opacity?: number }[] = [
   { photo: "upper", focus: "object-[55%_45%]" },
   { photo: "core", focus: "object-[55%_75%]" },
-  { photo: "lower", focus: "object-[60%_35%]" },
+  { photo: "lower", focus: "object-[60%_35%]", opacity: 0.35 },
 ];
 
 export function RegionCards() {
@@ -38,6 +39,7 @@ export function RegionCards() {
                   alt=""
                   loading={i === 0 ? "eager" : "lazy"}
                   decoding="async"
+                  style={look.opacity ? ({ "--photo-opacity": look.opacity } as React.CSSProperties) : undefined}
                   className={`region-photo pointer-events-none absolute inset-y-0 right-0 h-full w-[78%] object-cover ${look.focus} ${
                     i === 0 ? "sm:w-[58%]" : ""
                   }`}
