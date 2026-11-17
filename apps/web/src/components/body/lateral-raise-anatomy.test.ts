@@ -25,6 +25,8 @@ const TOP_ELBOW_OFF_SHOULDER = 0.03; // metres the elbow may be off the shoulder
 const TOP_BELOW_SHOULDER = 0.08; // metres the wrist may be below the shoulder at the top
 const MIN_KNEE = 15; // degrees: bent, as in the owner's photo
 const MAX_KNEE = 40; // and only a little: not a squat
+const MIN_TOP_THUMBS_FORWARD = 0.3; // forward share of the thumbs' direction at the top
+const MAX_TOP_THUMB_DROP = 5; // degrees the thumb end of the dumbbell may sit below level at the top, and not above it (owner, 2026-11-17)
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 
@@ -134,7 +136,9 @@ describe("dumbbell lateral raise", () => {
     }
   });
 
-  test("the palm faces in at the bottom and down at the top, the thumb side forward", () => {
+  // At the bottom the dumbbell lies nearly across the body, the palm facing back; the forearm turns
+  // back on the way up so the palm faces down at the top (owner, 2026-11-17).
+  test("the palm faces back at the bottom and down at the top", () => {
     const facing = (d: number) => {
       poseRaise(raise, d);
       const { s } = raise.l;
@@ -144,11 +148,25 @@ describe("dumbbell lateral raise", () => {
       return { palm: fore.clone().cross(thumbs).normalize(), thumbs: thumbs.normalize() };
     };
     const low = facing(1);
-    expect(low.palm.x).toBeLessThan(-0.7); // toward the body
-    expect(low.thumbs.z).toBeGreaterThan(0.5);
+    expect(low.palm.z).toBeLessThan(-0.7); // toward the back
+    expect(low.thumbs.x).toBeLessThan(-0.7); // in toward the body
     const high = facing(0);
     expect(high.palm.y).toBeLessThan(-0.7); // toward the floor
-    expect(high.thumbs.z).toBeGreaterThan(0.5);
+    // Forward and in: the dumbbell lies more across the body at the top (owner, 2026-11-17), so
+    // the thumbs point partly in, but never back.
+    expect(high.thumbs.z).toBeGreaterThan(MIN_TOP_THUMBS_FORWARD);
+  });
+
+  test("at the top the thumb end of the dumbbell dips a little below level, never above", () => {
+    const g = poseRaise(raise, 0);
+    for (const tag of ["l", "r"] as const) {
+      const thumbs = worldPos(root.getObjectByName(`index_01_${tag}`)!).sub(worldPos(root.getObjectByName(`ring_01_${tag}`)!));
+      const h = g[tag].handle.clone();
+      if (h.dot(thumbs) < 0) h.negate();
+      const drop = (-Math.asin(h.y) * 180) / Math.PI;
+      expect(drop).toBeGreaterThanOrEqual(0);
+      expect(drop).toBeLessThanOrEqual(MAX_TOP_THUMB_DROP);
+    }
   });
 
   test("the dumbbell sits near level at the top", () => {
