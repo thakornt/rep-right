@@ -9,7 +9,7 @@ export const en: Messages = {
     siteDescription:
       "See weightlifting form in 3D, log your workouts quickly, and get a warning when you add weight too fast. For people who lift without a coach.",
     appDescription: "See weightlifting form in 3D, log workouts quickly, and get a warning when you add weight too fast.",
-    account: "Profile — rep-right",
+    account: "Settings — rep-right",
     exercises: "Exercises and good form — rep-right",
     exercisesDescription:
       "Find weight-training exercises by the muscles you want to build, with the key points of good form and common mistakes.",
@@ -36,7 +36,7 @@ export const en: Messages = {
     terms: "Terms of use",
     privacy: "Privacy policy",
     and: "and",
-    profile: "Profile",
+    profile: "Settings",
     cancel: "Cancel",
     save: "Save",
     saving: "Saving…",
@@ -48,7 +48,7 @@ export const en: Messages = {
     log: "Log a workout",
     history: "Workout history",
     insights: "Warnings and plans",
-    account: "Profile",
+    account: "Settings",
   },
 
   nav: {
@@ -58,6 +58,7 @@ export const en: Messages = {
     log: "Log",
     history: "History",
     insights: "Warnings",
+    settings: "Settings",
   },
 
   home: {
@@ -77,7 +78,7 @@ export const en: Messages = {
     trainTitle: (weekday: string, title: string) => `It's ${weekday}. Ready for ${title}?`,
     trainBody: "Tap to see exercises for the muscles you train today.",
     program: "Program:",
-    change: "change it in your profile",
+    change: "change it in Settings",
   },
 
   apiStatus: {
@@ -96,7 +97,7 @@ export const en: Messages = {
     consentBefore: "When you sign in, you'll be asked to read and accept the",
     consentAfter: "before you start logging.",
     noClientId: "NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set",
-    profileLink: "Profile and privacy",
+    profileLink: "Settings and privacy",
     signOut: "Sign out",
     lineSigningIn: "Signing in with LINE…",
     errors: {
@@ -126,7 +127,7 @@ export const en: Messages = {
     readFull: "Read them in full:",
     accept: "Accept and start",
     decline: "Don't accept, sign out",
-    deleteHint: "If you'd rather not continue, you can delete your account on your",
+    deleteHint: "If you'd rather not continue, you can delete your account in",
     saveFailed: "Couldn't save. Please try again.",
   },
 
@@ -273,6 +274,7 @@ export const en: Messages = {
   },
 
   account: {
+    signInNote: "Sign in to manage your account: your details, what you agreed to, and deleting your account.",
     signedInWith: "Accounts you sign in with",
     connected: "Connected",
     providerNote:
@@ -342,7 +344,7 @@ export const en: Messages = {
     current: "Your current program",
     use: "Use this program",
     changeAnytime: "You can always change your program on your",
-    profilePage: "profile page",
+    profilePage: "Settings page",
     today: "Today",
     rest: "Rest",
     helpers: (list: string) => `Also working: ${list}`,

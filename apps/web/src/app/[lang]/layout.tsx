@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Settings } from "lucide-react";
 import { Manrope, Noto_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -43,6 +44,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children, params }: LayoutProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
+  const t = await getMessages();
   return (
     <html lang={lang} className={`${manrope.variable} ${notoSansThai.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
@@ -50,6 +52,15 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
           <Link href="/" className="flex items-center gap-2 text-[0.95rem] font-semibold tracking-tight">
             <LogoMark />
             Rep Right
+          </Link>
+          {/* Settings sits up here, not in the bottom bar: language works signed out too. */}
+          <Link
+            href="/settings"
+            aria-label={t.nav.settings}
+            title={t.nav.settings}
+            className="-mr-2 ml-auto flex size-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
+          >
+            <Settings aria-hidden size={22} />
           </Link>
         </header>
         <LocaleProvider locale={lang}>
