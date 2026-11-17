@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleAlert, Pencil, ShieldCheck, ShieldOff } from "lucide-react";
+import { Check, CircleAlert, LogOut, Pencil, ShieldCheck, ShieldOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -15,7 +15,7 @@ import {
   type Provider,
   type User,
 } from "@/lib/api";
-import { deleteAccount, rename, useAuth } from "@/lib/auth";
+import { deleteAccount, rename, signOut, useAuth } from "@/lib/auth";
 import { healthConsentText } from "@/lib/consent-text";
 import { useLocale } from "@/lib/i18n/client";
 import { DATE_LOCALE, type Locale } from "@/lib/i18n/locale";
@@ -213,6 +213,7 @@ function ProfileCard({ user, t }: { user: User; t: Messages["account"] }) {
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const name = user.display_name || user.email || t.defaultName;
   const m = MESSAGES[useLocale()];
   const trimmed = draft.trim();
@@ -283,6 +284,24 @@ function ProfileCard({ user, t }: { user: User; t: Messages["account"] }) {
           </div>
           <p className="max-w-full truncate text-sm text-muted">{user.email || t.noEmail}</p>
         </div>
+      )}
+      {!editing && (
+        <button
+          type="button"
+          className={`${btnQuiet} mt-1 w-full`}
+          disabled={signingOut}
+          onClick={async () => {
+            setSigningOut(true);
+            window.google?.accounts.id.disableAutoSelect();
+            try {
+              await signOut();
+            } finally {
+              setSigningOut(false);
+            }
+          }}
+        >
+          <LogOut aria-hidden size={18} /> {m.auth.signOut}
+        </button>
       )}
     </section>
   );

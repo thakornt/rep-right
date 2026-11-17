@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Settings } from "lucide-react";
 import { Manrope, Noto_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,6 +14,7 @@ import { LogoMark } from "./logo-mark";
 import { Nav } from "./nav";
 import { NavigationSplash } from "./navigation-splash";
 import { ServiceWorker } from "./service-worker";
+import { SettingsLink } from "./settings-link";
 
 // Manrope for Latin and numbers, Noto Sans Thai for Thai (the grey + orange preset).
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
@@ -53,15 +53,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <LogoMark />
             Rep Right
           </Link>
-          {/* Settings sits up here, not in the bottom bar: language works signed out too. */}
-          <Link
-            href="/settings"
-            aria-label={t.nav.settings}
-            title={t.nav.settings}
-            className="-mr-2 ml-auto flex size-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
-          >
-            <Settings aria-hidden size={22} />
-          </Link>
+          <SettingsLink label={t.nav.settings} />
         </header>
         <LocaleProvider locale={lang}>
           {children}
