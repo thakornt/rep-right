@@ -56,8 +56,8 @@ func TestWorkoutStore(t *testing.T) {
 		}
 	}
 	if su, err := s.ExerciseBySlug(ctx, "shrug"); err != nil ||
-		len(su.Equipment) != 2 || su.Equipment[0] != "barbell" || su.Equipment[1] != "dumbbell" {
-		t.Errorf("shrug equipment from migration 00011: %+v, %v", su, err)
+		len(su.Equipment) != 1 || su.Equipment[0] != "dumbbell" {
+		t.Errorf("shrug equipment from migration 00016: %+v, %v", su, err)
 	}
 	if lr, err := s.ExerciseBySlug(ctx, "leg-raise"); err != nil || lr.Category != "core" || lr.IsLowerBody ||
 		len(lr.Muscles) != 1 || lr.Muscles[0] != "abs" {
