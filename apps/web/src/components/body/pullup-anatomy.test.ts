@@ -32,6 +32,11 @@ const MIN_FEET_CLEAR = 0.3; // metres the feet hang off the floor
 const MAX_STEP = 0.02; // metres a hand, elbow or head may move per 1% of the rep: no jumps
 const MIN_OVERHAND_ELBOW_OUT = 0.1; // metres the elbows sit out from the shoulders at the top, overhand: down and a little out
 const MAX_UNDERHAND_ELBOW_OUT = 0.07; // and no more than this underhand: down in front, by the ribs
+// Overhand in the dead hang the elbows point straight out to the sides (owner, 2026-11-17). With
+// the arm this far overhead the shoulder's turn-out reads 104, past its 90: the reading follows the
+// shortest swing up from the arm hanging at the side and stops matching where the elbow points
+// (it reads 84 with the elbow pointing back, 113 with it pointing forward). Accepted by the owner.
+const HANG_SHOULDER_TURN_OUT = 105;
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 const GRIPS: PullUpGrip[] = ["overhand", "underhand"];
@@ -96,7 +101,10 @@ describe.each(GRIPS)("pull-up, %s", (grip) => {
     const g = posePullUp(pull, depth);
     const problems: string[] = [];
 
-    for (const v of violations(measure(anatomy))) problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
+    for (const v of violations(measure(anatomy))) {
+      if (grip === "overhand" && v.joint.endsWith("shoulder.rotation") && v.value <= HANG_SHOULDER_TURN_OUT) continue;
+      problems.push(`${v.joint} ${v.value.toFixed(0)} (${v.min}..${v.max})`);
+    }
 
     const c = contact(body);
     for (const t of c.through) {

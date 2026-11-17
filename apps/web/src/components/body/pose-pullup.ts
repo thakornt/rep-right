@@ -57,7 +57,7 @@ export const PULL_UP = {
 export const PULL_UP_GRIPS = {
   // A little wider than the shoulders (owner, 2026-11-14): the clip's hands are 1.13 times the
   // width across the outsides of the shoulders.
-  overhand: { gripHalf: 0.26, elbowSwingBottom: -85, elbowSwingTop: 60, elbowSwingEase: 4, handForward: 2, handOut: -5, thumbsOut: false },
+  overhand: { gripHalf: 0.26, elbowSwingBottom: 0, elbowSwingTop: 60, elbowSwingEase: 4, handForward: 2, handOut: -5, thumbsOut: false },
   // About shoulder width: in the clip the hands sit just inside the outsides of the shoulders,
   // over the shoulder joints, which are 0.187 m from the middle on this body.
   underhand: { gripHalf: 0.19, elbowSwingBottom: 85, elbowSwingTop: 85, elbowSwingEase: 1, handForward: 6, handOut: 0, thumbsOut: true },
