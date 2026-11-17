@@ -15,10 +15,19 @@ import { btnPrimary } from "./ui";
 /**
  * Renders children only when signed in and the current terms are accepted;
  * otherwise points to the sign-in on the home page or asks to accept. The
- * account page passes needTerms={false} so someone who declines can still
+ * settings page passes needTerms={false} so someone who declines can still
  * delete their account.
  */
-export function RequireAuth({ children, needTerms = true }: { children: ReactNode; needTerms?: boolean }) {
+export function RequireAuth({
+  children,
+  needTerms = true,
+  signInNote,
+}: {
+  children: ReactNode;
+  needTerms?: boolean;
+  /** Replaces the default "sign in first" line, for pages that work partly signed out. */
+  signInNote?: string;
+}) {
   const auth = useAuth();
   const terms = useTerms();
   const t = useMessages();
@@ -28,7 +37,7 @@ export function RequireAuth({ children, needTerms = true }: { children: ReactNod
   if (auth.kind === "signed-out") {
     return (
       <div className="flex flex-col items-start gap-4 py-6">
-        <p className="text-base text-muted">{t.requireAuth.needSignIn}</p>
+        <p className="text-base text-muted">{signInNote ?? t.requireAuth.needSignIn}</p>
         <Link href="/" className={btnPrimary}>
           <LogIn aria-hidden size={18} /> {t.requireAuth.goSignIn}
         </Link>

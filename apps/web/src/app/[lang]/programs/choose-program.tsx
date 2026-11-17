@@ -36,7 +36,7 @@ export function ChooseProgram({ id }: { id: string }) {
       )}
       <p className="text-center text-sm text-faint">
         {t.changeAnytime}{" "}
-        <Link href="/account" className="text-primary underline-offset-4 hover:underline">
+        <Link href="/settings" className="text-primary underline-offset-4 hover:underline">
           {t.profilePage}
         </Link>
       </p>

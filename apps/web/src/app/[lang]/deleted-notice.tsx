@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { useMessages } from "@/lib/i18n/client";
 
-/** Confirms an account deletion after /account redirects to "/?deleted=1". */
+/** Confirms an account deletion after the settings page redirects to "/?deleted=1". */
 export function DeletedNotice() {
   const [show, setShow] = useState(false);
   const t = useMessages();

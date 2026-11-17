@@ -34,7 +34,7 @@ function PrivacyTh() {
             <>
               <b>บัญชี:</b> รหัสบัญชีจากบริการที่คุณใช้เข้าสู่ระบบ (Google หรือ LINE) อีเมล ชื่อที่แสดง
               และลิงก์รูปโปรไฟล์ ซึ่งได้มาตอนเข้าสู่ระบบ (LINE ให้อีเมลเฉพาะเมื่อคุณกดอนุญาตบนหน้าของ LINE) เราเก็บแค่ลิงก์
-              ไม่เก็บไฟล์รูป รูปจึงยังโหลดจากเซิร์ฟเวอร์ของ Google หรือ LINE ชื่อที่แสดงแก้เองได้ที่หน้าโปรไฟล์
+              ไม่เก็บไฟล์รูป รูปจึงยังโหลดจากเซิร์ฟเวอร์ของ Google หรือ LINE ชื่อที่แสดงแก้เองได้ที่หน้าตั้งค่า
               เราไม่เห็นและไม่เก็บรหัสผ่าน
             </>,
             <>
@@ -79,7 +79,7 @@ function PrivacyTh() {
       <Section title="คุกกี้และที่เก็บในเบราว์เซอร์">
         <p>
           เราใช้คุกกี้สำหรับคงการเข้าสู่ระบบ (อายุไม่เกิน 30 วัน) และตอนเข้าสู่ระบบด้วย LINE จะมีคุกกี้ชั่วคราวอีกตัว (อายุไม่เกิน 10 นาที)
-          ไว้ตรวจว่าคำขอกลับมาจาก LINE จริง ทั้งสองตัวสคริปต์ในหน้าเว็บอ่านไม่ได้ และมีคุกกี้จำภาษาที่คุณเลือกในหน้าโปรไฟล์
+          ไว้ตรวจว่าคำขอกลับมาจาก LINE จริง ทั้งสองตัวสคริปต์ในหน้าเว็บอ่านไม่ได้ และมีคุกกี้จำภาษาที่คุณเลือกในหน้าตั้งค่า
           (อายุไม่เกิน 1 ปี) ซึ่งเก็บแค่ว่าเลือกภาษาไทยหรืออังกฤษ ใช้ได้โดยไม่ต้องเข้าสู่ระบบ ไม่มีคุกกี้โฆษณาหรือคุกกี้ติดตาม
           และไม่มีระบบวิเคราะห์ผู้เข้าชม หน้าต่างเลือกบัญชีของ Google และหน้าเข้าสู่ระบบของ LINE เป็นของผู้ให้บริการนั้น
           จึงอยู่ภายใต้นโยบายของผู้ให้บริการนั้นด้วย
@@ -121,8 +121,8 @@ function PrivacyTh() {
             "คัดค้าน หรือขอให้ระงับการใช้ข้อมูล",
             <>
               ขอให้ลบข้อมูล ทำเองได้ทันทีที่หน้า{" "}
-              <Link href="/account" className={link}>
-                โปรไฟล์
+              <Link href="/settings" className={link}>
+                ตั้งค่า
               </Link>
             </>,
             "ถอนความยินยอมได้ทุกเมื่อ โดยไม่กระทบสิ่งที่ทำไปก่อนถอน",
@@ -164,7 +164,7 @@ function PrivacyEn() {
               <b>Account:</b> the account ID from the service you sign in with (Google or LINE), your email, display name
               and a link to your profile picture, received when you sign in (LINE shares your email only if you allow it
               on LINE&apos;s page). We keep only the link, not the picture file, so the picture still loads from Google&apos;s
-              or LINE&apos;s servers. You can change your display name on your profile page. We never see or keep your
+              or LINE&apos;s servers. You can change your display name on your Settings page. We never see or keep your
               password.
             </>,
             <>
@@ -214,7 +214,7 @@ function PrivacyEn() {
         <p>
           We use a cookie to keep you signed in (for up to 30 days). When you sign in with LINE there is one more,
           short-lived cookie (up to 10 minutes) to check the request really came back from LINE. Scripts on the page
-          can&apos;t read either of them. One more cookie remembers the language you pick on your profile page (for up
+          can&apos;t read either of them. One more cookie remembers the language you pick on your Settings page (for up
           to 1 year); it holds only “English” or “Thai” and works without signing in. There are no advertising or
           tracking cookies and no visitor analytics. Google&apos;s account chooser and LINE&apos;s sign-in page belong to
           those providers, so their own policies apply there too.
@@ -257,8 +257,8 @@ function PrivacyEn() {
             "Object to, or ask us to restrict, the use of your data",
             <>
               Have your data deleted, which you can do yourself right away on your{" "}
-              <Link href="/account" className={link}>
-                profile
+              <Link href="/settings" className={link}>
+                Settings
               </Link>{" "}
               page
             </>,

@@ -7,7 +7,7 @@ export const th = {
     siteDescription:
       "ดูฟอร์มท่าเวทแบบ 3D บันทึกการซ้อมเร็ว และเตือนเมื่อเพิ่มโหลดเร็วเกินไป สำหรับคนเล่นเวทที่ไม่มีเทรนเนอร์",
     appDescription: "ดูฟอร์มท่าเวทแบบ 3D บันทึกการซ้อมเร็ว และเตือนเมื่อเพิ่มโหลดเร็วเกินไป",
-    account: "โปรไฟล์ — rep-right",
+    account: "ตั้งค่า — rep-right",
     exercises: "ท่าออกกำลังกายและฟอร์มที่ถูกต้อง — rep-right",
     exercisesDescription: "ค้นหาท่าเวทเทรนนิ่งตามกล้ามเนื้อที่อยากพัฒนา พร้อมจุดสำคัญของฟอร์มและข้อผิดพลาดที่พบบ่อย",
     exercise: (name: string) => `${name} ฟอร์มที่ถูกต้อง — rep-right`,
@@ -33,7 +33,7 @@ export const th = {
     terms: "ข้อตกลงการใช้งาน",
     privacy: "นโยบายความเป็นส่วนตัว",
     and: "และ",
-    profile: "โปรไฟล์",
+    profile: "ตั้งค่า",
     cancel: "ยกเลิก",
     save: "บันทึก",
     saving: "กำลังบันทึก…",
@@ -45,7 +45,7 @@ export const th = {
     log: "บันทึกการซ้อม",
     history: "ประวัติการซ้อม",
     insights: "คำเตือนและแผน",
-    account: "โปรไฟล์",
+    account: "ตั้งค่า",
   },
 
   nav: {
@@ -55,6 +55,7 @@ export const th = {
     log: "บันทึก",
     history: "ประวัติ",
     insights: "คำเตือน",
+    settings: "ตั้งค่า",
   },
 
   home: {
@@ -74,7 +75,7 @@ export const th = {
     trainTitle: (weekday: string, title: string) => `วันนี้เป็นวัน${weekday} มาเริ่มเล่น ${title} กันเลยไหม?`,
     trainBody: "กดเพื่อดูท่าของกล้ามที่ฝึกวันนี้",
     program: "โปรแกรม:",
-    change: "เปลี่ยนในโปรไฟล์",
+    change: "เปลี่ยนในหน้าตั้งค่า",
   },
 
   apiStatus: {
@@ -93,7 +94,7 @@ export const th = {
     consentBefore: "เมื่อเข้าสู่ระบบ จะมีให้อ่านและยอมรับ",
     consentAfter: "ก่อนเริ่มบันทึก",
     noClientId: "ยังไม่ได้ตั้งค่า NEXT_PUBLIC_GOOGLE_CLIENT_ID",
-    profileLink: "โปรไฟล์และความเป็นส่วนตัว",
+    profileLink: "ตั้งค่าและความเป็นส่วนตัว",
     signOut: "ออกจากระบบ",
     lineSigningIn: "กำลังเข้าสู่ระบบด้วย LINE…",
     errors: {
@@ -262,6 +263,7 @@ export const th = {
   },
 
   account: {
+    signInNote: "เข้าสู่ระบบเพื่อจัดการบัญชี เช่น ข้อมูลของคุณ สิ่งที่ยินยอมไว้ และการลบบัญชี",
     signedInWith: "บัญชีที่ใช้เข้าสู่ระบบ",
     connected: "เชื่อมแล้ว",
     providerNote: "ชื่อ อีเมล และรูปโปรไฟล์ได้มาจากบัญชีนี้ตอนเข้าสู่ระบบ รูปจะอัปเดตเองทุกครั้งที่เข้าสู่ระบบ",
@@ -329,7 +331,7 @@ export const th = {
     current: "โปรแกรมของคุณตอนนี้",
     use: "ใช้โปรแกรมนี้",
     changeAnytime: "เปลี่ยนโปรแกรมที่เลือกได้เสมอใน",
-    profilePage: "หน้าโปรไฟล์",
+    profilePage: "หน้าตั้งค่า",
     today: "วันนี้",
     rest: "พัก",
     helpers: (list: string) => `ช่วยออกแรงด้วย: ${list}`,
