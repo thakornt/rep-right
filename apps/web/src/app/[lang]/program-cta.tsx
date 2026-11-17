@@ -35,7 +35,7 @@ export function ProgramCta() {
   return (
     <div className="flex flex-col gap-2">
       {day.rest ? (
-        <Card href="/account" icon={<Moon aria-hidden size={24} />}>
+        <Card href="/settings" icon={<Moon aria-hidden size={24} />}>
           <span className="text-base font-semibold text-fg">{t.restTitle(weekday)}</span>
           <span className="text-sm leading-6 text-muted">{t.restBody}</span>
         </Card>
@@ -47,7 +47,7 @@ export function ProgramCta() {
       )}
       <p className="px-1 text-xs text-faint">
         {t.program} {program.name} ·{" "}
-        <Link href="/account" className="text-primary underline-offset-4 hover:underline">
+        <Link href="/settings" className="text-primary underline-offset-4 hover:underline">
           {t.change}
         </Link>
       </p>

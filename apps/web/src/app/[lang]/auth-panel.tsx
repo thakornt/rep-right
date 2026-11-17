@@ -160,7 +160,7 @@ export function AuthPanel() {
           <Avatar user={state.user} size="sm" />
           <div className="min-w-0 flex-1 text-sm">
             <p className="truncate font-medium">{state.user.display_name || state.user.email}</p>
-            <Link href="/account" className="text-muted hover:text-fg">
+            <Link href="/settings" className="text-muted hover:text-fg">
               {t.profileLink}
             </Link>
           </div>

@@ -90,7 +90,7 @@ export function TermsGate({ state }: { state: TermsState }) {
         </button>
         <p className="text-xs leading-relaxed text-faint">
           {t.deleteHint}{" "}
-          <Link href="/account" className={link}>
+          <Link href="/settings" className={link}>
             {m.common.profile}
           </Link>
         </p>

@@ -14,6 +14,7 @@ import { LogoMark } from "./logo-mark";
 import { Nav } from "./nav";
 import { NavigationSplash } from "./navigation-splash";
 import { ServiceWorker } from "./service-worker";
+import { SettingsLink } from "./settings-link";
 
 // Manrope for Latin and numbers, Noto Sans Thai for Thai (the grey + orange preset).
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
@@ -43,6 +44,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children, params }: LayoutProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
+  const t = await getMessages();
   return (
     <html lang={lang} className={`${manrope.variable} ${notoSansThai.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
@@ -51,6 +53,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <LogoMark />
             Rep Right
           </Link>
+          <SettingsLink label={t.nav.settings} />
         </header>
         <LocaleProvider locale={lang}>
           {children}
