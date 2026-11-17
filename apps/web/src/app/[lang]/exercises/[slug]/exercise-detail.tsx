@@ -35,6 +35,7 @@ const PRESS_SLUGS: Record<string, PressExercise> = {
   "romanian-deadlift": "rdl",
   "face-pull": "facePull",
   "hip-thrust": "hipThrust",
+  shrug: "shrug",
 };
 
 export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: FormCues }) {

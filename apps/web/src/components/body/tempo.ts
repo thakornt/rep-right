@@ -13,6 +13,7 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   shoulder: 1 - QUICK_UP,
   hammer: 1 - QUICK_UP,
   raise: 1 - QUICK_UP,
+  shrug: 1 - QUICK_UP, // lifted breathing out, lowered slowly breathing in
   squat: 1 - QUICK_UP,
   crunch: 1 - QUICK_UP,
   pulldown: 0.29, // the work is on the way down; measured off the video

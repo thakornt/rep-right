@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust" | "shrug";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -188,6 +188,21 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "obliques", role: "stabilizer", amount: 0.35 },
       { region: "upper_back", role: "stabilizer", amount: 0.5 }, // holding the shoulders down under the weight
       { region: "forearms", role: "stabilizer", amount: 0.5 }, // the grip
+    ];
+  }
+  if (exercise === "shrug") {
+    // The upper trapezius lifts the shoulders toward the ears, hardest at the top; the middle of
+    // the back draws the shoulder blades together there. The grip holds the dumbbells and the back
+    // holds the lean.
+    const up = 1 - depth;
+    return [
+      { region: "traps", role: "prime", amount: (0.45 + 0.55 * up) * effort },
+      { region: "upper_back", role: "synergist", amount: (0.2 + 0.4 * up) * effort }, // squeezing the shoulder blades
+      { region: "forearms", role: "stabilizer", amount: 0.5 }, // the grip
+      { region: "erectors", role: "stabilizer", amount: 0.4 }, // holding the lean
+      { region: "abs", role: "stabilizer", amount: 0.3 },
+      { region: "glutes", role: "stabilizer", amount: 0.2 },
+      { region: "hamstrings", role: "stabilizer", amount: 0.2 },
     ];
   }
   if (exercise === "raise") {
@@ -648,6 +663,23 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างเท้าและความลึกจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลงลึกเท่าที่หลังยังตรงและส้นเท้ายังติดพื้น ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า สะโพก หรือหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  shrug: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงเต็มเท้า",
+      back: "ถอยก้นไปข้างหลังแล้วโน้มลำตัวมาข้างหน้าเล็กน้อย หลังตรง ค้างท่านี้ไว้ตลอดเซ็ต",
+      elbow: "ปล่อยแขนห้อยตรงลงพื้น ศอกไม่งอช่วยดึง ให้ไหล่เป็นส่วนเดียวที่ขยับ",
+      dumbbell: "ถือดัมเบลข้างลำตัว ฝ่ามือหันเข้าหาตัว ยกไหล่ขึ้นหาหูตรง ๆ แล้วบีบสะบักเข้าหากันเล็กน้อย ค้างไว้ครู่หนึ่ง ไม่หมุนไหล่เป็นวงกลม",
+      core: "เกร็งท้องเบา ๆ ให้ลำตัวนิ่ง ยกขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า",
+    },
+    top: "ยกไหล่ขึ้นสุด",
+    bottom: "ลดไหล่ลงสุด",
+    rising: "กำลังยกไหล่ขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ยกไหล่ได้จึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ยกเท่าที่คอยังสบาย ไม่ต้องก้มหัวหรือยื่นคางช่วย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่คอ ไหล่ หรือหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   raise: {

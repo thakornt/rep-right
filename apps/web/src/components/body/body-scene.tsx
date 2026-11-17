@@ -154,6 +154,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
   const triceps = { value: new THREE.Vector2() }; // metres each arm's triceps gathers: left, right
   const traps = { value: new THREE.Vector2() }; // metres each side's upper trapezius swells: left, right
+  const shrug = { value: 0 }; // how much of the owner's sculpted shrug shape is on, 0..1 (pose-shrug.ts)
+  const mush = { value: 1 }; // how much of the shoulders' corrective smoothing is on (delta-mush.ts)
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
@@ -167,6 +169,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     shader.uniforms.uBiceps = biceps;
     shader.uniforms.uTriceps = triceps;
     shader.uniforms.uTraps = traps;
+    shader.uniforms.uShrug = shrug;
+    shader.uniforms.uMushAmount = mush;
     shader.uniforms.uCorr = { value: corr.weights };
     shader.uniforms.uCorrBone = corr.bone;
     shader.vertexShader = shader.vertexShader
@@ -176,12 +180,16 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         attribute float aBiceps;
         attribute vec2 aTriceps;
         attribute vec2 aTraps;
+        attribute vec3 aShrug;
+        attribute vec3 aShrugNormal;
 
         attribute vec3 aMush;
         attribute vec3 aMushNormal;
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
         uniform vec2 uTraps;
+        uniform float uShrug;
+        uniform float uMushAmount;
         varying vec2 vMapUv;
         ${CORRECTIVE_HEAD}`,
       )
@@ -189,7 +197,9 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         "#include <beginnormal_vertex>",
         `#include <beginnormal_vertex>
         // The shoulders' corrected skin is lit by its own normals (delta-mush.ts).
-        if (dot(aMushNormal, aMushNormal) > 0.0) objectNormal = aMushNormal;`,
+        if (dot(aMushNormal, aMushNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aMushNormal, uMushAmount));
+        // The shrug's sculpted trapezius is lit by its own shape's normals, coming in with it.
+        if (dot(aShrugNormal, aShrugNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aShrugNormal, uShrug));`,
       )
       .replace(
         "#include <begin_vertex>",
@@ -199,7 +209,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
         transformed += normal * dot(aTriceps, uTriceps);
         transformed += normal * dot(aTraps, uTraps);
-        transformed += aMush; // the shoulders' corrective smoothing (delta-mush.ts)
+        transformed += aShrug * uShrug; // the shrug's sculpted trapezius; meshes without it read 0
+        transformed += aMush * uMushAmount; // the shoulders' corrective smoothing (delta-mush.ts)
         vMapUv = uv;`,
       )
       // The shoulders' corrective shapes, after skinning (shoulder-correctives.ts).
@@ -265,6 +276,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setTriceps: (left: number, right: number) => triceps.value.set(left, right),
     setTraps: (left: number, right: number) => traps.value.set(left, right),
+    setShrug: (amount: number) => (shrug.value = amount),
+    setMush: (amount: number) => (mush.value = amount),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
       if (i === REGION_IDS.traps) trapsOwn = true;

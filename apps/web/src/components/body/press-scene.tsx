@@ -88,6 +88,7 @@ import { HIP_THRUST, poseHipThrust, readHipThrustRig, type HipThrustRig } from "
 import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
+import { DUMBBELL_SHRUG, poseShrug, readShrugRig, shrugMush, shrugSculpt } from "./pose-shrug";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 import { DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
@@ -119,6 +120,7 @@ const SPECS = {
   shoulder: SHOULDER_PRESS,
   hammer: HAMMER_CURL,
   raise: LATERAL_RAISE,
+  shrug: DUMBBELL_SHRUG,
   squat: DUMBBELL_SQUAT,
   pulldown: LAT_PULLDOWN,
   pulldownNeutral: PULLDOWN_NEUTRAL,
@@ -141,6 +143,7 @@ const SPECS = {
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
+  shrug: DUMBBELL_SHRUG.cameraReach,
   pulldown: LAT_PULLDOWN.cameraReach,
   pulldownNeutral: PULLDOWN_NEUTRAL.cameraReach,
   pulldownSingle: PULLDOWN_SINGLE.cameraReach,
@@ -208,6 +211,15 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
     return {
       rig: raise.rig,
       pose: (depth: number) => poseRaise(raise, depth),
+      biceps: () => 0,
+      bench: null,
+    };
+  }
+  if (exercise === "shrug") {
+    const shrug = readShrugRig(root);
+    return {
+      rig: shrug.rig,
+      pose: (depth: number) => poseShrug(shrug, depth),
       biceps: () => 0,
       bench: null,
     };
@@ -1064,6 +1076,10 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         ? SHOULDER_GIRDLE.trapsBulge
         : 0;
     body.setTraps(exercise === "overheadOne" ? 0 : traps, traps);
+    // The shrug's trapezius, as the owner sculpted it, comes in as the shoulders rise. It was
+    // sculpted on the plainly skinned body, so the shoulders' corrective smoothing makes way for it.
+    body.setShrug(exercise === "shrug" ? shrugSculpt(depthL) : 0);
+    body.setMush(exercise === "shrug" ? shrugMush(depthL) : 1);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);
@@ -1188,6 +1204,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
               .clone()
               .add(
                 exercise === "raise" ||
+                  exercise === "shrug" ||
                   exercise === "squat" ||
                   exercise === "rdl" ||
                   exercise === "pulldown" ||

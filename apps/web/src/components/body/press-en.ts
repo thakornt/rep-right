@@ -413,6 +413,23 @@ export const PRESS_CONTENT_EN: Record<PressExercise, PressContent> = {
       "If you feel a sharp or unusual pain in your knees, hips or back, stop right away and talk to a professional.",
     ],
   },
+  shrug: {
+    cues: {
+      feet: "Stand with feet about hip-width apart, knees slightly bent, weight on your whole foot.",
+      back: "Push your bottom back and lean forward slightly with a straight back. Hold this position the whole set.",
+      elbow: "Let your arms hang straight down to the floor. Don't bend your elbows to help pull; only your shoulders move.",
+      dumbbell: "Hold the dumbbells at your sides, palms facing in. Lift your shoulders straight up toward your ears, squeeze your shoulder blades together a little, and hold for a moment. Don't roll your shoulders in circles.",
+      core: "Brace your stomach lightly to keep your body still. Breathe out as you lift, and lower slowly as you breathe in.",
+    },
+    top: "Shoulders all the way up",
+    bottom: "Shoulders all the way down",
+    rising: "Lifting the shoulders",
+    notice: [
+      `${NOT_EXACT} how far you can lift your shoulders can differ. You don't have to match the model exactly.`,
+      "Lift as far as your neck stays comfortable, without dropping your head or pushing your chin out. That's the right range for you for now.",
+      "If you feel a sharp or unusual pain in your neck, shoulders or back, stop right away and talk to a professional.",
+    ],
+  },
   raise: {
     cues: {
       feet: "Stand with feet about hip-width apart, knees slightly bent, weight on your whole foot, without rocking to help lift.",
