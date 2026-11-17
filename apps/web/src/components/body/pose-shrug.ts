@@ -17,7 +17,7 @@ import { LATERAL_RAISE } from "./pose-raise";
 import SHRUG_SCULPT_JSON from "./shrug-sculpt.json";
 
 // Points the owner's sculpt moves (rest space offsets) and the sculpted surface's normals.
-const SHRUG_SCULPT = SHRUG_SCULPT_JSON as { index: number[]; delta: number[]; normalIndex?: number[]; normal?: number[] };
+export const SHRUG_SCULPT = SHRUG_SCULPT_JSON as { index: number[]; delta: number[]; normalIndex?: number[]; normal?: number[] };
 
 export const DUMBBELL_SHRUG = {
   shoulderUp: 38, // degrees the collarbones rise at the top: with shoulderIn, the shoulders 11.1 cm up toward the ears (owner, 2026-11-17)
@@ -72,6 +72,10 @@ export function readShrugRig(root: THREE.Object3D): ShrugRig {
 
 // How much of the sculpted shape is on at this depth: all of it with the shoulders all the way up.
 export const shrugSculpt = (depth: number) => THREE.MathUtils.smoothstep(1 - depth, 0, 1);
+// How much of the shoulders' corrective smoothing (delta-mush.ts) stays on: the sculpt was made on the
+// plainly skinned body, so the smoothing makes way for it, none of it left at the top.
+export const shrugMush = (depth: number) => 1 - shrugSculpt(depth);
+
 
 export function poseShrug(shrug: ShrugRig, depth: number) {
   const P = DUMBBELL_SHRUG;

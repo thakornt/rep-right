@@ -88,7 +88,7 @@ import { HIP_THRUST, poseHipThrust, readHipThrustRig, type HipThrustRig } from "
 import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
 import { LATERAL_RAISE, poseRaise, readRaiseRig } from "./pose-raise";
-import { DUMBBELL_SHRUG, poseShrug, readShrugRig, shrugSculpt } from "./pose-shrug";
+import { DUMBBELL_SHRUG, poseShrug, readShrugRig, shrugMush, shrugSculpt } from "./pose-shrug";
 import { PRESS_PINS, pressActivation, type PressExercise } from "./press";
 import type { Phase } from "./squat";
 import { DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
@@ -1078,9 +1078,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     body.setTraps(exercise === "overheadOne" ? 0 : traps, traps);
     // The shrug's trapezius, as the owner sculpted it, comes in as the shoulders rise. It was
     // sculpted on the plainly skinned body, so the shoulders' corrective smoothing makes way for it.
-    const sculpt = exercise === "shrug" ? shrugSculpt(depthL) : 0;
-    body.setShrug(sculpt);
-    body.setMush(1 - sculpt);
+    body.setShrug(exercise === "shrug" ? shrugSculpt(depthL) : 0);
+    body.setMush(exercise === "shrug" ? shrugMush(depthL) : 1);
     left.current?.position.copy(g.l.grip);
     left.current?.quaternion.setFromUnitVectors(ALONG, g.l.handle);
     right.current?.position.copy(g.r.grip);

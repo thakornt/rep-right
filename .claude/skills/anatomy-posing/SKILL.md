@@ -96,6 +96,41 @@ weight-bearing value for a loaded lift), and tell the user.
 6. **Report honestly.** Say what changed, what you measured, and what you
    didn't check. Commit only after the user approves the visuals.
 
+## Never say "done" or "matches" without a like-for-like check
+
+On the shrug (2026-11-17) Claude told the owner, several times in a row, that the
+web matched what they had made, while Claude's own captures showed it didn't. The
+owner had to find each mistake. Each one came from claiming a result instead of
+checking it:
+
+- **A file taken as the owner's save without checking it was.** Claude's own
+  script had written the file; the owner's work was never on disk. Before using
+  anything "the owner saved", check its modified time against when they said they
+  saved, and check Blender left a `.blend1` backup (it does when it saves over a
+  file). If either is missing, say so and ask; don't use it.
+- **Comparisons that couldn't show a difference.** A Blender render 0.85 m away
+  against the web's camera 3.7 m away, and web captures taken while the
+  animation was still playing. Compare only with the same camera (position,
+  target, field of view, frame size) and only after confirming the pose: paused,
+  at the depth you mean.
+- **Calling two images the same without looking.** Before saying "matches",
+  name what differs between the two images, part by part (the shoulder line, the
+  neck's length, the corner where they meet). If you can't say it matches part by
+  part, it doesn't match. A capture that looks like the last one after a change
+  means the change didn't land: find out why before sending it.
+- **Checking the data path, not what is drawn.** The CPU test path matched the
+  sculpt to 0.008 mm, but the web drew something else: the shader added the
+  shoulders' corrective smoothing (`delta-mush.ts`) on top, and the moved skin was
+  lit by its old normals. Anything you add to the skin goes through everything the
+  shader does. Prove it on screen: export the shape the web computes, render it next
+  to the reference with the same camera, then compare that to the web itself.
+- **Not separating "data wrong" from "display wrong".** When the screen is off,
+  test each link on its own: exaggerate the change (×4) to prove it's drawn,
+  render the computed shape beside the reference, then compare to the screen.
+
+When the owner says it looks wrong, believe the picture over your numbers, and say
+what you got wrong before fixing it.
+
 ## Adding an exercise
 
 1. Get the movement from real motion capture or a clip whose license allows

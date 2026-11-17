@@ -12,7 +12,7 @@ import { loadBody } from "./load-body";
 import { worldPos } from "./pose";
 import { DUMBBELL } from "./pose-press";
 import { LATERAL_RAISE } from "./pose-raise";
-import { DUMBBELL_SHRUG, poseShrug, readShrugRig, shrugSculpt, type ShrugRig } from "./pose-shrug";
+import { DUMBBELL_SHRUG, poseShrug, readShrugRig, SHRUG_SCULPT, shrugMush, shrugSculpt, type ShrugRig } from "./pose-shrug";
 
 // With the shoulders up and the arms hanging, the skin under the arm would fold; the mesh can't, so
 // the upper arm's skin sits up to 8.8 cm into the side of the chest near the top (2.7 cm at the
@@ -28,6 +28,7 @@ const STRAIGHT = 2; // degrees the wrist may bend
 const MIN_RISE = 0.04; // metres the shoulders rise at the top
 const MAX_STEP = 0.003; // metres a hand may move per 1% of the lift
 const MAX_SCULPT_FROM_NECK = 0.2; // metres above or below the neck joint the sculpt may reach
+const MAX_MIRROR_MISS = 0.003; // metres a sculpted point may be off its mirror image: it was sculpted with mirroring on
 
 const DEPTHS = Array.from({ length: 11 }, (_, i) => i / 10);
 
@@ -159,6 +160,48 @@ describe("dumbbell shrug", () => {
       expect(Math.abs(p.y - neck.y)).toBeLessThan(MAX_SCULPT_FROM_NECK);
     }
     expect(moved).toBeGreaterThan(100);
+  });
+
+  test("the sculpt's data holds together: each point once, an offset for each, unit normals", () => {
+    const { index, delta, normalIndex = [], normal = [] } = SHRUG_SCULPT;
+    const count = shrug.rig.skin.geometry.attributes.position.count;
+    expect(new Set(index).size).toBe(index.length);
+    expect(delta.length).toBe(index.length * 3);
+    expect(Math.max(...index)).toBeLessThan(count);
+    expect(normalIndex.length).toBeGreaterThan(0);
+    expect(normal.length).toBe(normalIndex.length * 3);
+    for (let k = 0; k < normalIndex.length; k++) expect(Math.hypot(normal[k * 3], normal[k * 3 + 1], normal[k * 3 + 2])).toBeCloseTo(1, 2);
+  });
+
+  // The web added the shoulders' corrective smoothing on top of the sculpt, which lowered and rounded
+  // the shoulders against what the owner made in Blender (2026-11-17): it must make way exactly as the
+  // sculpt comes in.
+  test("the shoulders' corrective smoothing makes way as the sculpt comes in", () => {
+    for (let i = 0; i <= 100; i++) expect(shrugMush(i / 100) + shrugSculpt(i / 100)).toBeCloseTo(1, 6);
+    expect(shrugMush(0)).toBe(0);
+    expect(shrugMush(1)).toBe(1);
+  });
+
+  // Sculpted with mirroring on, so with the sculpt on at the top the two sides mirror each other; a
+  // wrong axis on the way from Blender would break it (one was flipped once, 2026-11-17).
+  test("with the sculpt on at the top, the left and right mirror each other", () => {
+    const g = shrug.rig.skin.geometry;
+    const pos = g.attributes.position as THREE.BufferAttribute;
+    const kept = new Float32Array(pos.array);
+    const a = g.getAttribute("aShrug");
+    for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) + a.getX(i), pos.getY(i) + a.getY(i), pos.getZ(i) + a.getZ(i));
+    poseShrug(shrug, 0);
+    const p = new THREE.Vector3();
+    const at = SHRUG_SCULPT.index.map((i) => shrug.rig.skin.getVertexPosition(i, p).applyMatrix4(shrug.rig.skin.matrixWorld).clone());
+    let worst = 0;
+    for (const q of at) {
+      let best = Infinity;
+      for (const r of at) best = Math.min(best, Math.hypot(q.x + r.x, q.y - r.y, q.z - r.z));
+      worst = Math.max(worst, best);
+    }
+    (pos.array as Float32Array).set(kept);
+    pos.needsUpdate = true;
+    expect(worst).toBeLessThan(MAX_MIRROR_MISS);
   });
 
   test("the body holds the lateral raise's position, and only the shoulders and arms move", () => {
