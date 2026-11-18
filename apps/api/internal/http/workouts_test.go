@@ -29,6 +29,8 @@ type fakeWorkouts struct {
 	from, to time.Time
 	withdrew string
 	tops     []workout.TopSet
+	// createErr, if set, is returned by CreateSession.
+	createErr error
 }
 
 type ownedSession struct {
@@ -64,6 +66,9 @@ func (f *fakeWorkouts) save(user, id uuid.UUID, in workout.Session) (workout.Log
 }
 
 func (f *fakeWorkouts) CreateSession(_ context.Context, user uuid.UUID, in workout.Session) (workout.Logged, error) {
+	if f.createErr != nil {
+		return workout.Logged{}, f.createErr
+	}
 	return f.save(user, uuid.New(), in)
 }
 

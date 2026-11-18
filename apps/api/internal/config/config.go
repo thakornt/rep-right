@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,6 +29,23 @@ type Config struct {
 	LineChannelSecret string
 	JWTSecret         string
 	CookieDomain      string // empty = host-only cookie (recommended)
+	// ProxySecret is shared with the web's /api proxy; the API refuses
+	// requests without it. Required in production, optional locally.
+	ProxySecret string
+	// Limits overrides the API's flood protection; 0 = the built-in default.
+	Limits Limits
+}
+
+// Limits are the RATE_LIMIT_* and MAX_IN_FLIGHT variables. Rates are requests
+// per minute; bursts are how many may arrive at once. Every value is optional.
+type Limits struct {
+	IPPerMinute   int // RATE_LIMIT_IP_PER_MIN    every request, per client IP
+	IPBurst       int // RATE_LIMIT_IP_BURST
+	AuthPerMinute int // RATE_LIMIT_AUTH_PER_MIN  sign-in and refresh, per client IP
+	AuthBurst     int // RATE_LIMIT_AUTH_BURST
+	UserPerMinute int // RATE_LIMIT_USER_PER_MIN  signed-in routes, per user
+	UserBurst     int // RATE_LIMIT_USER_BURST
+	MaxInFlight   int // MAX_IN_FLIGHT            concurrent requests before 503
 }
 
 // Load reads configuration from the environment and fails fast when a
@@ -49,9 +67,33 @@ func Load() (Config, error) {
 		LineChannelSecret:  os.Getenv("LINE_CHANNEL_SECRET"),
 		JWTSecret:          os.Getenv("JWT_SECRET"),
 		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
+		ProxySecret:        os.Getenv("PROXY_SECRET"),
 	}
 
 	var errs []error
+	for _, v := range []struct {
+		key string
+		dst *int
+	}{
+		{"RATE_LIMIT_IP_PER_MIN", &cfg.Limits.IPPerMinute},
+		{"RATE_LIMIT_IP_BURST", &cfg.Limits.IPBurst},
+		{"RATE_LIMIT_AUTH_PER_MIN", &cfg.Limits.AuthPerMinute},
+		{"RATE_LIMIT_AUTH_BURST", &cfg.Limits.AuthBurst},
+		{"RATE_LIMIT_USER_PER_MIN", &cfg.Limits.UserPerMinute},
+		{"RATE_LIMIT_USER_BURST", &cfg.Limits.UserBurst},
+		{"MAX_IN_FLIGHT", &cfg.Limits.MaxInFlight},
+	} {
+		raw := strings.TrimSpace(os.Getenv(v.key))
+		if raw == "" {
+			continue
+		}
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			errs = append(errs, fmt.Errorf("%s must be a positive whole number, got %q", v.key, raw))
+			continue
+		}
+		*v.dst = n
+	}
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("DATABASE_URL is required"))
 	}
@@ -78,6 +120,9 @@ func (c Config) ValidateServe() error {
 	}
 	if len(c.JWTSecret) < 32 {
 		errs = append(errs, errors.New("JWT_SECRET must be at least 32 characters (openssl rand -base64 48)"))
+	}
+	if (c.IsProduction() || c.ProxySecret != "") && len(c.ProxySecret) < 32 {
+		errs = append(errs, errors.New("PROXY_SECRET must be at least 32 characters in production (openssl rand -base64 48), the same value as on the web"))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return fmt.Errorf("config: %w", err)

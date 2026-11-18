@@ -148,3 +148,15 @@ func (t authTx) RevokeAllForUser(ctx context.Context, userID uuid.UUID, now time
 func toAuthUser(u dbgen.User) auth.User {
 	return auth.User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, PictureURL: u.PictureUrl, CreatedAt: u.CreatedAt}
 }
+
+// RevokedTokenRetention keeps revoked refresh tokens long enough to notice a
+// stolen token being replayed; after that they are deleted.
+const RevokedTokenRetention = 7 * 24 * time.Hour
+
+// PurgeRefreshTokens deletes expired tokens and ones revoked more than
+// RevokedTokenRetention ago, so the table does not grow forever.
+func (s *AuthStore) PurgeRefreshTokens(ctx context.Context, now time.Time) (int64, error) {
+	return s.q.PurgeRefreshTokens(ctx, dbgen.PurgeRefreshTokensParams{
+		Now: now, RevokedBefore: now.Add(-RevokedTokenRetention),
+	})
+}

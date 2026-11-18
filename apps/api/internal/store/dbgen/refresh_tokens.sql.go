@@ -78,6 +78,25 @@ func (q *Queries) MarkRefreshTokenRotated(ctx context.Context, arg MarkRefreshTo
 	return err
 }
 
+const purgeRefreshTokens = `-- name: PurgeRefreshTokens :execrows
+DELETE FROM refresh_tokens
+WHERE expires_at < $1::timestamptz OR revoked_at < $2::timestamptz
+`
+
+type PurgeRefreshTokensParams struct {
+	Now           time.Time
+	RevokedBefore time.Time
+}
+
+// Expired tokens are useless; revoked ones are kept a while for reuse detection.
+func (q *Queries) PurgeRefreshTokens(ctx context.Context, arg PurgeRefreshTokensParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeRefreshTokens, arg.Now, arg.RevokedBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeRefreshTokenByHash = `-- name: RevokeRefreshTokenByHash :exec
 UPDATE refresh_tokens
 SET revoked_at = $1::timestamptz

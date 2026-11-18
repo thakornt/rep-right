@@ -39,6 +39,16 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       LINE_CHANNEL_ID: ${LINE_CHANNEL_ID:-}
       LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET:-}
+      # Empty locally = proxy guard off; set it in .env to try the guard.
+      PROXY_SECRET: ${PROXY_SECRET:-}
+      # Optional rate-limit overrides from .env (empty = defaults, see .env.example).
+      RATE_LIMIT_IP_PER_MIN: ${RATE_LIMIT_IP_PER_MIN:-}
+      RATE_LIMIT_IP_BURST: ${RATE_LIMIT_IP_BURST:-}
+      RATE_LIMIT_AUTH_PER_MIN: ${RATE_LIMIT_AUTH_PER_MIN:-}
+      RATE_LIMIT_AUTH_BURST: ${RATE_LIMIT_AUTH_BURST:-}
+      RATE_LIMIT_USER_PER_MIN: ${RATE_LIMIT_USER_PER_MIN:-}
+      RATE_LIMIT_USER_BURST: ${RATE_LIMIT_USER_BURST:-}
+      MAX_IN_FLIGHT: ${MAX_IN_FLIGHT:-}
     ports:
       - "8080:8080"
     depends_on:

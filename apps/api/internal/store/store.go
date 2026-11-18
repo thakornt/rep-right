@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -15,9 +17,21 @@ import (
 	"github.com/thakornt/rep-right/apps/api/db"
 )
 
+// defaultMaxConns replaces pgx's default (4 on a small container), which made
+// requests queue for a connection under load. pool_max_conns in the URL wins.
+const defaultMaxConns = 10
+
 // Open creates a pgx connection pool and verifies it can reach the database.
 func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, databaseURL)
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+	if !strings.Contains(databaseURL, "pool_max_conns") {
+		cfg.MaxConns = defaultMaxConns
+	}
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("open pool: %w", err)
 	}

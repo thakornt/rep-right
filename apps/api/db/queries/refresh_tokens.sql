@@ -24,3 +24,8 @@ WHERE token_hash = sqlc.arg(token_hash) AND revoked_at IS NULL;
 UPDATE refresh_tokens
 SET revoked_at = sqlc.arg(now)::timestamptz
 WHERE user_id = sqlc.arg(user_id) AND revoked_at IS NULL;
+
+-- Expired tokens are useless; revoked ones are kept a while for reuse detection.
+-- name: PurgeRefreshTokens :execrows
+DELETE FROM refresh_tokens
+WHERE expires_at < sqlc.arg(now)::timestamptz OR revoked_at < sqlc.arg(revoked_before)::timestamptz;

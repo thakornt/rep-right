@@ -16,6 +16,9 @@ const (
 	MaxNotesRunes = 1000
 	// MaxAgeYears bounds how far back a session may be back-dated.
 	MaxAgeYears = 10
+	// MaxSessionsPerDay caps sessions created per user in any 24 hours, so a
+	// script cannot fill the database. Back-filling old sessions fits easily.
+	MaxSessionsPerDay = 30
 )
 
 type Set struct {

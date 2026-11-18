@@ -50,6 +50,16 @@ func (s *WorkoutStore) CreateSession(ctx context.Context, userID uuid.UUID, in w
 	var out workout.Logged
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
+		if err := q.LockUserForWrite(ctx, userID); err != nil {
+			return err
+		}
+		n, err := q.CountSessionsCreatedToday(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if n >= workout.MaxSessionsPerDay {
+			return workout.ErrDailyLimit
+		}
 		if err := requireHealthConsent(ctx, q, userID, in.PainFlag); err != nil {
 			return err
 		}

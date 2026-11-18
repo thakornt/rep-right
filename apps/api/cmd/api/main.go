@@ -70,8 +70,9 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
+		authStore := store.NewAuthStore(pool)
 		opts := auth.Options{
-			Store:    store.NewAuthStore(pool),
+			Store:    authStore,
 			Verifier: verifier,
 			Secret:   []byte(cfg.JWTSecret),
 		}
@@ -81,12 +82,19 @@ func run(args []string) error {
 		if cfg.LineChannelID != "" {
 			opts.Line = auth.NewLineClient(cfg.LineChannelID, cfg.LineChannelSecret)
 		}
+		lim := limits(cfg.Limits)
+		log.Info("limits",
+			slog.String("per_ip", fmt.Sprintf("%d/min burst %d", lim.PerIP.PerMinute, lim.PerIP.Burst)),
+			slog.String("auth", fmt.Sprintf("%d/min burst %d", lim.Auth.PerMinute, lim.Auth.Burst)),
+			slog.String("per_user", fmt.Sprintf("%d/min burst %d", lim.PerUser.PerMinute, lim.PerUser.Burst)),
+			slog.Int("max_in_flight", lim.MaxInFlight))
 		log.Info("sign-in providers",
 			slog.Bool("google_code", opts.GoogleCode != nil), slog.Bool("line", opts.Line != nil))
 		authSvc, err := auth.NewService(opts)
 		if err != nil {
 			return err
 		}
+		go purgeRefreshTokens(ctx, authStore, log)
 		return serve(ctx, cfg, log, apihttp.Deps{
 			Log:            log,
 			DB:             pool,
@@ -95,6 +103,8 @@ func run(args []string) error {
 			Auth:           authSvc,
 			Cookie:         apihttp.CookieConfig{Domain: cfg.CookieDomain, Secure: cfg.IsProduction()},
 			Workouts:       store.NewWorkoutStore(pool),
+			ProxySecret:    cfg.ProxySecret,
+			Limits:         lim,
 		})
 	case "migrate":
 		if len(args) < 2 {
@@ -135,6 +145,46 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger, deps apihtt
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.ShutdownTimeout)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// limits starts from the API's defaults and applies what the environment set.
+func limits(c config.Limits) apihttp.Limits {
+	l := apihttp.DefaultLimits()
+	set := func(dst *int, v int) {
+		if v > 0 {
+			*dst = v
+		}
+	}
+	set(&l.PerIP.PerMinute, c.IPPerMinute)
+	set(&l.PerIP.Burst, c.IPBurst)
+	set(&l.Auth.PerMinute, c.AuthPerMinute)
+	set(&l.Auth.Burst, c.AuthBurst)
+	set(&l.PerUser.PerMinute, c.UserPerMinute)
+	set(&l.PerUser.Burst, c.UserBurst)
+	set(&l.MaxInFlight, c.MaxInFlight)
+	return l
+}
+
+// purgeRefreshTokens deletes dead refresh tokens now and then every hour.
+// Every instance may run it; the DELETE is idempotent.
+func purgeRefreshTokens(ctx context.Context, s *store.AuthStore, log *slog.Logger) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		n, err := s.PurgeRefreshTokens(runCtx, time.Now())
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			log.Warn("purge refresh tokens", slog.Any("error", err))
+		} else if n > 0 {
+			log.Info("purged refresh tokens", slog.Int64("rows", n))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 func newLogger(cfg config.Config) *slog.Logger {
