@@ -5,6 +5,13 @@ INSERT INTO sessions (user_id, performed_at, notes, pain_flag)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
+-- Serialises one user's session creates so the daily cap holds under concurrency.
+-- name: LockUserForWrite :exec
+SELECT 1 FROM users WHERE id = $1 FOR UPDATE;
+
+-- name: CountSessionsCreatedToday :one
+SELECT count(*) FROM sessions WHERE user_id = $1 AND created_at > now() - interval '24 hours';
+
 -- name: UpdateSession :one
 UPDATE sessions
 SET performed_at = $3, notes = $4, pain_flag = $5, updated_at = now()

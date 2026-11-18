@@ -12,6 +12,9 @@ var (
 	ErrUnknownExercise = errors.New("unknown exercise")
 	// ErrConsentRequired: pain_flag is health data and needs 'health_data' consent.
 	ErrConsentRequired = errors.New("health_data consent required")
+	// ErrDailyLimit: the user already logged MaxSessionsPerDay sessions in
+	// the last 24 hours, which no real training does.
+	ErrDailyLimit = errors.New("daily session limit reached")
 )
 
 type Exercise struct {

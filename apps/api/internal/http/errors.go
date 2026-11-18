@@ -20,6 +20,10 @@ const (
 
 	CodeValidationFailed = "validation_failed"
 	CodeConsentRequired  = "consent_required"
+
+	CodeForbidden   = "forbidden"
+	CodeRateLimited = "rate_limited"
+	CodeDailyLimit  = "daily_limit"
 )
 
 type errorBody struct {

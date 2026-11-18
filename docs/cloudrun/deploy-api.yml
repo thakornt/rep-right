@@ -65,7 +65,7 @@ jobs:
             --service-account=${{ vars.GCP_RUNTIME_SA }} \
             --allow-unauthenticated \
             --set-env-vars="^@^APP_ENV=production@ALLOWED_ORIGINS=${{ vars.API_ALLOWED_ORIGINS }}@GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}" \
-            --set-secrets=DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest \
+            --set-secrets=DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest,PROXY_SECRET=proxy-secret:latest \
             --cpu=1 --memory=256Mi --min-instances=0 --max-instances=3 --concurrency=80
 
       - name: smoke test

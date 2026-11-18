@@ -74,3 +74,14 @@ func cors(allowed []string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// securityHeaders: the API only ever returns JSON, never something to render.
+func securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.Writer.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		c.Next()
+	}
+}

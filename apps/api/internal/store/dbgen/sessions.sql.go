@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countSessionsCreatedToday = `-- name: CountSessionsCreatedToday :one
+SELECT count(*) FROM sessions WHERE user_id = $1 AND created_at > now() - interval '24 hours'
+`
+
+func (q *Queries) CountSessionsCreatedToday(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countSessionsCreatedToday, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSession = `-- name: CreateSession :one
 
 INSERT INTO sessions (user_id, performed_at, notes, pain_flag)
@@ -250,6 +261,16 @@ func (q *Queries) ListSetsForSessions(ctx context.Context, sessionIds []uuid.UUI
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockUserForWrite = `-- name: LockUserForWrite :exec
+SELECT 1 FROM users WHERE id = $1 FOR UPDATE
+`
+
+// Serialises one user's session creates so the daily cap holds under concurrency.
+func (q *Queries) LockUserForWrite(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, lockUserForWrite, id)
+	return err
 }
 
 const updateSession = `-- name: UpdateSession :one

@@ -301,6 +301,8 @@ func (h workoutHandlers) writeStoreError(c *gin.Context, op string, err error) b
 		writeError(c, http.StatusNotFound, CodeNotFound, "session not found")
 	case errors.Is(err, workout.ErrUnknownExercise):
 		writeError(c, http.StatusUnprocessableEntity, CodeValidationFailed, "sets: unknown exercise_id")
+	case errors.Is(err, workout.ErrDailyLimit):
+		writeError(c, http.StatusTooManyRequests, CodeDailyLimit, "too many sessions logged today")
 	case errors.Is(err, workout.ErrConsentRequired):
 		writeError(c, http.StatusForbidden, CodeConsentRequired, "pain_flag needs health_data consent")
 	default:

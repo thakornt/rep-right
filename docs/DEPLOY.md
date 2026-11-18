@@ -146,7 +146,19 @@ https://github.com/thakornt/rep-right/settings/environments
 | `LINE_CHANNEL_ID` | จาก Step 3.5 | ไม่บังคับ ต้องใส่คู่กับ secret |
 | `LINE_CHANNEL_SECRET` | จาก Step 3.5 | ความลับ ไม่บังคับ |
 | `LOG_LEVEL` | `info` | |
+| `PROXY_SECRET` | ผลจาก `openssl rand -base64 48` | ความลับ **ต้องตรงกับ Vercel** (Step 6) ถ้าไม่มี API จะไม่ start ใน production |
 
+> **ปรับการจำกัดจำนวน request ได้ (ไม่บังคับ)** ถ้าไม่ตั้งจะใช้ค่าเริ่มต้น ตั้งค่าแล้วกด Save ที่ Render แล้ว API จะ restart เอง ไม่ต้องแก้โค้ด ดูค่าที่ใช้อยู่ได้จาก log บรรทัด `"msg":"limits"` ตอน start
+>
+> | Key | ค่าเริ่มต้น | ความหมาย |
+> |---|---|---|
+> | `RATE_LIMIT_IP_PER_MIN` / `RATE_LIMIT_IP_BURST` | 300 / 60 | ทุก request ต่อ IP ถ้าผู้ใช้หลายคนใช้ WiFi ยิมเดียวกันแล้วโดน 429 ให้เพิ่มค่านี้ |
+> | `RATE_LIMIT_AUTH_PER_MIN` / `RATE_LIMIT_AUTH_BURST` | 20 / 10 | ล็อกอินและ refresh ต่อ IP |
+> | `RATE_LIMIT_USER_PER_MIN` / `RATE_LIMIT_USER_BURST` | 120 / 40 | หน้าที่ต้องล็อกอิน ต่อผู้ใช้ 1 คน |
+> | `MAX_IN_FLIGHT` | 100 | request ที่ทำพร้อมกันได้ เกินแล้วตอบ 503 ทันที |
+>
+> ค่าต้องเป็นจำนวนเต็มบวก ถ้าใส่ผิด API จะไม่ start และบอกใน log ว่าตัวไหนผิด
+>
 > **ไม่ต้องตั้ง `PORT`** Render กำหนดให้เอง และโค้ดอ่านค่าจาก `PORT` อยู่แล้ว
 >
 > **ไม่ต้องตั้ง `COOKIE_DOMAIN`** ให้ refresh cookie เป็น host-only ของ domain เว็บ (ผ่าน `/api` proxy) ถ้าตั้งเป็น `onrender.com` เบราว์เซอร์จะไม่ส่ง cookie
@@ -197,6 +209,11 @@ https://github.com/thakornt/rep-right/settings/variables/actions → **New repos
 | `API_ORIGIN` | `API_URL` เดียวกับ Step 5.2 ใช้ฝั่ง server ใน rewrite |
 | `NEXT_PUBLIC_API_URL` | `/api` |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | จาก Step 3 |
+| `PROXY_SECRET` | ค่าเดียวกับ Render ความลับ ห้ามตั้งชื่อขึ้นต้นด้วย `NEXT_PUBLIC_` |
+
+> **`PROXY_SECRET` ทำอะไร** `apps/web/src/proxy.ts` แนบค่านี้กับทุก request ที่ส่งต่อไป API ส่วน API จะตอบ 403 กับ request ที่ไม่มีค่านี้ (ยกเว้น `/healthz`) คนอื่นจึงยิง `*.onrender.com` ตรงๆ ไม่ได้ และ API รู้ IP จริงของผู้ใช้ไว้ใช้จำกัดจำนวน request
+>
+> **ลำดับตอนเปิดใช้ครั้งแรก:** ใส่ `PROXY_SECRET` ที่ Vercel แล้ว redeploy เว็บก่อน จากนั้นค่อยใส่ที่ Render แล้ว deploy API ถ้าทำกลับลำดับ เว็บจะเรียก API ไม่ได้ (403) ในช่วงระหว่างนั้น
 
 4. Settings → Build and Deployment
    - Root Directory → **Skip deployments when there are no changes to the root directory** ต้องเปิด (Enabled) ไว้ แก้แค่ API แล้วเว็บจะไม่ build ใหม่
@@ -235,6 +252,8 @@ https://github.com/thakornt/rep-right/settings/variables/actions → **New repos
 
 API เป็น stateless และไม่มีอะไรเก็บไว้ในเครื่อง จึงเพิ่ม instance ได้ทันที migration รันใน CI จึงไม่ชนกันระหว่าง instance
 
+ข้อควรรู้: ตัวจำกัดจำนวน request (rate limit) นับในหน่วยความจำของแต่ละ instance ถ้ามี N instance ผู้ใช้หนึ่งคนจะยิงได้มากสุดประมาณ N เท่าของค่าที่ตั้งไว้ ถ้า scale เยอะให้ย้ายไปนับที่ edge (เช่น Vercel Firewall หรือ Cloudflare) หรือใช้ Redis
+
 ถ้าวันหนึ่งอยากย้ายไป Cloud Run: [docs/cloudrun/CLOUD_RUN.md](cloudrun/CLOUD_RUN.md) และ workflow ที่ [docs/cloudrun/deploy-api.yml](cloudrun/deploy-api.yml)
 
 ## Rollback
@@ -254,6 +273,7 @@ API เป็น stateless และไม่มีอะไรเก็บไ�
 | Neon pooled URL | Step 2 | Render `DATABASE_URL` | ✅ |
 | Neon direct URL | Step 2 | GitHub env secret `NEON_DIRECT_URL` | ✅ |
 | JWT secret | `openssl rand -base64 48` | Render `JWT_SECRET` | ✅ |
+| Proxy secret | `openssl rand -base64 48` | Render และ Vercel `PROXY_SECRET` (ค่าเดียวกัน) | ✅ |
 | Google Client ID | Step 3 | Render `GOOGLE_CLIENT_ID`, Vercel, `.env` | ❌ |
 | Google Client secret | Step 3.7 | Render `GOOGLE_CLIENT_SECRET`, `.env` | ✅ |
 | LINE Channel ID | Step 3.5 | Render `LINE_CHANNEL_ID`, `.env` | ❌ |
