@@ -7,13 +7,18 @@ import { DAY_CHOICES, localizeProgram, programsFor, type Program } from "@/conte
 import type { Locale } from "@/lib/i18n/locale";
 import { MESSAGES, type Messages } from "@/lib/i18n/messages";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { pageMeta } from "@/lib/seo";
 
 import { ChooseProgram } from "./choose-program";
 import { WeekTable } from "./week-table";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages();
-  return { title: t.meta.programs, description: t.meta.programsDescription };
+  return pageMeta(await getLocale(), {
+    title: t.meta.programs,
+    description: t.meta.programsDescription,
+    path: "/programs",
+  });
 }
 
 type T = Messages["programs"];

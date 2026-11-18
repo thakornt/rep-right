@@ -10,7 +10,6 @@ export const th = {
     account: "ตั้งค่า — rep-right",
     exercises: "ท่าออกกำลังกายและฟอร์มที่ถูกต้อง — rep-right",
     exercisesDescription: "ค้นหาท่าเวทเทรนนิ่งตามกล้ามเนื้อที่อยากพัฒนา พร้อมจุดสำคัญของฟอร์มและข้อผิดพลาดที่พบบ่อย",
-    exercise: (name: string) => `${name} ฟอร์มที่ถูกต้อง — rep-right`,
     log: "บันทึกการซ้อม — rep-right",
     history: "ประวัติการซ้อม — rep-right",
     insights: "คำเตือนและแผน — rep-right",

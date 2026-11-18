@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { pageMeta } from "@/lib/seo";
 
 import { Bullets, Contact, LegalPage, Section } from "../legal-page";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages();
-  return { title: t.meta.terms, description: t.meta.termsDescription };
+  return pageMeta(await getLocale(), {
+    title: t.meta.terms,
+    description: t.meta.termsDescription,
+    path: "/terms",
+  });
 }
 
 export default async function TermsPage() {

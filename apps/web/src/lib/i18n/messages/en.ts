@@ -13,7 +13,6 @@ export const en: Messages = {
     exercises: "Exercises and good form — rep-right",
     exercisesDescription:
       "Find weight-training exercises by the muscles you want to build, with the key points of good form and common mistakes.",
-    exercise: (name: string) => `${name}: good form — rep-right`,
     log: "Log a workout — rep-right",
     history: "Workout history — rep-right",
     insights: "Warnings and plans — rep-right",

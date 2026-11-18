@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { pageMeta } from "@/lib/seo";
 
 import { Bullets, Contact, LegalPage, Section } from "../legal-page";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages();
-  return { title: t.meta.privacy, description: t.meta.privacyDescription };
+  return pageMeta(await getLocale(), {
+    title: t.meta.privacy,
+    description: t.meta.privacyDescription,
+    path: "/privacy",
+  });
 }
 
 export default async function PrivacyPage() {
