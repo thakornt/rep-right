@@ -32,6 +32,17 @@ let accessToken: string | null = null;
 let refreshing: Promise<boolean> | null = null;
 
 async function parseError(res: Response): Promise<ApiError> {
+  if (res.status === 429 || res.status === 503) {
+    // Rate limit, daily cap or an overloaded server: say so plainly instead of the API's English text.
+    const daily = res.status === 429 && (await res.clone().json().catch(() => null))?.error?.code === "daily_limit";
+    return new ApiError(
+      res.status,
+      daily ? "daily_limit" : res.status === 429 ? "rate_limited" : "unavailable",
+      daily
+        ? "วันนี้บันทึกครบจำนวนที่ระบบรับได้แล้ว ลองใหม่พรุ่งนี้"
+        : "ส่งข้อมูลถี่เกินไปหรือระบบยุ่งอยู่ รอสักครู่แล้วลองใหม่",
+    );
+  }
   try {
     const body = await res.json();
     return new ApiError(res.status, body.error?.code ?? "unknown", body.error?.message ?? res.statusText);

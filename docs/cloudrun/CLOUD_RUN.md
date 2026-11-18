@@ -138,8 +138,10 @@ gcloud secrets create database-url-direct --data-file=-
 
 # JWT secret สุ่มใหม่ ห้ามใช้ค่าเดียวกับ dev
 openssl rand -base64 48 | tr -d '\n' | gcloud secrets create jwt-secret --data-file=-
+# ค่าเดียวกันต้องใส่ที่ Vercel env PROXY_SECRET ด้วย
+openssl rand -base64 48 | tr -d '\n' | gcloud secrets create proxy-secret --data-file=-
 
-for s in database-url database-url-direct jwt-secret; do
+for s in database-url database-url-direct jwt-secret proxy-secret; do
   gcloud secrets add-iam-policy-binding $s \
     --member=serviceAccount:$RUNTIME_SA --role=roles/secretmanager.secretAccessor
 done
@@ -188,7 +190,7 @@ gcloud run jobs deploy repright-migrate --image=$IMAGE --region=$REGION \
 gcloud run deploy repright-api --image=$IMAGE --region=$REGION \
   --service-account=$RUNTIME_SA --allow-unauthenticated \
   --set-env-vars=APP_ENV=production,ALLOWED_ORIGINS=http://localhost:3000 \
-  --set-secrets=DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest \
+  --set-secrets=DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest,PROXY_SECRET=proxy-secret:latest \
   --cpu=1 --memory=256Mi --min-instances=0 --max-instances=3 --concurrency=80
 
 curl "$(gcloud run services describe repright-api --region=$REGION --format='value(status.url)')/healthz"
@@ -248,6 +250,7 @@ Console → APIs & Services
    | `API_ORIGIN` | URL ของ Cloud Run จากขั้น 3.7 ใช้ฝั่ง server ใน rewrite |
    | `NEXT_PUBLIC_API_URL` | `/api` (เรียกผ่าน rewrite ให้เป็น same-origin) |
    | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | จากขั้น 4 |
+   | `PROXY_SECRET` | ค่าเดียวกับที่ตั้งให้ Cloud Run (`openssl rand -base64 48`) ดู [DEPLOY.md](../DEPLOY.md) Step 6 |
 
 4. Settings → Git: Production Branch = `main`
    - Vercel สร้าง preview ให้ทุก PR และ deploy production เมื่อ merge
