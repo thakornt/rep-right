@@ -7,8 +7,8 @@ export const en: Messages = {
   meta: {
     siteTitle: "rep-right — Good form, safe lifting",
     siteDescription:
-      "See weightlifting form in 3D, log your workouts quickly, and get a warning when you add weight too fast. For people who lift without a coach.",
-    appDescription: "See weightlifting form in 3D, log workouts quickly, and get a warning when you add weight too fast.",
+      "See weightlifting form in 3D, log your workouts, and get a warning when you add weight too fast. For people who lift without a coach.",
+    appDescription: "See weightlifting form in 3D, log workouts, and get a warning when you add weight too fast.",
     account: "Settings — rep-right",
     exercises: "Exercises and good form — rep-right",
     exercisesDescription:

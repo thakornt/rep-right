@@ -13,7 +13,7 @@ const CARD = {
   },
   en: {
     title: "Good form, safe lifting",
-    subtitle: "See lifts in 3D from every side and log workouts fast. For people who lift without a coach.",
+    subtitle: "See lifts in 3D from every side and log your workouts. For people who lift without a coach.",
   },
 };
 
