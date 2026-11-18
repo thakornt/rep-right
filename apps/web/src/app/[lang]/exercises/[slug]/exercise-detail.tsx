@@ -11,6 +11,7 @@ import { SquatViewer } from "@/components/body/squat-viewer";
 import { WaySwitch } from "@/components/body/way-switch";
 import { FormSteps } from "@/components/form-steps";
 import * as WAYS from "@/content/form-cues";
+import type { ExerciseName } from "@/content/exercise-names";
 import type { FormCues } from "@/content/form-cues";
 import { localizedWays } from "@/content/form-cues-en";
 import { getExercises, type Exercise } from "@/lib/api";
@@ -38,7 +39,15 @@ const PRESS_SLUGS: Record<string, PressExercise> = {
   shrug: "shrug",
 };
 
-export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: FormCues }) {
+export function ExerciseDetail({
+  slug,
+  form: ownForm,
+  name: staticName,
+}: {
+  slug: string;
+  form: FormCues;
+  name?: ExerciseName;
+}) {
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const locale = useLocale();
   const t = MESSAGES[locale].exercises;
@@ -80,6 +89,8 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
             : uprightRow
               ? UPRIGHT_ROW_TOOLS.find((t) => t.key === rowTool)!.form
               : ownForm;
+
+  const name = staticName ? { name_th: staticName.th, name_en: staticName.en } : exercise;
 
   useEffect(() => {
     getExercises()
@@ -147,11 +158,12 @@ export function ExerciseDetail({ slug, form: ownForm }: { slug: string; form: Fo
     <div className="flex flex-col gap-9">
       <header className="flex flex-col gap-3">
         <div>
+          {/* The name is in the prerendered page (for search and link previews); the API's copy only fills a gap. */}
           <h1 className="text-[1.75rem] leading-tight font-semibold tracking-tight">
-            {exercise ? exerciseName(exercise, locale) : "…"}
+            {name ? exerciseName(name, locale) : "…"}
           </h1>
           {/* In Thai the English name helps match what gyms call it; in English it is already the title. */}
-          {exercise && locale === "th" && <p className="mt-1 text-sm text-muted">{exercise.name_en}</p>}
+          {name && locale === "th" && <p className="mt-1 text-sm text-muted">{name.name_en}</p>}
         </div>
         {exercise && (
           <div className="flex flex-wrap gap-1.5">

@@ -4,8 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { FORM_CUES } from "@/content/form-cues";
+import { EXERCISE_NAMES } from "@/content/exercise-names";
 import { formCues } from "@/content/form-cues-en";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { exerciseCopy, pageMeta } from "@/lib/seo";
 
 import { ExerciseDetail } from "./exercise-detail";
 
@@ -14,20 +16,13 @@ export function generateStaticParams() {
   return Object.keys(FORM_CUES).map((slug) => ({ slug }));
 }
 
-const titleFromSlug = (slug: string) =>
-  slug
-    .split("-")
-    .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(" ");
-
 export async function generateMetadata({ params }: PageProps<"/[lang]/exercises/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const locale = await getLocale();
-  const form = formCues(slug, locale);
-  return {
-    title: (await getMessages()).meta.exercise(titleFromSlug(slug)),
-    description: form?.cues.join(" "),
-  };
+  const copy = exerciseCopy(slug, await getLocale());
+  if (!copy) return {};
+  const path = `/exercises/${slug}`;
+  // Its own card (./opengraph-image.tsx), with the exercise's name.
+  return pageMeta(await getLocale(), { ...copy, path, imagePath: path });
 }
 
 // params is awaited inside Suspense so the shell (back link) shows instantly
@@ -59,5 +54,5 @@ async function Exercise({ params }: { params: PageProps<"/[lang]/exercises/[slug
     redirect("/exercises/overhead-triceps-extension");
   const form = formCues(slug, await getLocale());
   if (!form) notFound();
-  return <ExerciseDetail slug={slug} form={form} />;
+  return <ExerciseDetail slug={slug} form={form} name={EXERCISE_NAMES[slug]} />;
 }

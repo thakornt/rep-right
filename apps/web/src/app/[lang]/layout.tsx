@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 
 import { LocaleProvider } from "@/lib/i18n/client";
 import { LOCALES, isLocale } from "@/lib/i18n/locale";
-import { getMessages } from "@/lib/i18n/server";
+import { getLocale, getMessages } from "@/lib/i18n/server";
+import { SITE_NAME, pageMeta, siteUrl } from "@/lib/seo";
 
 import { ProgramSync } from "@/lib/my-program";
 
@@ -27,9 +28,20 @@ export function generateStaticParams() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages();
-  return {
+  // Every page's own metadata sets its title, description, canonical address and link preview
+  // (pageMeta); these are the defaults, and the shared-link image is ./opengraph-image.tsx.
+  const { openGraph, twitter } = pageMeta(await getLocale(), {
     title: t.meta.siteTitle,
     description: t.meta.siteDescription,
+    path: "/",
+  });
+  return {
+    metadataBase: siteUrl(),
+    applicationName: SITE_NAME,
+    title: t.meta.siteTitle,
+    description: t.meta.siteDescription,
+    openGraph,
+    twitter,
     appleWebApp: { capable: true, title: "rep-right", statusBarStyle: "black-translucent" },
   };
 }

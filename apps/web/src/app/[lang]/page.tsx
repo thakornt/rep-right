@@ -1,13 +1,20 @@
 import { ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
-import { getMessages } from "@/lib/i18n/server";
+import { getLocale, getMessages } from "@/lib/i18n/server";
+import { pageMeta } from "@/lib/seo";
 
 import { ApiStatus } from "./api-status";
 import { AuthPanel } from "./auth-panel";
 import { DeletedNotice } from "./deleted-notice";
 import { ProgramCta } from "./program-cta";
 import { RegionCards } from "./region-cards";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getMessages();
+  return pageMeta(await getLocale(), { title: t.meta.siteTitle, description: t.meta.siteDescription, path: "/" });
+}
 
 export default async function Home() {
   const t = await getMessages();

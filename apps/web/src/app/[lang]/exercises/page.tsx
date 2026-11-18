@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { getMessages } from "@/lib/i18n/server";
+import { getLocale, getMessages } from "@/lib/i18n/server";
+import { pageMeta } from "@/lib/seo";
 
 import { Badge3D } from "../badge-3d";
 import { ExercisesLoading, LibraryView } from "./library-view";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages();
-  return { title: t.meta.exercises, description: t.meta.exercisesDescription };
+  return pageMeta(await getLocale(), {
+    title: t.meta.exercises,
+    description: t.meta.exercisesDescription,
+    path: "/exercises",
+  });
 }
 
 export default async function ExercisesPage() {
