@@ -9,7 +9,7 @@ export const contentType = "image/png";
 const CARD = {
   th: {
     title: "ฟอร์มถูก ยกปลอดภัย",
-    subtitle: "ดูท่าเวทแบบ 3D หมุนได้รอบตัว บันทึกการซ้อมเร็ว สำหรับมือใหม่ที่ไม่มีเทรนเนอร์",
+    subtitle: "ดูท่าเวทแบบ 3D หมุนได้รอบตัว บันทึกการซ้อม สำหรับมือใหม่ที่ไม่มีเทรนเนอร์",
   },
   en: {
     title: "Good form, safe lifting",
