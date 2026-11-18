@@ -22,13 +22,16 @@ export const REGION_IDS = {
   delt_side: 18,
   delt_rear: 19,
   teres: 20,
+  traps: 22,
 } as const;
 
 export type Region = keyof typeof REGION_IDS;
 // The teres is painted over two muscles, so a lift that doesn't call on it still shows
 // each pixel as the muscle it replaced: id 20 follows upper_back, this id follows lats.
+// The trapezius (22) is part of the upper back too: a lift that calls on upper_back paints it as
+// well, and one that calls on traps paints it alone.
 export const TERES_OVER_LATS = 21;
-export const REGION_COUNT = 22;
+export const REGION_COUNT = 23;
 
 export const REGION_LABELS: Record<Region, string> = {
   quads: "ต้นขาหน้า",
@@ -41,6 +44,7 @@ export const REGION_LABELS: Record<Region, string> = {
   erectors: "กล้ามเนื้อข้างกระดูกสันหลัง",
   lats: "ปีก (หลังด้านข้าง)",
   upper_back: "หลังบนและบ่า",
+  traps: "บ่า",
   chest_upper: "อกส่วนบน",
   chest_mid: "อกส่วนกลาง",
   chest_lower: "อกส่วนล่าง",
@@ -61,6 +65,36 @@ export const ROLE_LABELS: Record<Role, { name: string; hint: string }> = {
   prime: { name: "กล้ามหลัก", hint: "ออกแรงยกเป็นหลัก" },
   synergist: { name: "กล้ามช่วย", hint: "ช่วยกล้ามหลักออกแรง" },
   stabilizer: { name: "กล้ามทรงตัว", hint: "เกร็งค้างไว้ให้ลำตัวและข้อต่อนิ่ง" },
+};
+
+export const REGION_LABELS_EN: Record<Region, string> = {
+  quads: "Quads (front of thigh)",
+  hamstrings: "Hamstrings (back of thigh)",
+  adductors: "Inner thigh",
+  glutes: "Glutes",
+  calves: "Calves",
+  abs: "Abs",
+  obliques: "Side abs (obliques)",
+  erectors: "Muscles along the spine",
+  lats: "Lats (sides of the back)",
+  upper_back: "Upper back and traps",
+  traps: "Traps",
+  chest_upper: "Upper chest",
+  chest_mid: "Middle chest",
+  chest_lower: "Lower chest",
+  delt_front: "Front of shoulder",
+  delt_side: "Side of shoulder",
+  delt_rear: "Back of shoulder",
+  teres: "Below the armpit (teres)",
+  biceps: "Biceps (front of arm)",
+  triceps: "Triceps (back of arm)",
+  forearms: "Forearms",
+};
+
+export const ROLE_LABELS_EN: Record<Role, { name: string; hint: string }> = {
+  prime: { name: "Main muscles", hint: "do most of the lifting" },
+  synergist: { name: "Helping muscles", hint: "help the main muscles" },
+  stabilizer: { name: "Steadying muscles", hint: "hold the body and joints still" },
 };
 
 // Shared by the body shader and the legend swatches.

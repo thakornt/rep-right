@@ -2,8 +2,8 @@
 // all the way: knees a little bent, hips back, trunk leaning forward in one straight
 // piece. The shoulder does the lift, with the elbow a little bent and leading: the upper
 // arm is turned in so the bend shows downward, and the elbow rises ahead of the hand.
-// The forearm turns back against that, so the palm that faced in at the bottom faces
-// down at the top and the dumbbell stays near level.
+// At the bottom the dumbbell lies nearly across the body; the forearm turns back on the way
+// up, so the back of the hand faces up at the top and the dumbbell comes up level.
 
 import * as THREE from "three";
 
@@ -12,12 +12,18 @@ import { holdArm, standFeet } from "./pose-curl";
 import { readSide, type PressSide } from "./pose-press";
 
 export const LATERAL_RAISE = {
-  lowRaise: 16, // degrees the upper arm is out from hanging at the bottom
+  lowRaise: 20, // degrees the upper arm is out from hanging at the bottom: with the elbow pointing out, less brings the dumbbells onto the thighs
   highRaise: 88, // degrees at the top: the elbow about shoulder height, not above
-  planeForward: 15, // degrees the arm's path is forward of straight out to the side; the owner confirmed it
+  planeForward: 40, // degrees the arm's path is forward of straight out to the side at the bottom: the hands in front of the thighs
+  planeForwardTop: 35, // and at the top: the hands forward of the side (owner, 2026-11-17)
+  // Degrees the hand is turned about the forearm from thumbs-forward, toward palm-back: at the
+  // bottom the dumbbell lies nearly across the body; on the way up the forearm turns back so the
+  // back of the hand faces up at the top and the dumbbell comes up level (owner, 2026-11-17).
+  handTurnLow: 0, // with the upper arm turned in, the dumbbell 18 degrees off straight across
+  handTurnHigh: -22, // the back of the hand up, the thumb end of the dumbbell about 2 degrees below level (owner: down, no more than 5)
   elbowBend: 20, // degrees the elbow stays bent, the same all the way
-  elbowLeadLow: 15, // degrees the upper arm is turned in at the bottom; any more and the dumbbell meets the thigh
-  elbowLeadHigh: 40, // and at the top, so the elbow rides above the hand
+  elbowLeadLow: 70, // degrees the upper arm is turned in at the bottom: the elbow points out to the side (22 degrees back of straight out), the biceps toward the body (owner, 2026-11-17); the shoulder turns in 68, of its 70
+  elbowLeadHigh: 60, // and at the top, so the elbow rides above the hand; with the path this far forward, less leaves it level with the hand
   shoulderRiseAtTop: 6, // degrees the clavicles rise with the arm at the top: the shoulder blade rotating up, not a shrug
   trunkLean: 15, // degrees the trunk leans forward from the hips, the back straight
   hipsBack: 0.09, // metres the hips sit behind the ankles
@@ -44,7 +50,7 @@ export function readRaiseRig(root: THREE.Object3D): RaiseRig {
 // Depth 0 = arms up, 1 = arms down, as with the presses.
 export function poseRaise(raise: RaiseRig, depth: number) {
   const { rig, hips } = raise;
-  const { lowRaise, highRaise, planeForward, elbowBend, elbowLeadLow, elbowLeadHigh, shoulderRiseAtTop, trunkLean, hipsBack, hipsDrop, neckBack, stance, toeOut } = LATERAL_RAISE;
+  const { lowRaise, highRaise, planeForward, planeForwardTop, handTurnLow, handTurnHigh, elbowBend, elbowLeadLow, elbowLeadHigh, shoulderRiseAtTop, trunkLean, hipsBack, hipsDrop, neckBack, stance, toeOut } = LATERAL_RAISE;
   for (const [b, r] of rig.rest) {
     b.quaternion.copy(r.q);
     b.position.copy(r.p);
@@ -66,11 +72,16 @@ export function poseRaise(raise: RaiseRig, depth: number) {
 
     // The arm's height is against gravity, not the trunk: it hangs straight down at rest.
     const e = deg(elevation);
-    const plane = deg(planeForward);
+    const plane = deg(planeForwardTop + (planeForward - planeForwardTop) * depth);
     const upper = new THREE.Vector3(sign * Math.sin(e) * Math.cos(plane), -Math.cos(e), Math.sin(e) * Math.sin(plane));
     // The arm swings up carrying the elbow's hinge, turned in about itself so the bend shows downward.
     const hinge = ACROSS.clone().applyQuaternion(new THREE.Quaternion().setFromUnitVectors(DOWN, upper)).applyAxisAngle(upper, sign * deg(lead));
-    return holdArm(a, upper, hinge, upper, elbowBend, FRONT);
+    // The hand's turn on the forearm, carried by the arm: across at the bottom, palm down at the top.
+    const handTurn = handTurnHigh + (handTurnLow - handTurnHigh) * depth;
+    const swing = hinge.clone().addScaledVector(upper, -hinge.dot(upper)).normalize();
+    const fore = upper.clone().applyAxisAngle(swing, -deg(elbowBend));
+    const thumbs = fore.clone().cross(swing).normalize().applyAxisAngle(fore, sign * deg(handTurn));
+    return holdArm(a, upper, hinge, upper, elbowBend, thumbs);
   });
   return { l: out[0], r: out[1] };
 }

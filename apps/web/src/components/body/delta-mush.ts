@@ -4,7 +4,9 @@
 // which irons out the folds, and then its own detail at rest (the bumps of the muscles, kept as
 // offsets from a smoothed rest shape) is laid back on in the smoothed surface's own frame, so the
 // shape keeps its volume and relief. The result goes to the material as a per-vertex offset before
-// skinning (aMush), so the GPU draws it and contact.ts can read it the same way.
+// skinning (aMush), so the GPU draws it and contact.ts can read it the same way. The smoothed
+// surface's normals go with it (aMushNormal): lit with the old ones, the moved skin showed dark
+// and light smudges round the shoulders and the side of the neck.
 
 import * as THREE from "three";
 
@@ -151,6 +153,8 @@ export function prepareDeltaMush(root: THREE.Object3D) {
   }
   g.userData.deltaMush = m;
   g.setAttribute("aMush", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  // The corrected skin's normal in the rest pose's space; zero where there is no correction.
+  g.setAttribute("aMushNormal", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
 }
 
 // Keep the correction following the pose whenever the skeleton updates (each frame it is drawn),
@@ -163,6 +167,9 @@ export function followDeltaMush(root: THREE.Object3D) {
     if (!m) return;
     const attr = mesh.geometry.getAttribute("aMush") as THREE.BufferAttribute;
     const out = attr.array as Float32Array;
+    const normalAttr = mesh.geometry.getAttribute("aMushNormal") as THREE.BufferAttribute;
+    const outNormal = normalAttr.array as Float32Array;
+    const { normal } = mesh.geometry.attributes;
     const { position, skinIndex, skinWeight } = mesh.geometry.attributes;
     const update = mesh.skeleton.update.bind(mesh.skeleton);
     const posed = new Float32Array(m.places.length * 3);
@@ -170,16 +177,22 @@ export function followDeltaMush(root: THREE.Object3D) {
     const e = blend.elements;
     const linear = new THREE.Matrix3();
     const p = new THREE.Vector3(), n = new THREE.Vector3(), t = new THREE.Vector3(), s = new THREE.Vector3(), want = new THREE.Vector3();
+    const fixed = new Float32Array(m.places.length * 3); // the posed skin with the correction on
+    const undo = new Float32Array(m.places.length * 9); // each corrected place's way back to the rest space
+    const restNormal = new THREE.Vector3();
     const correct = () => {
       const bones = mesh.skeleton.boneMatrices!;
       for (const k of m.posed) mesh.applyBoneTransform(m.places[k], p.fromBufferAttribute(position, m.places[k])).toArray(posed, k * 3);
       const smoothed = smooth(m, new Float32Array(posed));
       out.fill(0);
+      outNormal.fill(0);
+      fixed.set(posed);
       for (const k of m.corrected) {
         frameAt(m, smoothed, k, n, t, s);
         want.fromArray(smoothed, k * 3).addScaledVector(t, m.detail[k * 3]).addScaledVector(s, m.detail[k * 3 + 1]).addScaledVector(n, m.detail[k * 3 + 2]);
         // From where plain skinning put it toward the corrected place, by this place's share.
         want.sub(p.fromArray(posed, k * 3)).multiplyScalar(m.share[k]);
+        p.add(want).toArray(fixed, k * 3);
         // Back into the rest pose's space: undo the blend of the bones' turns at this point.
         const i = m.places[k];
         e.fill(0);
@@ -191,8 +204,19 @@ export function followDeltaMush(root: THREE.Object3D) {
         }
         blend.premultiply(mesh.bindMatrixInverse).multiply(mesh.bindMatrix);
         linear.setFromMatrix4(blend).invert();
+        linear.toArray(undo, k * 9);
         want.applyMatrix3(linear);
         want.toArray(out, i * 3);
+      }
+      // The corrected skin's normals, from its own triangles, taken back into the rest space the
+      // way the shader skins normals, and eased into the model's own by the place's share so the
+      // edge of the correction doesn't show.
+      for (const k of m.corrected) {
+        frameAt(m, fixed, k, n, t, s);
+        n.applyMatrix3(linear.fromArray(undo, k * 9)).normalize();
+        const i = m.places[k];
+        restNormal.fromBufferAttribute(normal, i).lerp(n, m.share[k]).normalize();
+        restNormal.toArray(outNormal, i * 3);
       }
       // Seams: every vertex at a place takes its place's offset.
       for (let i = 0; i < m.place.length; i++) {
@@ -201,9 +225,13 @@ export function followDeltaMush(root: THREE.Object3D) {
           out[i * 3] = out[m.places[k] * 3];
           out[i * 3 + 1] = out[m.places[k] * 3 + 1];
           out[i * 3 + 2] = out[m.places[k] * 3 + 2];
+          outNormal[i * 3] = outNormal[m.places[k] * 3];
+          outNormal[i * 3 + 1] = outNormal[m.places[k] * 3 + 1];
+          outNormal[i * 3 + 2] = outNormal[m.places[k] * 3 + 2];
         }
       }
       attr.needsUpdate = true;
+      normalAttr.needsUpdate = true;
     };
     mesh.skeleton.update = () => {
       update();

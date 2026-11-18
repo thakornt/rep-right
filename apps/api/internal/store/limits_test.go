@@ -44,7 +44,7 @@ func TestDailySessionLimit(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = q.DeleteUser(ctx, u.ID) })
 	s := NewWorkoutStore(pool)
-	squat, err := s.ExerciseBySlug(ctx, "back-squat")
+	squat, err := s.ExerciseBySlug(ctx, "barbell-squat")
 	if err != nil {
 		t.Fatal(err)
 	}

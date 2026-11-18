@@ -276,7 +276,7 @@ func TestExerciseCache(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if e, err := c.ExerciseBySlug(ctx, "back-squat"); err != nil || e.Slug != "back-squat" {
+	if e, err := c.ExerciseBySlug(ctx, squat.Slug); err != nil || e.Slug != squat.Slug {
 		t.Fatalf("by slug: %+v %v", e, err)
 	}
 	if _, err := c.ExerciseBySlug(ctx, "nope"); !errors.Is(err, workout.ErrNotFound) {

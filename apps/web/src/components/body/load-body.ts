@@ -7,20 +7,24 @@ import type * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
-import { shortenPalms } from "./body-proportions";
+import { shortenPalms, slimThighs } from "./body-proportions";
 import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
+import { addShoulderCorrectives, followShoulderCorrectives } from "./shoulder-correctives";
 
 export function loadBody(): Promise<THREE.Object3D> {
   const buf = fs.readFileSync(path.join(__dirname, "../../../public/models/body.glb"));
   const data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   return new Promise((resolve, reject) => new GLTFLoader().parse(data, "", (g) => {
     shortenPalms(g.scene);
+    slimThighs(g.scene);
     setShoulderWeights(g.scene);
     addArmTwist(g.scene);
     prepareDeltaMush(g.scene);
+    addShoulderCorrectives(g.scene);
     followArmTwist(g.scene);
     followDeltaMush(g.scene);
+    followShoulderCorrectives(g.scene);
     resolve(g.scene);
   }, reject));
 }

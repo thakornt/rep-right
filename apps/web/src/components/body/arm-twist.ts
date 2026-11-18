@@ -84,8 +84,8 @@ export function addArmTwist(root: THREE.Object3D) {
 
 // Lifts that turn the upper arm far switch the twist bones on for their model with this; for the
 // others they stay still and the arm's skin moves as it always has.
-export function enableArmTwist(root: THREE.Object3D) {
-  root.userData.armTwist = true;
+export function enableArmTwist(root: THREE.Object3D, on = true) {
+  root.userData.armTwist = on;
 }
 
 // Set the twist bones from how the upper arms are turned now. `rest` is each arm's own rotation at

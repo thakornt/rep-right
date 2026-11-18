@@ -13,15 +13,26 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   shoulder: 1 - QUICK_UP,
   hammer: 1 - QUICK_UP,
   raise: 1 - QUICK_UP,
+  shrug: 1 - QUICK_UP, // lifted breathing out, lowered slowly breathing in
   squat: 1 - QUICK_UP,
   crunch: 1 - QUICK_UP,
   pulldown: 0.29, // the work is on the way down; measured off the video
+  pulldownNeutral: 0.29, // as the wide grip
+  pulldownSingle: 0.29,
   pushdown: 0.36, // the work is on the way down; measured off the video
   pushup: 1 - QUICK_UP, // pushed up quickly breathing out, lowered slowly breathing in, as the owner asked
   overheadOne: 1 - QUICK_UP,
   overheadTwo: 1 - QUICK_UP,
+  overheadCable: 1 - QUICK_UP,
+  uprightRow: 1 - QUICK_UP, // pulled up quickly breathing out, lowered slowly breathing in
+  uprightRowDumbbell: 1 - QUICK_UP, // pushed up breathing out, lowered slowly breathing in, as the clip says
   row: 1 - QUICK_UP, // rowed up quickly, lowered slowly
   rdl: 1 - QUICK_UP, // up quickly driving the hips forward, lowered slowly
+  legExtension: 1 - QUICK_UP, // straightened quickly breathing out, lowered slowly breathing in
+  hipThrust: 1 - QUICK_UP, // driven up quickly breathing out, lowered slowly breathing in
+  pullUp: QUICK_UP, // pulled up quickly breathing out, lowered slowly over 4-5 seconds, as the clip says
+  chinUp: QUICK_UP,
+  facePull: QUICK_UP, // pulled in quickly breathing out, let back slowly breathing in, as the clip says
 };
 export const BACK_SQUAT_DOWN_SHARE = 1 - QUICK_UP;
 

@@ -7,9 +7,10 @@ import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { addArmTwist, followArmTwist } from "./arm-twist";
-import { shortenPalms } from "./body-proportions";
+import { shortenPalms, slimThighs } from "./body-proportions";
 import { setShoulderWeights } from "./shoulder-weights";
 import { followDeltaMush, prepareDeltaMush } from "./delta-mush";
+import { addShoulderCorrectives, CORRECTIVE_AFTER_SKIN, CORRECTIVE_HEAD, followShoulderCorrectives } from "./shoulder-correctives";
 import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS } from "./muscles";
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
@@ -18,7 +19,6 @@ import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
 
 export const MODEL = "/models/body.glb";
 const MUSCLE_MAP = "/models/muscles.png";
-const RELIEF_MAP = "/models/relief.png";
 
 export type View = "side" | "front" | "back" | "angle";
 
@@ -89,7 +89,9 @@ const TOUCHES = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 const PAN_LIMIT = 0.12; // how far the view may slide from where it looks at the body, per metre of the camera's distance, so zoomed in it slides less
 
-export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; target?: THREE.Vector3; reach?: number }) {
+// `reach`: metres either side of the target to keep in frame across; `tall`: up and down, for a lift
+// that spans more height than standing (hanging from a bar).
+export function CameraRig({ view, target = TARGET, reach = 0, tall = 0 }: { view: View; target?: THREE.Vector3; reach?: number; tall?: number }) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / s.size.height);
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
@@ -97,7 +99,8 @@ export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; ta
 
   const fov = (camera as THREE.PerspectiveCamera).fov;
   const from = new THREE.Vector3(...CAMERA[view]).distanceTo(target);
-  const fit = view === "side" ? 1 : Math.max(1, reach / (Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect) / from);
+  const half = Math.tan(THREE.MathUtils.degToRad(fov / 2));
+  const fit = Math.max(view === "side" ? 1 : Math.max(1, reach / (half * aspect) / from), tall / half / from);
 
   useEffect(() => {
     goal.current = new THREE.Vector3(...CAMERA[view]).sub(target).multiplyScalar(fit).add(target);
@@ -142,18 +145,23 @@ export function CameraRig({ view, target = TARGET, reach = 0 }: { view: View; ta
 
 // ---------- body material ----------
 
-// Skin keeps showing through the colour, so its shape and grooves still read.
-export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THREE.Texture }) {
+// Skin keeps showing through the colour, so its shape still reads. No grooves are drawn between
+// the muscles (relief.png): stretched by the poses they read as cuts, so the owner had them taken
+// off the whole body (2026-11-12).
+export function bodyMaterial({ map }: { map: THREE.Texture }) {
   const tints = Array.from({ length: REGION_COUNT }, () => new THREE.Vector3());
   const amounts = new Array<number>(REGION_COUNT).fill(0);
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
   const triceps = { value: new THREE.Vector2() }; // metres each arm's triceps gathers: left, right
   const traps = { value: new THREE.Vector2() }; // metres each side's upper trapezius swells: left, right
+  const shrug = { value: 0 }; // how much of the owner's sculpted shrug shape is on, 0..1 (pose-shrug.ts)
+  const mush = { value: 1 }; // how much of the shoulders' corrective smoothing is on (delta-mush.ts)
   const mat = new THREE.MeshStandardMaterial({
     color: "#b9b2ab",
     roughness: 0.62,
-    normalMap: relief,
   });
+  const corr = { weights: new THREE.Vector2(), bone: { value: 0 } }; // set per draw by shoulder-correctives.ts
+  mat.userData.shoulderCorrective = corr;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTint = { value: tints };
     shader.uniforms.uAmt = { value: amounts };
@@ -161,6 +169,10 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     shader.uniforms.uBiceps = biceps;
     shader.uniforms.uTriceps = triceps;
     shader.uniforms.uTraps = traps;
+    shader.uniforms.uShrug = shrug;
+    shader.uniforms.uMushAmount = mush;
+    shader.uniforms.uCorr = { value: corr.weights };
+    shader.uniforms.uCorrBone = corr.bone;
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
@@ -168,12 +180,26 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         attribute float aBiceps;
         attribute vec2 aTriceps;
         attribute vec2 aTraps;
+        attribute vec3 aShrug;
+        attribute vec3 aShrugNormal;
 
         attribute vec3 aMush;
+        attribute vec3 aMushNormal;
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
         uniform vec2 uTraps;
-        varying vec2 vMapUv;`,
+        uniform float uShrug;
+        uniform float uMushAmount;
+        varying vec2 vMapUv;
+        ${CORRECTIVE_HEAD}`,
+      )
+      .replace(
+        "#include <beginnormal_vertex>",
+        `#include <beginnormal_vertex>
+        // The shoulders' corrected skin is lit by its own normals (delta-mush.ts).
+        if (dot(aMushNormal, aMushNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aMushNormal, uMushAmount));
+        // The shrug's sculpted trapezius is lit by its own shape's normals, coming in with it.
+        if (dot(aShrugNormal, aShrugNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aShrugNormal, uShrug));`,
       )
       .replace(
         "#include <begin_vertex>",
@@ -183,9 +209,13 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
         transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
         transformed += normal * dot(aTriceps, uTriceps);
         transformed += normal * dot(aTraps, uTraps);
-        transformed += aMush; // the shoulders' corrective smoothing (delta-mush.ts)
+        transformed += aShrug * uShrug; // the shrug's sculpted trapezius; meshes without it read 0
+        transformed += aMush * uMushAmount; // the shoulders' corrective smoothing (delta-mush.ts)
         vMapUv = uv;`,
-      );
+      )
+      // The shoulders' corrective shapes, after skinning (shoulder-correctives.ts).
+      .replace("#include <skinning_vertex>", `#include <skinning_vertex>
+        ${CORRECTIVE_AFTER_SKIN}`);
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
@@ -235,17 +265,23 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
     amounts[i] = amount;
   };
   let teresOwn = false; // this lift calls on the teres itself
+  let trapsOwn = false; // and on the trapezius by itself
   return {
     mat,
     clear: () => {
       amounts.fill(0);
       teresOwn = false;
+      trapsOwn = false;
     },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setTriceps: (left: number, right: number) => triceps.value.set(left, right),
     setTraps: (left: number, right: number) => traps.value.set(left, right),
+    setShrug: (amount: number) => (shrug.value = amount),
+    setMush: (amount: number) => (mush.value = amount),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
+      if (i === REGION_IDS.traps) trapsOwn = true;
+      else if (!trapsOwn && i === REGION_IDS.upper_back) paint(REGION_IDS.traps, color, amount);
       if (i === REGION_IDS.teres) {
         teresOwn = true;
         paint(TERES_OVER_LATS, color, amount);
@@ -260,7 +296,7 @@ export function bodyMaterial({ map, relief }: { map: THREE.Texture; relief: THRE
 
 // The muscle map holds region ids, not colours: no filtering, no colour conversion.
 export function useMuscleMap() {
-  const [loadedMap, loadedRelief] = useLoader(THREE.TextureLoader, [MUSCLE_MAP, RELIEF_MAP]);
+  const loadedMap = useLoader(THREE.TextureLoader, MUSCLE_MAP);
   return useMemo(() => {
     const map = loadedMap.clone();
     map.flipY = false;
@@ -269,12 +305,8 @@ export function useMuscleMap() {
     map.minFilter = THREE.NearestFilter;
     map.generateMipmaps = false;
     map.needsUpdate = true;
-    const relief = loadedRelief.clone();
-    relief.flipY = false;
-    relief.colorSpace = THREE.NoColorSpace;
-    relief.needsUpdate = true;
-    return { map, relief };
-  }, [loadedMap, loadedRelief]);
+    return { map };
+  }, [loadedMap]);
 }
 
 // ---------- the lifter ----------
@@ -288,12 +320,15 @@ export function useBody() {
   const { scene } = useGLTF(MODEL);
   return useMemo(() => {
     shortenPalms(scene);
+    slimThighs(scene);
     setShoulderWeights(scene);
     addArmTwist(scene);
     prepareDeltaMush(scene);
+    addShoulderCorrectives(scene);
     const body = cloneSkinned(scene);
     followArmTwist(body);
     followDeltaMush(body);
+    followShoulderCorrectives(body);
     return body;
   }, [scene]);
 }

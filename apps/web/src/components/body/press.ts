@@ -5,11 +5,81 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "row" | "crunch" | "rdl";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust" | "shrug";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
+  // The pulldown's other grips work the same muscles.
+  if (exercise === "pulldownNeutral" || exercise === "pulldownSingle") exercise = "pulldown";
   const effort = phase === "up" ? 1 : 0.8;
+  if (exercise === "pullUp" || exercise === "chinUp") {
+    // The back lifts the body, hardest near the top with the elbows coming down to the sides. The
+    // underhand grip turns the front of the upper arm to pull with it, so it works more; overhand,
+    // the back leads. The grip holds the whole body. The work is on the way up.
+    const pull = phase === "down" ? 1 : 0.8;
+    const under = exercise === "chinUp";
+    return [
+      { region: "lats", role: "prime", amount: (0.5 + 0.5 * depth) * pull },
+      { region: "teres", role: "prime", amount: (0.45 + 0.5 * depth) * pull },
+      { region: "biceps", role: under ? "prime" : "synergist", amount: ((under ? 0.4 : 0.25) + 0.5 * depth) * pull },
+      { region: "upper_back", role: "synergist", amount: (0.35 + 0.5 * depth) * pull }, // the shoulder blades pressing down and back
+      { region: "delt_rear", role: "synergist", amount: (0.2 + 0.4 * depth) * pull },
+      { region: "forearms", role: "synergist", amount: 0.6 }, // holding the whole body on the bar
+      { region: "abs", role: "stabilizer", amount: 0.4 }, // the body still, not swinging
+      { region: "chest_lower", role: "stabilizer", amount: 0.2 },
+    ];
+  }
+  if (exercise === "hipThrust") {
+    // The buttocks drive the hips up, hardest at the top with the hips straight; the back of the
+    // thigh helps, the front of the thigh holds the knee, and the trunk holds one straight line.
+    const up = 1 - depth;
+    return [
+      { region: "glutes", role: "prime", amount: (0.45 + 0.55 * up) * effort },
+      { region: "hamstrings", role: "synergist", amount: (0.25 + 0.35 * up) * effort },
+      { region: "adductors", role: "synergist", amount: (0.2 + 0.3 * depth) * effort }, // lower down, where the hips are bent
+      { region: "quads", role: "synergist", amount: 0.3 }, // holding the knee at its bend
+      { region: "abs", role: "stabilizer", amount: 0.45 }, // the ribs down, so the lower back doesn't arch
+      { region: "erectors", role: "stabilizer", amount: 0.3 },
+      { region: "forearms", role: "stabilizer", amount: 0.2 }, // keeping the bar from rolling
+    ];
+  }
+  if (exercise === "legExtension") {
+    // The front of the thigh straightens the knee, hardest near straight; the rest of the body
+    // just holds still on the seat.
+    const straight = 1 - depth;
+    return [
+      { region: "quads", role: "prime", amount: (0.45 + 0.55 * straight) * effort },
+      { region: "abs", role: "stabilizer", amount: 0.25 }, // the trunk still on the back pad
+      { region: "forearms", role: "stabilizer", amount: 0.3 }, // holding the handles, pulling into the seat
+    ];
+  }
+  if (exercise === "uprightRow" || exercise === "uprightRowDumbbell") {
+    // The front and side of the shoulder lift the elbows out and up, and the trapezius raises the
+    // shoulder blades with them, across the tops of the shoulders and down the middle of the back,
+    // as the owner outlined (2026-11-15); hardest at the top. The work is on the way up.
+    const lift = phase === "up" ? 1 : 0.8;
+    return [
+      { region: "delt_side", role: "prime", amount: (0.5 + 0.5 * (1 - depth)) * lift },
+      { region: "delt_front", role: "prime", amount: (0.4 + 0.5 * (1 - depth)) * lift },
+      { region: "traps", role: "prime", amount: (0.4 + 0.5 * (1 - depth)) * lift },
+    ];
+  }
+  if (exercise === "facePull") {
+    // The back of the shoulder and the upper back pull the elbows out and back, and the shoulder
+    // turns the forearms up; hardest pulled in, with the shoulder blades squeezed. The work is on
+    // the way in.
+    const pull = phase === "down" ? 1 : 0.8;
+    return [
+      { region: "delt_rear", role: "prime", amount: (0.45 + 0.55 * depth) * pull },
+      { region: "upper_back", role: "prime", amount: (0.4 + 0.6 * depth) * pull }, // the shoulder blades squeezed together
+      { region: "teres", role: "synergist", amount: (0.3 + 0.5 * depth) * pull }, // turning the upper arm out
+      { region: "delt_side", role: "synergist", amount: (0.25 + 0.4 * depth) * pull }, // holding the elbows up
+      { region: "biceps", role: "stabilizer", amount: 0.2 }, // only holding the bend: the clip's point, not a curl
+      { region: "forearms", role: "stabilizer", amount: 0.3 }, // the grip on the rope
+      { region: "abs", role: "stabilizer", amount: 0.35 }, // the trunk still, not leaning back to pull
+      { region: "erectors", role: "stabilizer", amount: 0.3 },
+    ];
+  }
   if (exercise === "rdl") {
     // The hamstrings and glutes lengthen under load going down and drive the hips forward coming
     // up, hardest near the bottom; the back holds its line throughout.
@@ -41,7 +111,7 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "hamstrings", role: "stabilizer", amount: 0.3 },
     ];
   }
-  if (exercise === "overheadOne" || exercise === "overheadTwo") {
+  if (exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable") {
     // The back of the arm straightens the elbow against the weight, its long head stretched most
     // with the dumbbell low behind the head; the shoulder holds the arm up meanwhile.
     return [
@@ -120,6 +190,21 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "forearms", role: "stabilizer", amount: 0.5 }, // the grip
     ];
   }
+  if (exercise === "shrug") {
+    // The upper trapezius lifts the shoulders toward the ears, hardest at the top; the middle of
+    // the back draws the shoulder blades together there. The grip holds the dumbbells and the back
+    // holds the lean.
+    const up = 1 - depth;
+    return [
+      { region: "traps", role: "prime", amount: (0.45 + 0.55 * up) * effort },
+      { region: "upper_back", role: "synergist", amount: (0.2 + 0.4 * up) * effort }, // squeezing the shoulder blades
+      { region: "forearms", role: "stabilizer", amount: 0.5 }, // the grip
+      { region: "erectors", role: "stabilizer", amount: 0.4 }, // holding the lean
+      { region: "abs", role: "stabilizer", amount: 0.3 },
+      { region: "glutes", role: "stabilizer", amount: 0.2 },
+      { region: "hamstrings", role: "stabilizer", amount: 0.2 },
+    ];
+  }
   if (exercise === "raise") {
     // Hardest at the top, with the arm level and the weight furthest out from the shoulder.
     const load = Math.sin(((1 - depth) * Math.PI) / 2);
@@ -179,10 +264,195 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
   ];
 }
 
+// How the pull-up's two grips differ, from the owner's reference clip (2026-11-14). General
+// guidance, shown on both grips so each can be read against the other.
+const PULL_UP_GRIP_NOTES = [
+  {
+    label: "คว่ำมือ (Pull-up)",
+    text: "ฝ่ามือหันออก จับกว้างกว่าไหล่เล็กน้อย ศอกลงมาข้างลำตัว ใช้หลังและปีกเป็นหลัก แขนหน้าช่วยน้อยกว่า จึงดึงยากกว่า เหมาะกับการเสริมความแข็งแรงของหลังโดยตรง",
+  },
+  {
+    label: "หงายมือ (Chin-up)",
+    text: "ฝ่ามือหันเข้าหาตัว จับประมาณช่วงไหล่ ศอกลงมาข้างหน้าลำตัว ใช้หลังคู่กับแขนหน้า (ไบเซ็ปส์) แขนช่วยได้มากกว่า จึงดึงง่ายกว่า เหมาะกับคนเริ่มฝึกดึงข้อ",
+  },
+];
+
 export const PRESS_CONTENT: Record<
   PressExercise,
-  { cues: Record<PressPin, string>; top: string; bottom: string; rising: string; lowering?: string; notice: string[] }
+  {
+    cues: Record<PressPin, string>;
+    top: string;
+    bottom: string;
+    rising: string;
+    lowering?: string;
+    notice: string[];
+    grips?: { label: string; text: string }[]; // how the lift's grips differ, under the muscles
+  }
 > = {
+  pulldownNeutral: {
+    cues: {
+      feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น ไม่มีช่องว่าง ช่วงล่างที่นิ่งช่วยให้ดึงได้เต็มแรง",
+      back: "ตอนบนตัวเกือบตรงและยืดให้สุด แล้วเอนหลังเล็กน้อยไปพร้อมกับการดึง อกยกขึ้น ไม่เหวี่ยงตัวช่วยดึง",
+      elbow: "ศอกลงมาข้างหน้าลำตัว ชิดตัว ไม่กางออกข้าง และไม่แทงศอกไปข้างหลัง",
+      dumbbell: "จับด้ามจับคู่ขนาน ฝ่ามือหันเข้าหากัน ดึงลงมาที่อกส่วนบน",
+      core: "เกร็งท้องเบา ๆ ดึงลงเร็วพร้อมหายใจออก แล้วปล่อยขึ้นช้า ๆ พร้อมหายใจเข้า อย่าให้ด้ามจับดีดขึ้น",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "ดึงลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังดึงลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ดึงลงได้จึงต่างกัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงลงเท่าที่ไหล่ยังสบายและอกยังยกอยู่ ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  pulldownSingle: {
+    cues: {
+      feet: "นั่งให้เท้าวางเต็มพื้น ปรับแผ่นรองให้กดแนบต้นขาแน่น มืออีกข้างวางบนต้นขา",
+      back: "ลำตัวเกือบตรงตลอด ไม่บิดตัวหรือเอียงตัวไปข้างที่ดึงเพื่อช่วยดึง",
+      elbow: "ดึงศอกลงมาข้างลำตัว ชิดซี่โครง ให้มือมาอยู่ข้างไหล่",
+      dumbbell: "จับด้ามจับข้างเดียว ฝ่ามือหันเข้าหาตัว ตอนบนแขนเกือบตรงและรู้สึกยืดข้างลำตัว",
+      core: "เกร็งท้องให้ลำตัวนิ่ง ดึงลงเร็วพร้อมหายใจออก แล้วปล่อยขึ้นช้า ๆ พร้อมหายใจเข้า ทำครบแล้วสลับข้าง",
+    },
+    top: "ปล่อยขึ้นสุด",
+    bottom: "ดึงลงสุด",
+    rising: "กำลังปล่อยขึ้น",
+    lowering: "กำลังดึงลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ดึงลงได้จึงต่างกัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ดึงลงเท่าที่ไหล่ยังสบายและลำตัวยังไม่บิด ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  pullUp: {
+    cues: {
+      feet: "งอเข่าให้หน้าแข้งไปทางหลัง ขาสองข้างชิดกันนิ่ง ๆ ถ้าบาร์สูงพอจะเหยียดขาตรงก็ได้ แต่อย่าเตะหรือเหวี่ยงขาช่วยดึง",
+      back: "ตอนห้อยตัว ปล่อยไหล่และลำตัวยืดให้สุด แล้วกดไหล่ลงไปทางกระเป๋ากางเกงก่อนเริ่มดึง ตอนขึ้นเอนลำตัวไปข้างหลังเล็กน้อย อกเข้าหาบาร์",
+      elbow: "ดึงศอกลงมาข้างลำตัว ศอกชี้ลงพื้นและกางออกข้างเล็กน้อย ไม่ยักไหล่ขึ้นหาหูตอนอยู่บน",
+      dumbbell: "จับแบบคว่ำมือ ฝ่ามือหันออกจากตัว กว้างกว่าหัวไหล่เล็กน้อย กำรอบบาร์ปกติ ไม่อ้อมมือไปหลังบาร์มากเกิน และข้อมือไม่มุดอยู่ใต้บาร์",
+      core: "หายใจเข้าเตรียมไว้ก่อนดึง เกร็งท้องให้ตัวนิ่ง ดึงขึ้นจนคางพ้นบาร์ คอตรง ไม่ยื่นคางหรือก้มหน้า แล้วลดตัวลงช้า ๆ 4-5 วินาที",
+    },
+    top: "ห้อยตัวยืดสุด",
+    bottom: "ดึงขึ้นสุด",
+    rising: "กำลังลดตัวลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือที่สบายจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ถ้ายังดึงไม่ขึ้น เริ่มจากห้อยตัวแล้วฝึกกดไหล่ลง หรือขึ้นไปค้างด้านบนแล้วค่อย ๆ ลดตัวลงช้า ๆ ก่อน",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+    grips: PULL_UP_GRIP_NOTES,
+  },
+  chinUp: {
+    cues: {
+      feet: "งอเข่าให้หน้าแข้งไปทางหลัง ขาสองข้างชิดกันนิ่ง ๆ ถ้าบาร์สูงพอจะเหยียดขาตรงก็ได้ แต่อย่าเตะหรือเหวี่ยงขาช่วยดึง",
+      back: "ตอนห้อยตัว ปล่อยไหล่และลำตัวยืดให้สุด แล้วกดไหล่ลงไปทางกระเป๋ากางเกงก่อนเริ่มดึง ตอนขึ้นเอนลำตัวไปข้างหลังเล็กน้อย อกเข้าหาบาร์",
+      elbow: "ดึงศอกลงมาข้างหน้าลำตัว ให้ต้นแขนเข้าชิดซี่โครง ไม่กางศอกออกข้าง และไม่ยักไหล่ขึ้นหาหูตอนอยู่บน",
+      dumbbell: "จับแบบหงายมือ ฝ่ามือหันเข้าหาตัว กว้างประมาณช่วงไหล่ ไม่ต้องกว้างกว่านี้ จับกว้างแบบหงายมือจะฝืนข้อมือและศอก",
+      core: "หายใจเข้าเตรียมไว้ก่อนดึง เกร็งท้องให้ตัวนิ่ง ดึงขึ้นจนคางพ้นบาร์ คอตรง ไม่ยื่นคางหรือก้มหน้า แล้วลดตัวลงช้า ๆ 4-5 วินาที",
+    },
+    top: "ห้อยตัวยืดสุด",
+    bottom: "ดึงขึ้นสุด",
+    rising: "กำลังลดตัวลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือที่สบายจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ถ้าข้อมือหรือศอกฝืนตอนหงายมือ ลองขยับมือเข้าหรือออกเล็กน้อยจนสบาย หรือเปลี่ยนไปจับแบบคว่ำมือ",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+    grips: PULL_UP_GRIP_NOTES,
+  },
+  hipThrust: {
+    cues: {
+      feet: "เท้าวางเต็มพื้น กว้างประมาณช่วงสะโพก ปลายเท้าแบะออกเล็กน้อย วางเท้าให้ตอนดันขึ้นสุดหน้าแข้งตั้งตรง ไม่เอียงไปหน้าหรือหลัง",
+      back: "พิงหลังส่วนบนใต้สะบักกับขอบม้านั่ง หลังตรงเป็นเส้นเดียวตลอด ไม่แอ่นหลังล่างตอนขึ้นสุด คางชิดอกเล็กน้อย ตามองไปข้างหน้า",
+      elbow: "ศอกงอลงข้างลำตัว มือแค่ประคองบาร์ไม่ให้กลิ้ง ไม่ได้ใช้แขนดัน",
+      dumbbell: "วางบาร์บนรอยพับสะโพก มีแผ่นรองบาร์ จับบาร์กว้างกว่าสะโพกเล็กน้อย",
+      core: "ดันสะโพกขึ้นเร็วพร้อมหายใจออก จนไหล่ สะโพก และเข่าอยู่ในแนวเดียวกัน บีบก้นค้างไว้ครู่หนึ่ง แล้วลดลงช้า ๆ หายใจเข้า ลงเท่าที่เข่ายังงอเพิ่มได้ หลังพิงม้านั่งที่จุดเดิม ไม่ไถลขึ้นลง",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความสูงของม้านั่งที่เหมาะจึงต่างกัน ปรับระยะเท้าให้หน้าแข้งตั้งตรงตอนขึ้นสุด",
+      "ลงเท่าที่หลังยังตรงและก้นยังไม่กระแทกพื้น ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่หลังล่างหรือสะโพก ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  legExtension: {
+    cues: {
+      feet: "ปรับเบาะรองให้อยู่หน้าแข้งส่วนล่าง เหนือข้อเท้าเล็กน้อย ตอนเริ่มให้เข่างออย่างน้อย 90 องศา",
+      back: "นั่งหลังพิงพนัก ดึงตัวเข้าหาเบาะให้ก้นแนบเบาะตลอด ไม่ยกก้นขึ้นตอนเหยียดขา",
+      elbow: "ปรับเบาะนั่งเข้าออกจนเข่าตรงกับแกนหมุนของเครื่อง (จุดกลมที่แขนเครื่องหมุนรอบ)",
+      dumbbell: "จับที่จับข้างเบาะไว้แน่น ใช้ดึงตัวเข้าหาเบาะให้นิ่ง",
+      core: "เหยียดขาขึ้นเร็วพร้อมหายใจออกจนเกือบตรง เกร็งต้นขาหน้าค้างไว้ครู่หนึ่ง แล้วลดลงช้า ๆ พร้อมหายใจเข้า ไม่เตะด้วยแรงเหวี่ยง",
+    },
+    top: "เหยียดขาสุด",
+    bottom: "งอเข่าสุด",
+    rising: "กำลังเหยียดขา",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความยาวขาไม่เท่ากัน จึงต้องปรับเบาะนั่งและเบาะรองหน้าแข้งทุกครั้งที่ใช้เครื่อง",
+      "เหยียดขาเท่าที่เข่ายังสบาย ไม่ต้องล็อกเข่าตึงสุด",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  uprightRow: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย ดันสะโพกไปข้างหลังนิดหน่อย",
+      back: "เอนตัวไปข้างหน้าเล็กน้อยทั้งลำตัว หลังตรง ไม่ห่อไหล่ มองตรงไปข้างหน้า ลำตัวนิ่งตลอด ไม่เหวี่ยงช่วยดึง",
+      elbow: "ยกต้นแขนขึ้นในแนวเดียว ออกด้านข้าง เฉียงมาข้างหน้านิดเดียว จนเกือบขนานพื้น ศอกสูงระดับไหล่ ไม่สูงกว่า ศอกงอเพิ่มไปพร้อมกัน",
+      dumbbell: "จับบาร์แบบคว่ำมือ กว้างกว่าไหล่พอสมควร ดึงบาร์ขึ้นใกล้ลำตัว จากหน้าขาถึงระดับนม ไม่เหวี่ยงออกไปข้างหน้าเหมือนท่ายกแขนไปข้างหน้า",
+      core: "ดึงขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง",
+    },
+    top: "ดึงขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังลดลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "จับแคบแล้วดึงสูงมักทำให้ไหล่รู้สึกติดหรือเจ็บ จับกว้างขึ้นและเอนตัวไปข้างหน้าเล็กน้อยช่วยให้ไหล่ทำงานสบายขึ้น",
+      "ดึงขึ้นเท่าที่ไหล่ยังสบาย ถ้าเริ่มรู้สึกบีบที่หัวไหล่ให้หยุดต่ำกว่านั้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  uprightRowDumbbell: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย ดันสะโพกไปข้างหลังนิดหน่อย",
+      back: "เอนตัวไปข้างหน้าเล็กน้อยทั้งลำตัว หลังตรง ไม่ห่อไหล่ มองตรงไปข้างหน้า ลำตัวนิ่งตลอด ไม่เหวี่ยงช่วยดึง",
+      elbow: "ยกต้นแขนขึ้นในแนวเดียว ออกด้านข้าง เฉียงมาข้างหน้านิดเดียว จนเกือบขนานพื้น ศอกสูงระดับไหล่ ไม่สูงกว่า ศอกงอเพิ่มไปพร้อมกัน",
+      dumbbell: "ถือดัมเบลแบบคว่ำมือ กว้างกว่าไหล่เล็กน้อย บิดฝ่ามือเข้าหาลำตัวได้เล็กน้อยตามที่ข้อมือสบาย ดึงดัมเบลขึ้นใกล้ลำตัว จากหน้าขาถึงระดับนม ไม่เหวี่ยงออกไปข้างหน้า และไม่กางออกด้านข้าง",
+      core: "ดึงขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง",
+    },
+    top: "ดึงขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังลดลง",
+    lowering: "กำลังดึงขึ้น",
+    notice: [
+      "จับแคบแล้วดึงสูงมักทำให้ไหล่รู้สึกติดหรือเจ็บ ถือกว้างขึ้นและเอนตัวไปข้างหน้าเล็กน้อยช่วยให้ไหล่ทำงานสบายขึ้น",
+      "ดึงขึ้นเท่าที่ไหล่ยังสบาย ถ้าเริ่มรู้สึกบีบที่หัวไหล่ให้หยุดต่ำกว่านั้น",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  facePull: {
+    cues: {
+      feet: "ตั้งรอกให้สูงกว่าหัวเล็กน้อย แล้วถอยออกมาหนึ่งถึงสองก้าว เท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงส้นเท้ามากหน่อย",
+      back: "เอนตัวไปข้างหลังเล็กน้อยเป็นเส้นตรงจากข้อเท้าถึงหัว เพื่อสู้แรงสายที่ดึงตัวไปข้างหน้า แต่ไม่เหวี่ยงตัวช่วยดึง อกผาย ตอนดึงเข้าสุดให้บีบสะบักสองข้างเข้าหากัน",
+      elbow: "ศอกนำ ดึงศอกออกข้างและไปข้างหลังให้สูงระดับไหล่ ไม่ให้ศอกตกต่ำกว่ามือ ถ้าศอกตกจะกลายเป็นการงอแขนแบบท่าค้อน (Hammer curl) ที่ไปโดนต้นแขนกับแขนท่อนล่างแทน",
+      dumbbell: "จับเชือกแบบคว่ำมือ ดึงให้กลางเชือกเข้ามาเหมือนจะชนหน้าผาก แล้วแหวกมือออกให้กว้างที่สุดไปข้างหัว ปลายแขนตั้งขึ้น เหมือนกำลังเบ่งกล้ามแขนสองข้าง",
+      core: "ดึงเข้าให้เร็วและหายใจออก แล้วต้านกลับช้า ๆ หายใจเข้า เกร็งท้องให้ลำตัวนิ่ง ใช้น้ำหนักที่ยังทำท่าได้ถูกและรู้สึกที่หลังไหล่ก่อน",
+    },
+    top: "ปล่อยแขนออกสุด",
+    bottom: "ดึงเข้าสุด",
+    rising: "กำลังปล่อยกลับ",
+    lowering: "กำลังดึงเข้า",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ไหล่หมุนออกได้ไม่เท่ากัน ไม่ต้องแหวกมือกว้างเท่าโมเดล",
+      "ดึงเข้าเท่าที่ศอกยังสูงระดับไหล่และไหล่ยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
   rdl: {
     cues: {
       feet: "ยืนเท้ากว้างประมาณช่วงสะโพก น้ำหนักลงกลางเท้าถึงส้นเท้า ย่อเข่านิดเดียวและคงมุมนี้ไว้ ไม่นั่งลงแบบสควอท",
@@ -253,6 +523,24 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ศอกงอและไหล่ยกได้ไม่เท่ากัน ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและดัมเบลยังห่างท้ายทอย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  overheadCable: {
+    cues: {
+      feet: "ตั้งรอกไว้ประมาณระดับสะดือ ใส่เชือก จับปลายเชือกสองข้างแล้วหมุนตัวหันหลังให้เครื่อง ยกเชือกข้ามขึ้นไปไว้หลังหัว ยืนห่างเครื่องประมาณหนึ่งก้าว เท้ากว้างประมาณช่วงสะโพก",
+      back: "ยืนตัวตรง ไม่ต้องโน้มตัวหรือบิดตัว ไม่แอ่นหลังล่างตอนดันขึ้น ศีรษะตั้งตรง",
+      elbow: "ต้นแขนตั้งขึ้นข้างหัว ศอกชี้ขึ้นและเก็บเข้า ไม่กางออกด้านข้าง ศอกอยู่ที่เดิมเป็นจุดหมุน ขึ้นสุดแขนเกือบตรงแต่ไม่ล็อกศอก",
+      dumbbell: "กำปลายเชือกแบบฝ่ามือหันเข้าหากัน ลดมือลงไปหลังหัวจนรู้สึกยืดหลังแขน แล้วดันขึ้นจนมือเข้ามาใกล้กันเหนือหัว",
+      core: "เกร็งท้องเบา ๆ ซี่โครงไม่บานออก ดันขึ้นหายใจออก ผ่อนลงช้า ๆ หายใจเข้า",
+    },
+    top: "ดันขึ้นสุด",
+    bottom: "ลดลงสุด",
+    rising: "กำลังดันขึ้น",
+    lowering: "กำลังลดลง",
+    notice: [
+      "ตั้งรอกต่ำสุดจะต้องก้มหยิบ ตั้งสูงจะต้องโน้มตัวและบิดตัว ระดับสะดือหมุนตัวเข้าท่าได้ง่ายและปลอดภัยกว่า",
+      "ลดลงเท่าที่ศอกยังอยู่ที่เดิมและไหล่ยังสบาย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ศอก ไหล่ หรือคอ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   pushup: {
@@ -375,6 +663,23 @@ export const PRESS_CONTENT: Record<
       "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างเท้าและความลึกจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ลงลึกเท่าที่หลังยังตรงและส้นเท้ายังติดพื้น ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่เข่า สะโพก หรือหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  shrug: {
+    cues: {
+      feet: "ยืนเท้ากว้างประมาณช่วงสะโพก ย่อเข่าเล็กน้อย น้ำหนักลงเต็มเท้า",
+      back: "ถอยก้นไปข้างหลังแล้วโน้มลำตัวมาข้างหน้าเล็กน้อย หลังตรง ค้างท่านี้ไว้ตลอดเซ็ต",
+      elbow: "ปล่อยแขนห้อยตรงลงพื้น ศอกไม่งอช่วยดึง ให้ไหล่เป็นส่วนเดียวที่ขยับ",
+      dumbbell: "ถือดัมเบลข้างลำตัว ฝ่ามือหันเข้าหาตัว ยกไหล่ขึ้นหาหูตรง ๆ แล้วบีบสะบักเข้าหากันเล็กน้อย ค้างไว้ครู่หนึ่ง ไม่หมุนไหล่เป็นวงกลม",
+      core: "เกร็งท้องเบา ๆ ให้ลำตัวนิ่ง ยกขึ้นหายใจออก ลดลงช้า ๆ หายใจเข้า",
+    },
+    top: "ยกไหล่ขึ้นสุด",
+    bottom: "ลดไหล่ลงสุด",
+    rising: "กำลังยกไหล่ขึ้น",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ระยะที่ยกไหล่ได้จึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
+      "ยกเท่าที่คอยังสบาย ไม่ต้องก้มหัวหรือยื่นคางช่วย ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่คอ ไหล่ หรือหลัง ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },
   raise: {

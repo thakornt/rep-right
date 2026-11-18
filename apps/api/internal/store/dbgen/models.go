@@ -26,6 +26,7 @@ type Exercise struct {
 	Category    string
 	IsLowerBody bool
 	Muscles     []string
+	Equipment   []string
 }
 
 type RefreshToken struct {
@@ -65,6 +66,7 @@ type User struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	PictureUrl  string
+	ProgramID   pgtype.Text
 }
 
 type UserIdentity struct {

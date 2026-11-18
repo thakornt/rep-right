@@ -1,0 +1,86 @@
+// Turns the dumped sculpt (sculpt-final-web.json) into apps/web/src/components/body/shrug-sculpt.json:
+// rest-space offsets and normals. Copy into apps/web/src/components/body/ as zz-convert.test.ts, run it with
+// vitest from apps/web, then delete it.
+import { readFileSync, writeFileSync } from "node:fs";
+import * as THREE from "three";
+import { test } from "vitest";
+import { loadBody } from "./load-body";
+import { poseShrug, readShrugRig } from "./pose-shrug";
+import path from "node:path";
+const DIR = path.resolve(__dirname, "../../../../../tools/body/out/shrug") + "/";
+// Welded, area-weighted vertex normals: points on a seam share one.
+function normals(P: THREE.Vector3[], index: ArrayLike<number>, weld: number[]) {
+  const acc = P.map(() => new THREE.Vector3());
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  for (let t = 0; t < index.length; t += 3) {
+    const [i, j, k] = [index[t], index[t + 1], index[t + 2]];
+    a.subVectors(P[j], P[i]); b.subVectors(P[k], P[i]);
+    const f = a.clone().cross(b); // length = twice the area
+    for (const v of [i, j, k]) acc[weld[v]].add(f);
+  }
+  return P.map((_, i) => acc[weld[i]].clone().normalize());
+}
+test("convert the owner's sculpt", async () => {
+  const root = await loadBody();
+  const sh = readShrugRig(root);
+  poseShrug(sh, 0);
+  root.updateMatrixWorld(true);
+  const skin = sh.rig.skin as THREE.SkinnedMesh;
+  const g = skin.geometry;
+  const n = g.attributes.position.count;
+  const F: number[][] = JSON.parse(readFileSync(DIR + "sculpt-final-web.json", "utf8"));
+  const sk = skin.skeleton;
+  sk.update();
+  const si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const boneMats = sk.bones.map((b, k) => new THREE.Matrix4().multiplyMatrices(b.matrixWorld, sk.boneInverses[k]));
+  const rest = g.attributes.position as THREE.BufferAttribute;
+  const weldKey = new Map<string, number>();
+  const weld = Array.from({ length: n }, (_, i) => {
+    const k = `${rest.getX(i).toFixed(5)},${rest.getY(i).toFixed(5)},${rest.getZ(i).toFixed(5)}`;
+    if (!weldKey.has(k)) weldKey.set(k, i);
+    return weldKey.get(k)!;
+  });
+  const P0: THREE.Vector3[] = [];
+  const PF: THREE.Vector3[] = [];
+  for (let i = 0; i < n; i++) {
+    P0.push(skin.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(skin.matrixWorld));
+    PF.push(new THREE.Vector3(...F[i]));
+  }
+  const toBind = (i: number) => {
+    const m = new THREE.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    for (let k = 0; k < 4; k++) {
+      const w = sw.getComponent(i, k);
+      if (!w) continue;
+      const bm = boneMats[si.getComponent(i, k)];
+      for (let e = 0; e < 16; e++) m.elements[e] += bm.elements[e] * w;
+    }
+    const L = new THREE.Matrix4().multiplyMatrices(skin.matrixWorld, skin.bindMatrixInverse).multiply(m).multiply(skin.bindMatrix);
+    return new THREE.Matrix3().setFromMatrix4(L).invert();
+  };
+  const index: number[] = [], delta: number[] = [];
+  let worst = 0;
+  for (let i = 0; i < n; i++) {
+    const d = PF[i].clone().sub(P0[i]);
+    if (d.length() < 5e-5) continue;
+    worst = Math.max(worst, d.length());
+    const db = d.applyMatrix3(toBind(i));
+    index.push(i);
+    delta.push(+db.x.toFixed(5), +db.y.toFixed(5), +db.z.toFixed(5));
+  }
+  const idx = g.index!.array;
+  const N0 = normals(P0, idx, weld), NF = normals(PF, idx, weld);
+  const normalIndex: number[] = [], normal: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (N0[i].angleTo(NF[i]) < THREE.MathUtils.degToRad(0.5)) continue;
+    const nb = NF[i].clone().applyMatrix3(toBind(i)).normalize();
+    normalIndex.push(i);
+    normal.push(+nb.x.toFixed(4), +nb.y.toFixed(4), +nb.z.toFixed(4));
+  }
+  // check the positions come back
+  index.forEach((i, k) => rest.setXYZ(i, rest.getX(i) + delta[k * 3], rest.getY(i) + delta[k * 3 + 1], rest.getZ(i) + delta[k * 3 + 2]));
+  let err = 0;
+  const p = new THREE.Vector3();
+  for (const i of index) err = Math.max(err, skin.getVertexPosition(i, p).applyMatrix4(skin.matrixWorld).distanceTo(PF[i]));
+  console.log(`points moved ${index.length} (up to ${(worst * 100).toFixed(2)} cm), back within ${(err * 1000).toFixed(3)} mm; normals changed ${normalIndex.length}`);
+  writeFileSync("src/components/body/shrug-sculpt.json", JSON.stringify({ index, delta, normalIndex, normal }));
+}, 60000);

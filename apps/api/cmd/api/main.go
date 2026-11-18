@@ -103,6 +103,7 @@ func run(args []string) error {
 			Auth:           authSvc,
 			Cookie:         apihttp.CookieConfig{Domain: cfg.CookieDomain, Secure: cfg.IsProduction()},
 			Workouts:       store.NewWorkoutStore(pool),
+			Programs:       store.NewProgramStore(pool),
 			ProxySecret:    cfg.ProxySecret,
 			Limits:         lim,
 		})

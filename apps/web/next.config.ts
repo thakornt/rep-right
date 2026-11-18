@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    // The profile page became the settings page; keep old links and bookmarks working.
+    return [{ source: "/account", destination: "/settings", permanent: true }];
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/:path*` }];
   },

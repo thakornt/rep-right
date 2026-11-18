@@ -53,6 +53,7 @@ MUSCLES = {
     "delt_rear": 19,
     "teres": 20,
     "teres_over_lats": 21,  # the teres where it lies over lats; follows lats in lifts that don't call on it
+    "traps": 22,  # the trapezius, part of the upper back; follows it in lifts that don't call on it alone
 }
 
 # The teres on the back, from the shoulder blade's lower corner up and out to the back of
@@ -99,7 +100,8 @@ MUSCLE_TARGETS = {
 
 
 TRUNK = ["pelvis", "spine_01", "spine_02", "spine_03", "clavicle", "neck_01"]
-NECK_TOP = 1.49  # metres, where the trapezius meets the skull
+NECK_SIDE_TOP = 1.45  # metres: above this only the back of the neck is the trapezius
+NECK_TOP = 1.51  # metres, where the trapezius meets the skull: it is attached all the way up the back of the neck (owner, 2026-11-17)
 ERECTORS_X = 0.05  # metres from the spine, the outer edge of the erector columns
 
 
@@ -111,6 +113,20 @@ def abs_edge(z):
 def traps_edge(x):
     """Lower edge of the trapezius, from mid-back up and out to the shoulder blade."""
     return 1.12 + 1.3 * x
+
+
+# The trapezius as the owner outlined it (2026-11-15), inside the region above traps_edge: a band
+# across the tops of the shoulders from the neck out, and a strip down the middle of the back
+# between the shoulder blades narrowing to a point. The rest is the upper back. Its upper end covers
+# the back of the neck up to the skull (owner, 2026-11-17: it swells there in a shrug).
+TRAPS_SHAPE = {"neck": NECK_TOP, "band": (1.37, 0.15), "tip": 1.08, "top": 1.37, "width": 0.07}
+
+
+def in_traps_shape(x, z):
+    p = TRAPS_SHAPE
+    band = z > p["band"][0] - p["band"][1] * np.maximum(0, x - 0.04)
+    half = np.where(z < p["tip"], 0, p["width"] * np.minimum(1, (z - p["tip"]) / (p["top"] - p["tip"])))
+    return (z <= p["neck"]) & (band | (x <= half))
 
 
 def blade_edge(x):
@@ -367,8 +383,16 @@ def paint_map(mesh, muscle, bases, limbs):
     blade = back & (z > blade_edge(x)) & (x > 0.07) & (x < 0.17)
     region[behind & blade] = m["upper_back"]  # the muscles on the shoulder blade
     traps = (behind | (trunk & (nor[:, 2] > 0.5) & ~front)) & (z > traps_edge(x)) & (z < NECK_TOP)
-    neck = np.isin(base, ["neck_01", "head"]) & (nor[:, 1] > -0.1) & (nor[:, 2] > -0.3) & (z < NECK_TOP)
+    # Up the neck, only its back: the trapezius is attached there, while the sides above the shoulders
+    # belong to other muscles (owner, 2026-11-17).
+    neck = np.isin(base, ["neck_01", "head"]) & (nor[:, 1] > -0.1) & (nor[:, 2] > -0.3) & (z < NECK_TOP) & ((z < NECK_SIDE_TOP) | (nor[:, 1] > 0.3))
     region[traps | neck] = m["upper_back"]
+    region[(traps | neck) & in_traps_shape(x, z)] = m["traps"]
+    # Its front edge: the skin above the collarbone beside the neck, facing up, which fills out from
+    # the front when the shoulders rise (owner, 2026-11-17): the slope from the side of the neck out to
+    # the top of the shoulder. Not down toward the breastbone, nor the chest, nor the shoulder's cap.
+    above_collarbone = (np.isin(base, TRUNK) | (base == "neck_01")) & front & (nor[:, 2] > 0.35) & (z > pec_top + 0.015) & (z > 1.42 - 0.4 * (x - 0.06)) & (x > 0.045) & (x < 0.14) & (z < NECK_TOP)
+    region[above_collarbone] = m["traps"]
     rear = pelvis & (back | (y > 0.03))
 
     # Legs. The hip crease and the knee are lines on the body, not bone borders.
@@ -426,7 +450,8 @@ def paint_map(mesh, muscle, bases, limbs):
     region[cap & (a < 50) & (a > -130)] = m["delt_front"]
     region[cap & ((a > 130) | (a < -130))] = m["delt_rear"]
     # Across the back of the shoulder, the trapezius rather than the border between bones.
-    region[(base == "upperarm") & (nor[:, 1] > 0) & (x < 0.15) & (z > traps_edge(x))] = m["upper_back"]
+    over = (base == "upperarm") & (nor[:, 1] > 0) & (x < 0.15) & (z > traps_edge(x))
+    region[over] = np.where(in_traps_shape(x[over], z[over]), m["traps"], m["upper_back"])
 
     # Teres: an ellipse over the lower corner of the upper back and the top of lats.
     middle_x, middle_z = (TERES_FROM[0] + TERES_TO[0]) / 2, (TERES_FROM[1] + TERES_TO[1]) / 2

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMessages } from "@/lib/i18n/client";
+
 // Picks one way of doing a lift, above its 3D view: both arms or one, together or in turn.
 export function WaySwitch<T extends string | boolean>({
   ways,
@@ -10,15 +12,16 @@ export function WaySwitch<T extends string | boolean>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const t = useMessages().viewer;
   return (
     <div
       role="group"
-      aria-label="รูปแบบการเล่น"
+      aria-label={t.ways}
       className="flex gap-1 self-start rounded-full bg-raised p-1"
     >
       {ways.map(([v, label]) => (
         <button
-          key={label}
+          key={String(v)}
           type="button"
           aria-pressed={value === v}
           onClick={() => onChange(v)}

@@ -19,7 +19,7 @@ export const DUMBBELL_RDL = {
   pelvisTuck: 26, // degrees the pelvis tips back from the back's line, so the lower back neither rounds nor arches
   kneeTop: 8, // degrees the knees are bent standing: unlocked
   kneeBottom: 42, // and at the bottom: bent more, as the owner asked (2026-11-12), still a hinge rather than a squat
-  neckBack: 0.75, // share of the lean the neck lifts back, so the eyes look at the floor a little ahead
+  neckBack: 0.2, // share of the lean the neck lifts back: at the bottom the neck carries on the back's straight line, the eyes on the floor, not bent up (owner, 2026-11-12)
   forwardTop: 7, // degrees the arms hang forward of straight down when standing, the dumbbells in front of the thighs
   backBottom: 17, // degrees they swing back toward the legs at the bottom, keeping the dumbbells close
   armIn: 3, // degrees the arms hang in from straight down, the hands in front of the thighs
