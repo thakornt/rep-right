@@ -38,6 +38,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: siteUrl(),
     applicationName: SITE_NAME,
+    // Proves to Google Search Console that we own the site (not a secret: it is in every page).
+    verification: { google: "TiAQd4s8bAlir4ak5Wn2lU_XTToeWB2X6xm39mBfgz0" },
     title: t.meta.siteTitle,
     description: t.meta.siteDescription,
     openGraph,
