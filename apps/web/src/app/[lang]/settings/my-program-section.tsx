@@ -3,6 +3,7 @@
 import { CalendarDays, ChevronDown, Trash2 } from "lucide-react";
 import Link from "next/link";
 
+import { isCustomProgram } from "@/content/custom-program";
 import { localizeProgram, weekdayIndex } from "@/content/programs";
 import { useAuth } from "@/lib/auth";
 import { useLocale } from "@/lib/i18n/client";
@@ -40,7 +41,11 @@ export function MyProgramSection() {
           <summary className="flex cursor-pointer list-none items-center gap-3 p-5 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="text-xl font-semibold tracking-tight">{program.name}</span>
-              <span className="text-sm text-faint">{t.summary(program.daysPerWeek, program.alias)}</span>
+              <span className="text-sm text-faint">
+                {isCustomProgram(program)
+                  ? MESSAGES[locale].customProgram.trainingDays(program.daysPerWeek)
+                  : t.summary(program.daysPerWeek, program.alias)}
+              </span>
             </span>
             <ChevronDown
               aria-hidden
@@ -53,7 +58,10 @@ export function MyProgramSection() {
             <WeekTable program={program} today={weekdayIndex(new Date())} />
 
             <div className="grid grid-cols-2 gap-2">
-              <Link href={`/programs?days=${program.daysPerWeek}`} className={`${btnQuiet} whitespace-nowrap`}>
+              <Link
+                href={isCustomProgram(program) ? "/programs" : `/programs?days=${program.daysPerWeek}`}
+                className={`${btnQuiet} whitespace-nowrap`}
+              >
                 {t.change}
               </Link>
               <button

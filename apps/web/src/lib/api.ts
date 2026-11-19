@@ -1,6 +1,8 @@
 // API client. The access token lives only in memory (never localStorage);
 // the refresh token is an httpOnly cookie the browser sends to /api itself.
 
+import { readRefreshStatus, type RefreshOutcome } from "./session-restore";
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export type Provider = "google" | "line";
@@ -29,7 +31,7 @@ export class ApiError extends Error {
 let accessToken: string | null = null;
 // One refresh at a time: concurrent 401s wait on the same promise instead of
 // each rotating the cookie (which the server would treat as token reuse).
-let refreshing: Promise<boolean> | null = null;
+let refreshing: Promise<RefreshOutcome> | null = null;
 
 async function parseError(res: Response): Promise<ApiError> {
   if (res.status === 429 || res.status === 503) {
@@ -60,22 +62,40 @@ function post(path: string, body?: unknown): Promise<Response> {
   });
 }
 
-/** Exchanges the refresh cookie for a new access token. False = signed out. */
-export function refreshSession(): Promise<boolean> {
-  refreshing ??= post("/v1/auth/refresh")
-    .then(async (res) => {
-      if (!res.ok) {
-        accessToken = null;
-        return false;
-      }
-      accessToken = ((await res.json()) as TokenResponse).access_token;
-      return true;
-    })
-    .catch(() => false)
-    .finally(() => {
-      refreshing = null;
-    });
+/**
+ * Exchanges the refresh cookie for a new access token. Only a 401 means
+ * "signed out"; a server or network error is "unavailable", so a sleeping or
+ * restarting API never looks like a lost session.
+ */
+export function refreshSession(): Promise<RefreshOutcome> {
+  refreshing ??= refreshOnce().finally(() => {
+    refreshing = null;
+  });
   return refreshing;
+}
+
+async function refreshOnce(): Promise<RefreshOutcome> {
+  for (let attempt = 0; ; attempt++) {
+    let res: Response;
+    try {
+      res = await post("/v1/auth/refresh");
+    } catch {
+      return "unavailable"; // offline, or the proxy dropped the connection
+    }
+    const outcome = readRefreshStatus(res.status);
+    if (outcome === "ok") {
+      accessToken = ((await res.json()) as TokenResponse).access_token;
+      return "ok";
+    }
+    // Another tab refreshed this cookie a moment ago; its response is setting
+    // the new one. Give it a moment, then try once more with that cookie.
+    if (outcome === "raced" && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 500));
+      continue;
+    }
+    if (outcome === "signed-out") accessToken = null;
+    return outcome === "raced" ? "unavailable" : outcome;
+  }
 }
 
 async function startSession(path: string, body: unknown): Promise<User> {
@@ -131,7 +151,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     });
 
   let res = await send();
-  if (res.status === 401 && (await refreshSession())) {
+  if (res.status === 401 && (await refreshSession()) === "ok") {
     res = await send();
   }
   if (!res.ok) throw await parseError(res);

@@ -15,6 +15,7 @@ const (
 	CodeUnauthorized        = "unauthorized"
 	CodeInvalidGoogleToken  = "invalid_google_token"
 	CodeInvalidRefreshToken = "invalid_refresh_token"
+	CodeRefreshRaced        = "refresh_raced"
 	CodeInvalidLineLogin    = "invalid_line_login"
 	CodeProviderDisabled    = "provider_disabled"
 

@@ -85,14 +85,14 @@ export const EXERCISE_NAMES: Record<string, string> = {
 
 // --- Building blocks -------------------------------------------------------
 
-const FULL_BODY: TrainingDay = {
+export const FULL_BODY: TrainingDay = {
   title: "ทั้งตัว",
   focus: ["quads", "glutes", "hamstrings", "chest", "back", "shoulders"],
   helpers: ["triceps", "biceps", "abs", "lower_back", "traps", "calves"],
   exercises: ["dumbbell-squat", "romanian-deadlift", "push-up", "lat-pulldown", "overhead-press", "crunch"],
 };
 
-const UPPER: TrainingDay = {
+export const UPPER: TrainingDay = {
   title: "ช่วงบน",
   focus: ["chest", "back", "shoulders"],
   helpers: ["triceps", "biceps", "traps"],
@@ -113,7 +113,7 @@ const LOWER: TrainingDay = {
   exercises: ["barbell-squat", "romanian-deadlift", "dumbbell-squat", "crunch"],
 };
 
-const PUSH: TrainingDay = {
+export const PUSH: TrainingDay = {
   title: "ดัน (อก ไหล่ หลังแขน)",
   focus: ["chest", "shoulders", "triceps"],
   helpers: [],
@@ -126,7 +126,7 @@ const PUSH: TrainingDay = {
   ],
 };
 
-const PULL: TrainingDay = {
+export const PULL: TrainingDay = {
   title: "ดึง (หลัง หน้าแขน)",
   focus: ["back", "biceps"],
   helpers: ["traps"],
@@ -317,6 +317,11 @@ export const DAY_TITLES_EN: Record<string, string> = {
   ไหล่: "Shoulders",
   ขา: "Legs",
   "แขน + หน้าท้อง": "Arms + abs",
+  // Day titles of a custom week (content/custom-program.ts).
+  ช่วงล่าง: "Lower body",
+  หลัง: "Back",
+  แขน: "Arms",
+  หน้าท้อง: "Core (abs)",
 };
 
 type ProgramText = Pick<Program, "name" | "why" | "setsPerSession" | "timesPerWeek" | "note">;
@@ -365,7 +370,8 @@ export const PROGRAM_TEXT_EN: Record<string, ProgramText> = {
 /** The program with its words in the given language; the schedule is the same. */
 export function localizeProgram(program: Program, locale: Locale): Program {
   if (locale !== "en") return program;
-  const text = PROGRAM_TEXT_EN[program.id];
+  // A custom week (content/custom-program.ts) has no ready-made text, only its name.
+  const text: Partial<ProgramText> = PROGRAM_TEXT_EN[program.id] ?? (program.id.startsWith("custom:") ? { name: "My own program" } : {});
   return {
     ...program,
     ...text,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thakornt/rep-right/apps/api/internal/auth"
@@ -126,11 +127,26 @@ func (t authTx) LockRefreshToken(ctx context.Context, hash []byte) (auth.Refresh
 	if err != nil {
 		return auth.RefreshRecord{}, fmt.Errorf("lock refresh token: %w", err)
 	}
-	rec := auth.RefreshRecord{ID: r.ID, UserID: r.UserID, ExpiresAt: r.ExpiresAt, Replaced: r.ReplacedBy.Valid}
-	if r.RevokedAt.Valid {
-		rec.RevokedAt = &r.RevokedAt.Time
+	return toRefreshRecord(r.ID, r.UserID, r.ExpiresAt, r.RevokedAt, r.ReplacedBy), nil
+}
+
+func (t authTx) LockRefreshTokenByID(ctx context.Context, id uuid.UUID) (auth.RefreshRecord, error) {
+	r, err := t.q.LockRefreshTokenByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return auth.RefreshRecord{}, auth.ErrTokenNotFound
 	}
-	return rec, nil
+	if err != nil {
+		return auth.RefreshRecord{}, fmt.Errorf("lock refresh token by id: %w", err)
+	}
+	return toRefreshRecord(r.ID, r.UserID, r.ExpiresAt, r.RevokedAt, r.ReplacedBy), nil
+}
+
+func toRefreshRecord(id, userID uuid.UUID, expiresAt time.Time, revokedAt pgtype.Timestamptz, replacedBy uuid.NullUUID) auth.RefreshRecord {
+	rec := auth.RefreshRecord{ID: id, UserID: userID, ExpiresAt: expiresAt, Replaced: replacedBy.Valid, ReplacedBy: replacedBy.UUID}
+	if revokedAt.Valid {
+		rec.RevokedAt = &revokedAt.Time
+	}
+	return rec
 }
 
 func (t authTx) InsertRefreshToken(ctx context.Context, userID uuid.UUID, hash []byte, expiresAt time.Time) (uuid.UUID, error) {

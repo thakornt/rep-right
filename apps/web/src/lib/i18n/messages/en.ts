@@ -32,6 +32,7 @@ export const en: Messages = {
     loading: "Loading…",
     openingPage: "Opening page…",
     checkingSignIn: "Checking sign-in…",
+    reconnecting: "Connecting to the server, this can take a moment…",
     terms: "Terms of use",
     privacy: "Privacy policy",
     and: "and",
@@ -104,6 +105,7 @@ export const en: Messages = {
       googlePopup: "Couldn't open the Google window. Try again, or refresh the page.",
       lineStart: "Couldn't open the LINE sign-in page. Please try again.",
       lineCancelled: "LINE sign-in was cancelled.",
+      unavailable: "Can't reach the server right now. You're still signed in; try refreshing in a moment.",
     },
   },
 
@@ -348,6 +350,26 @@ export const en: Messages = {
     rest: "Rest",
     helpers: (list: string) => `Also working: ${list}`,
     examples: "Example exercises",
+    haveOwn: "I already have my own program",
+    haveOwnHint: "Set what you train each day, and we'll show the exercises that go with it",
+    mine: "Your program now",
+    edit: "Edit the schedule",
+  },
+
+  customProgram: {
+    meta: "Plan your own program — rep-right",
+    title: "Your own program",
+    intro: "Pick what you'll train each day, or rest, then save.",
+    dayLabel: (weekday: string) => weekday,
+    save: "Save program",
+    saving: "Saving…",
+    cancel: "Back to choosing a program",
+    trainingDays: (n: number) => `${n} training days · ${7 - n} rest days`,
+    noTraining: "No training days yet. Pick at least 1 day.",
+    noRest: "There's no rest day. Your body needs at least 1 full rest day a week, so try making one day a rest day.",
+    backToBack: "Some muscle groups work 2 days in a row. Give a group at least 1 day off before training it again:",
+    clash: (day: string, next: string, muscles: string) => `${day} → ${next}: ${muscles}`,
+    saveAnyway: "You can still save, but adding a rest day in between is safer.",
   },
 
   offline: {

@@ -26,11 +26,44 @@ func TestIDsMatchWebPrograms(t *testing.T) {
 	}
 }
 
-func TestValid(t *testing.T) {
-	if !Valid("ppl-2") {
-		t.Error("ppl-2 should be valid")
+func TestCustomDayKindsMatchWeb(t *testing.T) {
+	src, err := os.ReadFile("../../../../web/src/content/custom-program.ts")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, bad := range []string{"", "PPL-2", "ppl-3", "ppl-2 "} {
+	block := regexp.MustCompile(`(?s)export const DAY_KINDS = \[(.*?)\] as const;`).FindSubmatch(src)
+	if block == nil {
+		t.Fatal("found no DAY_KINDS in custom-program.ts; has its layout changed?")
+	}
+	var web []string
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllSubmatch(block[1], -1) {
+		web = append(web, string(m[1]))
+	}
+	if !slices.Equal(web, CustomDayKinds) {
+		t.Errorf("custom day kinds differ:\n web: %v\n api: %v", web, CustomDayKinds)
+	}
+}
+
+func TestValid(t *testing.T) {
+	for _, good := range []string{
+		"ppl-2",
+		"custom:push.pull.legs.rest.upper.lower.rest",
+		"custom:full_body.rest.full_body.rest.full_body.rest.rest",
+		"custom:core.rest.rest.rest.rest.rest.rest",
+	} {
+		if !Valid(good) {
+			t.Errorf("%q should be valid", good)
+		}
+	}
+	for _, bad := range []string{
+		"", "PPL-2", "ppl-3", "ppl-2 ",
+		"custom:",
+		"custom:rest.rest.rest.rest.rest.rest.rest",        // no training day
+		"custom:push.pull.legs.rest.upper.lower",           // 6 days
+		"custom:push.pull.legs.rest.upper.lower.rest.rest", // 8 days
+		"custom:push.pull.legs.rest.upper.lower.yoga",      // unknown kind
+		"Custom:push.pull.legs.rest.upper.lower.rest",
+	} {
 		if Valid(bad) {
 			t.Errorf("%q should be invalid", bad)
 		}

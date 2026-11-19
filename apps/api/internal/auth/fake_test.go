@@ -152,10 +152,19 @@ func (tx memTx) InsertRefreshToken(_ context.Context, userID uuid.UUID, hash []b
 	return tx.m.insert(userID, hash, expiresAt)
 }
 
-func (tx memTx) MarkRotated(_ context.Context, oldID, _ uuid.UUID, now time.Time) error {
+func (tx memTx) LockRefreshTokenByID(_ context.Context, id uuid.UUID) (RefreshRecord, error) {
+	for _, t := range tx.m.tokens {
+		if t.ID == id {
+			return *t, nil
+		}
+	}
+	return RefreshRecord{}, ErrTokenNotFound
+}
+
+func (tx memTx) MarkRotated(_ context.Context, oldID, newID uuid.UUID, now time.Time) error {
 	for _, t := range tx.m.tokens {
 		if t.ID == oldID {
-			t.RevokedAt, t.Replaced = &now, true
+			t.RevokedAt, t.Replaced, t.ReplacedBy = &now, true, newID
 		}
 	}
 	return nil
