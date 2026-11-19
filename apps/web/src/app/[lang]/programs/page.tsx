@@ -10,6 +10,7 @@ import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMeta } from "@/lib/seo";
 
 import { ChooseProgram } from "./choose-program";
+import { MyCustomProgram, OwnProgramLink } from "./my-custom-program";
 import { WeekTable } from "./week-table";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,6 +33,10 @@ export default async function ProgramsPage({ searchParams }: PageProps<"/[lang]/
         <h1 className="text-[2.1rem] leading-tight font-semibold tracking-tight">{t.title}</h1>
         <p className="text-[0.95rem] leading-8 text-muted">{t.intro}</p>
       </header>
+
+      <MyCustomProgram />
+
+      <OwnProgramLink />
 
       {/* Reading ?days= needs a Suspense boundary so the rest of the page can prerender. */}
       <Suspense fallback={<DayPicker chosen={null} t={t} />}>
