@@ -59,7 +59,7 @@ export function MyProgramSection() {
 
             <div className="grid grid-cols-2 gap-2">
               <Link
-                href={isCustomProgram(program) ? "/programs/custom" : `/programs?days=${program.daysPerWeek}`}
+                href={isCustomProgram(program) ? "/programs" : `/programs?days=${program.daysPerWeek}`}
                 className={`${btnQuiet} whitespace-nowrap`}
               >
                 {t.change}
