@@ -35,7 +35,12 @@ export const DOWN_SHARE: Record<PressExercise, number> = {
   facePull: QUICK_UP, // pulled in quickly breathing out, let back slowly breathing in, as the clip says
   chestPress: 1 - QUICK_UP, // pressed out quickly breathing out, let back slowly breathing in
 };
-export const BACK_SQUAT_DOWN_SHARE = 1 - QUICK_UP;
+// The barbell back squat carries the bar about 59 cm, far more than the other lifts, so in their
+// 1.1 s the way up looked rushed (owner, 2026-11-18). It keeps their slow 2.5 s down and takes 1.6 s up.
+const BACK_SQUAT_DOWN_SECONDS = 3.6 * (1 - QUICK_UP);
+const BACK_SQUAT_UP_SECONDS = 1.6;
+export const BACK_SQUAT_SECONDS = BACK_SQUAT_DOWN_SECONDS + BACK_SQUAT_UP_SECONDS;
+export const BACK_SQUAT_DOWN_SHARE = BACK_SQUAT_DOWN_SECONDS / BACK_SQUAT_SECONDS;
 
 // Depth at this time in a rep that starts at the top.
 export function repDepthAt(seconds: number, period: number, downShare: number) {

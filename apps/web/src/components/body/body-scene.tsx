@@ -15,7 +15,7 @@ import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS }
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
-import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
+import { BACK_SQUAT_DOWN_SHARE, BACK_SQUAT_SECONDS, repDepthAt, repTimeAt } from "./tempo";
 
 export const MODEL = "/models/body.glb";
 const MUSCLE_MAP = "/models/muscles.png";
@@ -382,9 +382,9 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     let depth = s.depth;
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
-      if (!c.wasPlaying) c.t = repTimeAt(c.depth, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
+      if (!c.wasPlaying) c.t = repTimeAt(c.depth, BACK_SQUAT_SECONDS, BACK_SQUAT_DOWN_SHARE);
       c.t += dt;
-      depth = repDepthAt(c.t, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
+      depth = repDepthAt(c.t, BACK_SQUAT_SECONDS, BACK_SQUAT_DOWN_SHARE);
     }
     c.wasPlaying = s.playing;
     if (depth > c.depth + 1e-4) c.phase = "down";
