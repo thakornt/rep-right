@@ -32,7 +32,7 @@ export function RequireAuth({
   const terms = useTerms();
   const t = useMessages();
   if (auth.kind === "checking") {
-    return <PageLoader label={t.common.checkingSignIn} />;
+    return <PageLoader label={auth.reconnecting ? t.common.reconnecting : t.common.checkingSignIn} />;
   }
   if (auth.kind === "signed-out") {
     return (

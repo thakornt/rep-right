@@ -10,6 +10,13 @@ FROM refresh_tokens
 WHERE token_hash = $1
 FOR UPDATE;
 
+-- The token that replaced a rotated one, to tell a lost response from a replay.
+-- name: LockRefreshTokenByID :one
+SELECT id, user_id, expires_at, revoked_at, replaced_by
+FROM refresh_tokens
+WHERE id = $1
+FOR UPDATE;
+
 -- name: MarkRefreshTokenRotated :exec
 UPDATE refresh_tokens
 SET revoked_at = sqlc.arg(now)::timestamptz, replaced_by = sqlc.arg(replaced_by)::uuid

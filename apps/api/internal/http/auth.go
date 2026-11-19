@@ -224,6 +224,12 @@ func (h authHandlers) setLineCookie(c *gin.Context, value string, maxAge int) {
 func (h authHandlers) refresh(c *gin.Context) {
 	raw, _ := c.Cookie(refreshCookie)
 	s, err := h.auth.Refresh(c.Request.Context(), raw)
+	if errors.Is(err, auth.ErrRefreshRaced) {
+		// Another tab rotated this cookie a moment ago and its response set the
+		// new one; clearing the cookie here could wipe that. The web retries.
+		writeError(c, http.StatusConflict, CodeRefreshRaced, "session was just refreshed by another tab, try again")
+		return
+	}
 	if errors.Is(err, auth.ErrInvalidRefreshToken) {
 		h.clearCookie(c)
 		writeError(c, http.StatusUnauthorized, CodeInvalidRefreshToken, "session expired, please sign in again")

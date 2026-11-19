@@ -115,7 +115,9 @@ export function AuthPanel() {
   return (
     <div className="flex flex-col gap-3">
       <Script src="https://accounts.google.com/gsi/client" onReady={() => setGisReady(true)} />
-      {state.kind === "checking" && <p className="text-sm text-faint">{m.common.checkingSignIn}</p>}
+      {state.kind === "checking" && (
+        <p className="text-sm text-faint">{state.reconnecting ? m.common.reconnecting : m.common.checkingSignIn}</p>
+      )}
       {state.kind === "signed-out" && (
         <>
           <div className="flex flex-col items-center gap-1 pb-1 text-center">

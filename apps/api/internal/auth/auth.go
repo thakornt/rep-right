@@ -35,7 +35,11 @@ var (
 	ErrInvalidDisplayName  = errors.New("invalid display name")
 	ErrInvalidAccessToken  = errors.New("invalid access token")
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
-	ErrUserNotFound        = errors.New("user not found")
+	// ErrRefreshRaced: the token was rotated moments ago by another request
+	// (another tab) whose new token is already in use. The browser's cookie is
+	// probably already the new one, so the caller should not clear it.
+	ErrRefreshRaced = fmt.Errorf("%w: rotated by another request moments ago", ErrInvalidRefreshToken)
+	ErrUserNotFound = errors.New("user not found")
 	// ErrTokenNotFound is returned by TxStore.LockRefreshToken.
 	ErrTokenNotFound = errors.New("refresh token not found")
 )
@@ -77,11 +81,12 @@ type Session struct {
 }
 
 type RefreshRecord struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	ExpiresAt time.Time
-	RevokedAt *time.Time
-	Replaced  bool // revoked by rotation, as opposed to logout
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	Replaced   bool      // revoked by rotation, as opposed to logout
+	ReplacedBy uuid.UUID // the token that replaced it; zero unless Replaced
 }
 
 type GoogleVerifier interface {
@@ -120,6 +125,8 @@ type TxStore interface {
 	// LockRefreshToken returns the token with this hash and locks it until
 	// the transaction ends, or ErrTokenNotFound.
 	LockRefreshToken(ctx context.Context, hash []byte) (RefreshRecord, error)
+	// LockRefreshTokenByID is LockRefreshToken by row id (the replacement of a rotated token).
+	LockRefreshTokenByID(ctx context.Context, id uuid.UUID) (RefreshRecord, error)
 	InsertRefreshToken(ctx context.Context, userID uuid.UUID, hash []byte, expiresAt time.Time) (uuid.UUID, error)
 	MarkRotated(ctx context.Context, oldID, newID uuid.UUID, now time.Time) error
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID, now time.Time) error
@@ -250,8 +257,22 @@ func (s *Service) login(ctx context.Context, id Identity) (User, Session, error)
 }
 
 // Refresh exchanges a refresh token for a new session and revokes the old
-// token (rotation). Presenting a token that was already rotated means it
-// leaked, so every session of that user is revoked.
+// token (rotation).
+//
+// A rotated token can come back for two reasons, and they are told apart by
+// whether its replacement has been used yet:
+//
+//   - The replacement was never used: the response that carried it never
+//     reached the browser (the API woke from sleep after the web proxy gave up,
+//     a deploy cut the connection), or another tab is refreshing right now.
+//     The replacement is rotated instead, so this browser gets a working
+//     cookie and still only one token of the chain stays live.
+//   - The replacement was used: someone else holds the old token, so it leaked
+//     and every session of the user is revoked; unless that happened within
+//     ReuseGrace, which is two tabs racing (ErrRefreshRaced).
+//
+// The cost: a stolen token keeps working until its replacement is first used,
+// which a browser in use does within AccessTokenTTL.
 func (s *Service) Refresh(ctx context.Context, raw string) (Session, error) {
 	if raw == "" {
 		return Session{}, ErrInvalidRefreshToken
@@ -263,9 +284,9 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Session, error) {
 	}
 
 	var userID uuid.UUID
-	// rejected is set instead of returning an error so that a reuse
+	// rejected/raced are set instead of returning an error so that a reuse
 	// revocation inside the transaction still commits.
-	rejected := false
+	rejected, raced := false, false
 	err = s.store.InTx(ctx, func(tx TxStore) error {
 		rec, err := tx.LockRefreshToken(ctx, HashRefreshToken(raw))
 		if errors.Is(err, ErrTokenNotFound) {
@@ -276,11 +297,23 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Session, error) {
 			return err
 		}
 		if rec.RevokedAt != nil {
-			rejected = true
-			if rec.Replaced && now.Sub(*rec.RevokedAt) > ReuseGrace {
+			if !rec.Replaced { // logged out
+				rejected = true
+				return nil
+			}
+			next, err := tx.LockRefreshTokenByID(ctx, rec.ReplacedBy)
+			switch {
+			case err != nil && !errors.Is(err, ErrTokenNotFound):
+				return err
+			case err == nil && next.RevokedAt == nil:
+				rec = next // lost response: carry on and rotate the unused replacement
+			case now.Sub(*rec.RevokedAt) <= ReuseGrace:
+				raced = true
+				return nil
+			default:
+				rejected = true
 				return tx.RevokeAllForUser(ctx, rec.UserID, now)
 			}
-			return nil
 		}
 		if !now.Before(rec.ExpiresAt) {
 			rejected = true
@@ -295,6 +328,9 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Session, error) {
 	})
 	if err != nil {
 		return Session{}, fmt.Errorf("rotate refresh token: %w", err)
+	}
+	if raced {
+		return Session{}, ErrRefreshRaced
 	}
 	if rejected {
 		return Session{}, ErrInvalidRefreshToken

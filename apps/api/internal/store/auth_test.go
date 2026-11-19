@@ -58,44 +58,77 @@ func TestAuthStoreWithService(t *testing.T) {
 		t.Fatalf("Me = %+v, %v", me, err)
 	}
 
-	// Concurrent refreshes of one token: the row lock lets exactly one win.
+	live := func() int {
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`, u.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	// Concurrent refreshes of one token (tabs racing): the row locks serialise
+	// them, none signs the user out, and exactly one token stays live.
 	var wins atomic.Int32
 	var wg sync.WaitGroup
-	results := make(chan auth.Session, 8)
 	for range 8 {
 		wg.Go(func() {
-			if s, err := svc.Refresh(ctx, s1.RefreshToken); err == nil {
+			_, err := svc.Refresh(ctx, s1.RefreshToken)
+			switch {
+			case err == nil:
 				wins.Add(1)
-				results <- s
+			case !errors.Is(err, auth.ErrRefreshRaced):
+				t.Errorf("concurrent refresh: %v", err)
 			}
 		})
 	}
 	wg.Wait()
-	close(results)
-	if wins.Load() != 1 {
-		t.Fatalf("%d concurrent refreshes succeeded, want 1", wins.Load())
+	if wins.Load() < 1 {
+		t.Fatal("no concurrent refresh succeeded")
 	}
-	s2 := <-results
-
-	// Replaying the rotated token after the grace window revokes everything,
-	// and that revocation must survive the transaction.
-	advance(time.Minute)
-	if _, err := svc.Refresh(ctx, s1.RefreshToken); !errors.Is(err, auth.ErrInvalidRefreshToken) {
-		t.Fatalf("reuse: err = %v", err)
-	}
-	if _, err := svc.Refresh(ctx, s2.RefreshToken); !errors.Is(err, auth.ErrInvalidRefreshToken) {
-		t.Fatalf("successor still valid after reuse detection: %v", err)
+	if n := live(); n != 1 {
+		t.Fatalf("%d live tokens after racing refreshes, want 1", n)
 	}
 
-	// Logout revokes; a fresh login works again.
-	_, s3, err := svc.LoginWithGoogle(ctx, "x")
+	// A lost response: the API rotated the token but the browser never got
+	// the new cookie. Its next visit, with the old cookie, still works.
+	advance(time.Hour)
+	_, s2, err := svc.LoginWithGoogle(ctx, "x")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Logout(ctx, s3.RefreshToken); err != nil {
+	lost, err := svc.Refresh(ctx, s2.RefreshToken)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Refresh(ctx, s3.RefreshToken); !errors.Is(err, auth.ErrInvalidRefreshToken) {
+	advance(24 * time.Hour)
+	s3, err := svc.Refresh(ctx, s2.RefreshToken)
+	if err != nil {
+		t.Fatalf("old cookie after a lost response: %v", err)
+	}
+	if _, err := svc.Refresh(ctx, s3.RefreshToken); err != nil {
+		t.Fatalf("recovered session: %v", err)
+	}
+
+	// Once the replacement has been used, the lost token turning up means
+	// someone else has it: everything is revoked, and that survives the
+	// transaction.
+	advance(time.Hour)
+	if _, err := svc.Refresh(ctx, lost.RefreshToken); !errors.Is(err, auth.ErrInvalidRefreshToken) {
+		t.Fatalf("reuse: err = %v", err)
+	}
+	if n := live(); n != 0 {
+		t.Fatalf("%d live tokens after reuse detection, want 0", n)
+	}
+
+	// Logout revokes; a fresh login works again.
+	_, s4, err := svc.LoginWithGoogle(ctx, "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Logout(ctx, s4.RefreshToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Refresh(ctx, s4.RefreshToken); !errors.Is(err, auth.ErrInvalidRefreshToken) {
 		t.Fatalf("refresh after logout: err = %v", err)
 	}
 
