@@ -21,6 +21,7 @@ import { useLocale } from "@/lib/i18n/client";
 import { DATE_LOCALE, type Locale } from "@/lib/i18n/locale";
 import { MESSAGES, type Messages } from "@/lib/i18n/messages";
 
+import { ConfirmDialog } from "../confirm-dialog";
 import { ExercisePicker } from "../exercise-picker";
 import { btnPrimary, btnQuiet, btnText, iconBtn } from "../ui";
 import { SavedWarnings } from "./saved-warnings";
@@ -106,6 +107,8 @@ export function LogForm() {
   const [picking, setPicking] = useState(false);
   // Index of the exercise block whose "เหลือแรง" explanation is open.
   const [effortHelp, setEffortHelp] = useState<number | null>(null);
+  // Exercise waiting for "remove?" to be confirmed.
+  const [removing, setRemoving] = useState<number | null>(null);
   const locale = useLocale();
   const t = MESSAGES[locale].log;
   const date = (iso: string) => shortDate(iso, locale);
@@ -165,6 +168,9 @@ export function LogForm() {
 
   const byId = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises]);
   const unused = exercises.filter((e) => !draft.blocks.some((b) => b.exerciseId === e.id));
+
+  const removingEx = removing === null ? undefined : exercises.find((e) => e.id === removing);
+  const removingName = removingEx ? exerciseName(removingEx, locale) : "";
 
   const update = (fn: (d: Draft) => Draft) => {
     setDraft(fn);
@@ -302,7 +308,7 @@ export function LogForm() {
                 type="button"
                 aria-label={t.removeExercise(ex ? exerciseName(ex, locale) : "")}
                 className={iconBtn}
-                onClick={() => update((d) => ({ ...d, blocks: d.blocks.filter((_, j) => j !== i) }))}
+                onClick={() => setRemoving(b.exerciseId)}
               >
                 <Trash2 aria-hidden size={18} />
               </button>
@@ -486,6 +492,19 @@ export function LogForm() {
           </button>
         </>
       )}
+
+      <ConfirmDialog
+        open={removing !== null}
+        title={t.confirmRemove(removingName)}
+        body={t.confirmRemoveBody}
+        confirmLabel={t.remove}
+        cancelLabel={t.keep}
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          update((d) => ({ ...d, blocks: d.blocks.filter((b) => b.exerciseId !== removing) }));
+          setRemoving(null);
+        }}
+      />
     </form>
   );
 }
