@@ -9,6 +9,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import { programFromCustomId } from "../content/custom-program";
 import { PROGRAMS, type Program } from "../content/programs";
 import { deleteMyProgram, getMyProgram, putMyProgram } from "./api";
 import { useAuth } from "./auth";
@@ -17,7 +18,11 @@ import { syncProgramAtSignIn } from "./program-sync";
 const KEY = "repright.program";
 const EVENT = "repright:program";
 
-const known = (id: string) => PROGRAMS.some((p) => p.id === id);
+/** A ready-made program by id, or the week a custom id describes (content/custom-program.ts). */
+export const programById = (id: string): Program | null =>
+  PROGRAMS.find((p) => p.id === id) ?? programFromCustomId(id);
+
+const known = (id: string) => programById(id) !== null;
 
 /** The signed-in user whose account holds the choice; null when signed out. */
 let accountUser: string | null = null;
@@ -68,7 +73,7 @@ function subscribe(onChange: () => void) {
 export function useMyProgram(): Program | null | undefined {
   const id = useSyncExternalStore(subscribe, read, () => undefined);
   if (id === undefined) return undefined;
-  return PROGRAMS.find((p) => p.id === id) ?? null;
+  return id ? programById(id) : null;
 }
 
 /** Mounted once in the layout: merges the choice at sign-in, drops the copy at sign-out. */

@@ -348,6 +348,26 @@ export const en: Messages = {
     rest: "Rest",
     helpers: (list: string) => `Also working: ${list}`,
     examples: "Example exercises",
+    haveOwn: "I already have my own program",
+    haveOwnHint: "Set what you train each day, and we'll show the exercises that go with it",
+    mine: "Your program now",
+    edit: "Edit the schedule",
+  },
+
+  customProgram: {
+    meta: "Plan your own program — rep-right",
+    title: "Your own program",
+    intro: "Pick what you'll train each day, or rest, then save.",
+    dayLabel: (weekday: string) => weekday,
+    save: "Save program",
+    saving: "Saving…",
+    cancel: "Back to choosing a program",
+    trainingDays: (n: number) => `${n} training days · ${7 - n} rest days`,
+    noTraining: "No training days yet. Pick at least 1 day.",
+    noRest: "There's no rest day. Your body needs at least 1 full rest day a week, so try making one day a rest day.",
+    backToBack: "Some muscle groups work 2 days in a row. Give a group at least 1 day off before training it again:",
+    clash: (day: string, next: string, muscles: string) => `${day} → ${next}: ${muscles}`,
+    saveAnyway: "You can still save, but adding a rest day in between is safer.",
   },
 
   offline: {

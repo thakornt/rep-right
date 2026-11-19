@@ -1,4 +1,4 @@
-import { Info, ShieldCheck } from "lucide-react";
+import { ChevronRight, Info, PencilLine, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -10,6 +10,7 @@ import { getLocale, getMessages } from "@/lib/i18n/server";
 import { pageMeta } from "@/lib/seo";
 
 import { ChooseProgram } from "./choose-program";
+import { MyCustomProgram } from "./my-custom-program";
 import { WeekTable } from "./week-table";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,6 +33,10 @@ export default async function ProgramsPage({ searchParams }: PageProps<"/[lang]/
         <h1 className="text-[2.1rem] leading-tight font-semibold tracking-tight">{t.title}</h1>
         <p className="text-[0.95rem] leading-8 text-muted">{t.intro}</p>
       </header>
+
+      <MyCustomProgram />
+
+      <OwnProgramLink t={t} />
 
       {/* Reading ?days= needs a Suspense boundary so the rest of the page can prerender. */}
       <Suspense fallback={<DayPicker chosen={null} t={t} />}>
@@ -67,6 +72,25 @@ async function ChosenPrograms({
           <ProgramCard key={p.id} program={p} text={localizeProgram(p, locale)} alternative={i > 0} t={t} />
         ))}
     </>
+  );
+}
+
+/** For people who already follow a plan: set each weekday themself on /programs/custom. */
+function OwnProgramLink({ t }: { t: T }) {
+  return (
+    <Link
+      href="/programs/custom"
+      className="flex items-center gap-4 rounded-3xl bg-surface p-4 transition-colors hover:bg-raised active:scale-[0.99]"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-raised text-primary">
+        <PencilLine aria-hidden size={22} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-base font-semibold text-fg">{t.haveOwn}</span>
+        <span className="text-sm leading-6 text-muted">{t.haveOwnHint}</span>
+      </span>
+      <ChevronRight aria-hidden size={22} className="shrink-0 text-faint" />
+    </Link>
   );
 }
 
