@@ -84,6 +84,7 @@ import {
 } from "./pose-overhead";
 import { posePushUp, PUSH_UP, readPushUpRig } from "./pose-pushup";
 import { FACE_PULL, poseFacePull, readFacePullRig } from "./pose-face-pull";
+import { CHEST_PRESS, chestPressAxes, pecsBulge, poseChestPress, readChestPressRig, type ChestPressRig } from "./pose-chest-press";
 import { HIP_THRUST, poseHipThrust, readHipThrustRig, type HipThrustRig } from "./pose-hip-thrust";
 import { DUMBBELL_RDL, poseRdl, readRdlRig } from "./pose-rdl";
 import { DUMBBELL_ROW, poseRow, readRowRig } from "./pose-row";
@@ -140,6 +141,7 @@ const SPECS = {
   pullUp: PULL_UP,
   chinUp: PULL_UP,
   hipThrust: HIP_THRUST,
+  chestPress: CHEST_PRESS,
 };
 const REACH: Partial<Record<PressExercise, number>> = {
   raise: LATERAL_RAISE.cameraReach,
@@ -160,6 +162,7 @@ const REACH: Partial<Record<PressExercise, number>> = {
   pullUp: PULL_UP.cameraReach,
   chinUp: PULL_UP.cameraReach,
   hipThrust: HIP_THRUST.cameraReach,
+  chestPress: CHEST_PRESS.cameraReach,
 };
 const ALONG = new THREE.Vector3(1, 0, 0);
 const ALONG_CABLE = new THREE.Vector3(0, 1, 0);
@@ -179,6 +182,7 @@ type Lift = {
   ) => { l: Held; r: Held; bar?: THREE.Vector3; barbell?: THREE.Vector3; knot?: THREE.Vector3; pad?: THREE.Vector3; shinAngle?: number; pulley?: THREE.Vector3 };
   biceps: (depth: number) => number;
   triceps?: (depth: number) => number;
+  pecs?: (depth: number) => number; // metres the chest swells
   bench: ReturnType<typeof benchLayout> | null;
   machine?: PulldownRig;
   grip?: PulldownGrip; // the pulldown's handle, if not the wide bar
@@ -192,6 +196,7 @@ type Lift = {
   pullBar?: number; // the height of the fixed bar the body hangs from
   barbell?: boolean; // a barbell in both hands, in place of the dumbbells
   thrust?: HipThrustRig; // the hip thrust's bench, fitted to the body, and its padded bar
+  chestMachine?: ChestPressRig; // the chest press machine, fitted to the body
 };
 
 function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
@@ -372,6 +377,17 @@ function readLift(root: THREE.Object3D, exercise: PressExercise): Lift {
       biceps: () => 0,
       bench: null,
       legMachine: ext,
+    };
+  }
+  if (exercise === "chestPress") {
+    const cp = readChestPressRig(root);
+    return {
+      rig: cp.rig,
+      pose: (depth: number) => poseChestPress(cp, depth),
+      biceps: () => 0,
+      pecs: pecsBulge,
+      bench: null,
+      chestMachine: cp,
     };
   }
   if (exercise === "hipThrust") {
@@ -893,7 +909,121 @@ function Mat() {
   );
 }
 
-// Lay a unit-long cylinder from one point to another.
+// A fixed rod from one point to another.
+function Span({ from, to, radius, children }: { from: THREE.Vector3; to: THREE.Vector3; radius: number; children: React.ReactNode }) {
+  const run = to.clone().sub(from);
+  const q = new THREE.Quaternion().setFromUnitVectors(ALONG_CABLE, run.clone().normalize());
+  return (
+    <mesh position={from.clone().addScaledVector(run, 0.5).toArray()} quaternion={q}>
+      <cylinderGeometry args={[radius, radius, run.length(), 16]} />
+      {children}
+    </mesh>
+  );
+}
+
+// The seated chest press, fitted to the body: the seat, the back pad at its recline, and for each
+// handle a rigid L-shaped lever: out from its bearing above the head, then down to the handle's
+// top end. The levers turn about their bearings; nothing changes length.
+function ChestPressMachine({
+  machine,
+  levers,
+}: {
+  machine: ChestPressRig;
+  levers: React.RefObject<THREE.Group | null>;
+}) {
+  const padMat = <meshStandardMaterial color="#20292c" roughness={0.75} />;
+  const frameMat = <meshStandardMaterial color="#3a4548" metalness={0.5} roughness={0.5} />;
+  const P = CHEST_PRESS;
+  const { t, n } = chestPressAxes();
+  const recline = ((90 - P.padAngle) * Math.PI) / 180;
+  const thick = 0.07;
+  const padLength = 0.86;
+  const pelvis = new THREE.Vector3(0, P.hipHeight, 0);
+  const pad = pelvis.clone().addScaledVector(n, machine.backAt - thick / 2).addScaledVector(t, padLength / 2 - 0.02);
+  const seatTop = machine.seatY;
+  const seatZ = 0.1;
+  // Each lever turns about an axis along the trunk, borne above the head on a beam. Two posts out
+  // wide behind the back pad hold the beam up on two arms over the top: nothing stands beside the
+  // lifter, so from the side the arms stay in view.
+  const [ll, lr] = machine.levers;
+  const top = Math.max(ll.bearing.y, lr.bearing.y) + 0.05;
+  const postX = Math.abs(ll.bearing.x) + 0.32;
+  const beamZ = (ll.bearing.z + lr.bearing.z) / 2;
+  const postZ = pad.z - 0.25;
+  return (
+    <group>
+      <mesh position={[0, seatTop - thick / 2, seatZ]}>
+        <boxGeometry args={[0.34, thick, 0.38]} />
+        {padMat}
+      </mesh>
+      <mesh position={[0, (seatTop - thick) / 2, seatZ - 0.04]}>
+        <boxGeometry args={[0.08, seatTop - thick, 0.08]} />
+        {frameMat}
+      </mesh>
+      <mesh position={pad.toArray()} rotation-x={-recline}>
+        <boxGeometry args={[0.3, padLength, thick]} />
+        {padMat}
+      </mesh>
+      {[-1, 1].map((side) => (
+        <group key={`post${side}`}>
+          <mesh position={[side * postX, top / 2, postZ]}>
+            <boxGeometry args={[0.06, top, 0.06]} />
+            {frameMat}
+          </mesh>
+          <mesh position={[side * postX, top, (postZ + beamZ) / 2]}>
+            <boxGeometry args={[0.06, 0.06, beamZ - postZ + 0.06]} />
+            {frameMat}
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, top, beamZ]}>
+        <boxGeometry args={[2 * postX + 0.06, 0.06, 0.06]} />
+        {frameMat}
+      </mesh>
+      {[ll, lr].map((lever, i) => (
+        <group key={`bearing${i}`}>
+          <Span from={lever.bearing} to={new THREE.Vector3(lever.bearing.x, top, beamZ)} radius={0.02}>
+            {frameMat}
+          </Span>
+          <Span from={lever.bearing.clone().addScaledVector(t, -0.04)} to={lever.bearing.clone().addScaledVector(t, 0.04)} radius={0.035}>
+            {frameMat}
+          </Span>
+        </group>
+      ))}
+      <group ref={levers}>
+        {["l", "r"].map((side) => (
+          <group key={side} name={side}>
+            <mesh name="arm">
+              <boxGeometry args={[0.035, 1, 0.035]} />
+              {frameMat}
+            </mesh>
+            <mesh name="drop">
+              <boxGeometry args={[0.035, 1, 0.035]} />
+              {frameMat}
+            </mesh>
+            <mesh name="link">
+              <boxGeometry args={[0.025, 1, 0.025]} />
+              {frameMat}
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+// A machine's handle, along its local x like a dumbbell's.
+function MachineHandle({ inner }: { inner: React.RefObject<THREE.Group | null> }) {
+  return (
+    <group ref={inner}>
+      <mesh rotation-z={Math.PI / 2}>
+        <cylinderGeometry args={[CHEST_PRESS.handleRadius, CHEST_PRESS.handleRadius, CHEST_PRESS.handleLength, 16]} />
+        <meshStandardMaterial color="#20292c" roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
 function span(
   mesh: THREE.Object3D | null | undefined,
   from: THREE.Vector3,
@@ -1020,6 +1150,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
   const cableRef = useRef<THREE.Mesh>(null);
   const ropeRef = useRef<THREE.Group>(null);
   const leverRef = useRef<THREE.Group>(null);
+  const chestLevers = useRef<THREE.Group>(null);
   const clock = useRef({
     t: 0,
     depth: 0,
@@ -1070,6 +1201,7 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
     const g = lift.pose(depthL, depthR);
     body.setBiceps(lift.biceps(depthL), lift.biceps(depthR));
     body.setTriceps(lift.triceps?.(depthL) ?? 0, lift.triceps?.(depthR) ?? 0);
+    body.setPecs(lift.pecs?.(depthL) ?? 0, lift.pecs?.(depthR) ?? 0);
     // The upper trapezius thickens on the side whose arm is overhead.
     const traps =
       exercise === "overheadOne" || exercise === "overheadTwo" || exercise === "overheadCable"
@@ -1114,6 +1246,23 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         ALONG_CABLE,
         run.normalize(),
       );
+    }
+    if (lift.chestMachine && chestLevers.current) {
+      // Each lever runs out from its bearing, square to the axis, then straight down to the
+      // handle's swivel, above the handle's middle: the same shape at every turn. A short link
+      // turns on the swivel and holds the handle's top end.
+      for (const [i, side] of (["l", "r"] as const).entries()) {
+        const held = g[side];
+        const lever = lift.chestMachine.levers[i];
+        const { t } = chestPressAxes();
+        const top = held.grip.clone().addScaledVector(held.handle, CHEST_PRESS.handleLength / 2);
+        const swivel = held.grip.clone().addScaledVector(t, top.clone().sub(held.grip).dot(t) + CHEST_PRESS.swivelAbove);
+        const corner = swivel.clone().addScaledVector(t, lever.bearing.clone().sub(swivel).dot(t));
+        const group = chestLevers.current.getObjectByName(side);
+        span(group?.getObjectByName("arm"), lever.bearing, corner);
+        span(group?.getObjectByName("drop"), corner, swivel);
+        span(group?.getObjectByName("link"), swivel, top);
+      }
     }
     if (g.pad && lift.legMachine && leverRef.current) {
       // The lever runs from the pivot to the pad, outside the right leg; the pad lies across.
@@ -1194,6 +1343,8 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
             ), // behind the elbow in a curl, clear of its crease
       dumbbell: legExt
         ? g.l.grip.clone().add(new THREE.Vector3(0.06, 0.06, 0)) // by the left handle
+        : exercise === "chestPress"
+        ? g.l.grip.clone().add(new THREE.Vector3(0.07, 0.07, 0)) // outside the left handle
         : facePull || upright
         ? g.l.grip.clone().add(new THREE.Vector3(0.08, 0.06, 0)) // outside the hand, clear of the head
         : row
@@ -1269,6 +1420,12 @@ function Presser({ exercise, state, onPinMove, onFrame }: Props) {
         />
       ) : lift.pullBar ? (
         <PullUpRack y={lift.pullBar} />
+      ) : lift.chestMachine ? (
+        <>
+          <ChestPressMachine machine={lift.chestMachine} levers={chestLevers} />
+          <MachineHandle inner={left} />
+          <MachineHandle inner={right} />
+        </>
       ) : lift.legMachine ? (
         <LegExtensionMachine machine={lift.legMachine} lever={leverRef} />
       ) : lift.machine ? (

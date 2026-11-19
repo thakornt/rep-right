@@ -15,7 +15,7 @@ import { REGION_COUNT, REGION_IDS, ROLE_COLORS, ROLE_STRENGTH, TERES_OVER_LATS }
 import { overBody, PIN_RADIUS } from "./pin-cover";
 import { BAR_RADIUS, pose, readRig, SQUAT_CLIP, worldPos, worldQuat, X } from "./pose";
 import { squatActivation, SQUAT_PINS, type Phase, type SquatFaults } from "./squat";
-import { BACK_SQUAT_DOWN_SHARE, repDepthAt, repTimeAt } from "./tempo";
+import { BACK_SQUAT_DOWN_SHARE, BACK_SQUAT_SECONDS, repDepthAt, repTimeAt } from "./tempo";
 
 export const MODEL = "/models/body.glb";
 const MUSCLE_MAP = "/models/muscles.png";
@@ -154,6 +154,7 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
   const biceps = { value: new THREE.Vector2() }; // metres each arm's biceps swells: left, right
   const triceps = { value: new THREE.Vector2() }; // metres each arm's triceps gathers: left, right
   const traps = { value: new THREE.Vector2() }; // metres each side's upper trapezius swells: left, right
+  const pecs = { value: new THREE.Vector2() }; // metres each side's chest swells: left, right
   const shrug = { value: 0 }; // how much of the owner's sculpted shrug shape is on, 0..1 (pose-shrug.ts)
   const mush = { value: 1 }; // how much of the shoulders' corrective smoothing is on (delta-mush.ts)
   const mat = new THREE.MeshStandardMaterial({
@@ -169,6 +170,7 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
     shader.uniforms.uBiceps = biceps;
     shader.uniforms.uTriceps = triceps;
     shader.uniforms.uTraps = traps;
+    shader.uniforms.uPecs = pecs;
     shader.uniforms.uShrug = shrug;
     shader.uniforms.uMushAmount = mush;
     shader.uniforms.uCorr = { value: corr.weights };
@@ -180,6 +182,8 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         attribute float aBiceps;
         attribute vec2 aTriceps;
         attribute vec2 aTraps;
+        attribute vec2 aPecs;
+        attribute vec4 aPecsGrad;
         attribute vec3 aShrug;
         attribute vec3 aShrugNormal;
 
@@ -188,6 +192,7 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         uniform vec2 uBiceps;
         uniform vec2 uTriceps;
         uniform vec2 uTraps;
+        uniform vec2 uPecs;
         uniform float uShrug;
         uniform float uMushAmount;
         varying vec2 vMapUv;
@@ -199,7 +204,9 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         // The shoulders' corrected skin is lit by its own normals (delta-mush.ts).
         if (dot(aMushNormal, aMushNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aMushNormal, uMushAmount));
         // The shrug's sculpted trapezius is lit by its own shape's normals, coming in with it.
-        if (dot(aShrugNormal, aShrugNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aShrugNormal, uShrug));`,
+        if (dot(aShrugNormal, aShrugNormal) > 0.0) objectNormal = normalize(mix(objectNormal, aShrugNormal, uShrug));
+        // The chest's swell leans its normals against the swell's slope (pose-chest-press.ts).
+        if (aPecsGrad.w != 0.0) objectNormal = normalize(objectNormal - aPecsGrad.xyz * (aPecsGrad.w > 0.0 ? uPecs.x : uPecs.y));`,
       )
       .replace(
         "#include <begin_vertex>",
@@ -209,6 +216,7 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
         transformed += normal * abs(aBiceps) * (aBiceps > 0.0 ? uBiceps.x : uBiceps.y);
         transformed += normal * dot(aTriceps, uTriceps);
         transformed += normal * dot(aTraps, uTraps);
+        transformed += normal * dot(aPecs, uPecs);
         transformed += aShrug * uShrug; // the shrug's sculpted trapezius; meshes without it read 0
         transformed += aMush * uMushAmount; // the shoulders' corrective smoothing (delta-mush.ts)
         vMapUv = uv;`,
@@ -266,20 +274,25 @@ export function bodyMaterial({ map }: { map: THREE.Texture }) {
   };
   let teresOwn = false; // this lift calls on the teres itself
   let trapsOwn = false; // and on the trapezius by itself
+  let insertionOwn = false; // and on the chest's outer end by itself
   return {
     mat,
     clear: () => {
       amounts.fill(0);
       teresOwn = false;
       trapsOwn = false;
+      insertionOwn = false;
     },
     setBiceps: (left: number, right: number) => biceps.value.set(left, right),
     setTriceps: (left: number, right: number) => triceps.value.set(left, right),
     setTraps: (left: number, right: number) => traps.value.set(left, right),
+    setPecs: (left: number, right: number) => pecs.value.set(left, right),
     setShrug: (amount: number) => (shrug.value = amount),
     setMush: (amount: number) => (mush.value = amount),
     setRegion: (i: number, color: THREE.Color, amount: number) => {
       paint(i, color, amount);
+      if (i === REGION_IDS.pec_insertion) insertionOwn = true;
+      else if (!insertionOwn && i === REGION_IDS.delt_front) paint(REGION_IDS.pec_insertion, color, amount);
       if (i === REGION_IDS.traps) trapsOwn = true;
       else if (!trapsOwn && i === REGION_IDS.upper_back) paint(REGION_IDS.traps, color, amount);
       if (i === REGION_IDS.teres) {
@@ -369,9 +382,9 @@ function Squatter({ state, onPinMove, onFrame }: Props) {
     let depth = s.depth;
     if (s.playing) {
       // Resume the loop from wherever the slider left it.
-      if (!c.wasPlaying) c.t = repTimeAt(c.depth, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
+      if (!c.wasPlaying) c.t = repTimeAt(c.depth, BACK_SQUAT_SECONDS, BACK_SQUAT_DOWN_SHARE);
       c.t += dt;
-      depth = repDepthAt(c.t, PLAY_SECONDS, BACK_SQUAT_DOWN_SHARE);
+      depth = repDepthAt(c.t, BACK_SQUAT_SECONDS, BACK_SQUAT_DOWN_SHARE);
     }
     c.wasPlaying = s.playing;
     if (depth > c.depth + 1e-4) c.phase = "down";

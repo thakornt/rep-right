@@ -54,6 +54,8 @@ MUSCLES = {
     "teres": 20,
     "teres_over_lats": 21,  # the teres where it lies over lats; follows lats in lifts that don't call on it
     "traps": 22,  # the trapezius, part of the upper back; follows it in lifts that don't call on it alone
+    # 23, the chest's outer end under the front of the shoulder, is painted on the built map by
+    # tools/body/pec-insertion.mjs: run it after this script, then tools/body/regions.mjs.
 }
 
 # The teres on the back, from the shoulder blade's lower corner up and out to the back of

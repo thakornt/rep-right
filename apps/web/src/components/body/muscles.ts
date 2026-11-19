@@ -23,6 +23,7 @@ export const REGION_IDS = {
   delt_rear: 19,
   teres: 20,
   traps: 22,
+  pec_insertion: 23,
 } as const;
 
 export type Region = keyof typeof REGION_IDS;
@@ -30,8 +31,11 @@ export type Region = keyof typeof REGION_IDS;
 // each pixel as the muscle it replaced: id 20 follows upper_back, this id follows lats.
 // The trapezius (22) is part of the upper back too: a lift that calls on upper_back paints it as
 // well, and one that calls on traps paints it alone.
+// The outer end of the chest, where it runs under the front of the shoulder to the arm (23), was
+// painted over the front deltoid (tools/body/pec-insertion.mjs): a lift that doesn't call on it shows
+// it as the front deltoid.
 export const TERES_OVER_LATS = 21;
-export const REGION_COUNT = 23;
+export const REGION_COUNT = 24;
 
 export const REGION_LABELS: Record<Region, string> = {
   quads: "ต้นขาหน้า",
@@ -48,6 +52,7 @@ export const REGION_LABELS: Record<Region, string> = {
   chest_upper: "อกส่วนบน",
   chest_mid: "อกส่วนกลาง",
   chest_lower: "อกส่วนล่าง",
+  pec_insertion: "ปลายอกบนใกล้ไหล่",
   delt_front: "ไหล่หน้า",
   delt_side: "ไหล่กลาง",
   delt_rear: "ไหล่หลัง",
@@ -82,6 +87,7 @@ export const REGION_LABELS_EN: Record<Region, string> = {
   chest_upper: "Upper chest",
   chest_mid: "Middle chest",
   chest_lower: "Lower chest",
+  pec_insertion: "Outer upper chest, by the shoulder",
   delt_front: "Front of shoulder",
   delt_side: "Side of shoulder",
   delt_rear: "Back of shoulder",

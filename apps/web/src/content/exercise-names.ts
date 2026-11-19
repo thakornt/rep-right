@@ -66,4 +66,5 @@ export const HAS_3D = new Set([
   "face-pull",
   "hip-thrust",
   "shrug",
+  "machine-chest-press",
 ]);

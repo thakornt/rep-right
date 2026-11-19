@@ -5,7 +5,7 @@ import type { Activation } from "./squat";
 export const PRESS_PINS = ["feet", "back", "elbow", "dumbbell", "core"] as const;
 export type PressPin = (typeof PRESS_PINS)[number];
 
-export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust" | "shrug";
+export type PressExercise = "incline" | "shoulder" | "hammer" | "raise" | "squat" | "pulldown" | "pushdown" | "pushup" | "overheadOne" | "overheadTwo" | "overheadCable" | "row" | "crunch" | "rdl" | "facePull" | "legExtension" | "pulldownNeutral" | "pulldownSingle" | "pullUp" | "chinUp" | "uprightRow" | "uprightRowDumbbell" | "hipThrust" | "shrug" | "chestPress";
 
 // Depth 0 = dumbbells up, 1 = dumbbells down.
 export function pressActivation(exercise: PressExercise, depth: number, phase: "down" | "up"): Activation[] {
@@ -122,6 +122,21 @@ export function pressActivation(exercise: PressExercise, depth: number, phase: "
       { region: "forearms", role: "stabilizer", amount: exercise === "overheadOne" ? 0.4 : 0.3 },
       { region: "abs", role: "stabilizer", amount: 0.45 }, // keeping the ribs down, the lower back from arching
       { region: "obliques", role: "stabilizer", amount: exercise === "overheadOne" ? 0.4 : 0.3 }, // one arm loaded pulls the trunk to one side
+    ];
+  }
+  if (exercise === "chestPress") {
+    // The whole chest pushes the handles out, hardest near the stretch; the back of the arm and
+    // the front of the shoulder help, alike (owner, 2026-11-19). The shoulder blades hold still on
+    // the pad.
+    return [
+      { region: "chest_mid", role: "prime", amount: (0.45 + 0.55 * depth) * effort },
+      { region: "chest_lower", role: "prime", amount: (0.35 + 0.5 * depth) * effort },
+      { region: "chest_upper", role: "prime", amount: (0.4 + 0.45 * depth) * effort },
+      { region: "pec_insertion", role: "prime", amount: (0.4 + 0.45 * depth) * effort }, // out to where it meets the arm (owner, 2026-11-19)
+      { region: "triceps", role: "synergist", amount: (0.75 - 0.2 * depth) * effort },
+      { region: "delt_front", role: "synergist", amount: (0.3 + 0.35 * depth) * effort },
+      { region: "upper_back", role: "stabilizer", amount: 0.35 }, // the shoulder blades locked back and down
+      { region: "forearms", role: "stabilizer", amount: 0.25 },
     ];
   }
   if (exercise === "pushup") {
@@ -611,6 +626,24 @@ export const PRESS_CONTENT: Record<
     notice: [
       "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างมือและระยะที่ดึงลงจึงต่างกันได้ ไม่ต้องให้เหมือนโมเดลเป๊ะ",
       "ดึงลงเท่าที่ไหล่ยังสบายและอกยังยกอยู่ ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
+      "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
+    ],
+  },
+  chestPress: {
+    cues: {
+      feet: "นั่งเต็มเบาะ เท้าทั้งฝ่าวางบนพื้นให้มั่นคง ลำตัวไม่ขยับระหว่างดัน",
+      back: "หลังและหัวแนบพนัก บีบสะบักเข้าหากันแล้วกดลง ล็อกไว้ตลอดทั้งเซ็ต ตอนดันสุดห้ามให้ไหล่โน้มไปข้างหน้า",
+      elbow: "ศอกอยู่ด้านหลังมือในแนวเดียวกับทางดันตลอด ไม่กางออก ไม่ยกขึ้นหรือตกลง",
+      dumbbell: "ปรับเบาะให้ตอนยืดสุดมืออยู่ระดับราวนม จับด้ามให้ข้อมือตรง ดันออกเป็นเส้นตรงจนแขนเกือบตรงแต่ไม่ล็อกศอก เฉียงเข้าได้เล็กน้อยตามสรีระ แต่ไม่เฉียงออก ไม่เฉียงขึ้นหรือลง",
+      core: "เกร็งท้องเบา ๆ ไม่แอ่นหลังเพื่อช่วยดัน ดันออกพร้อมหายใจออก ผ่อนกลับช้า ๆ พร้อมหายใจเข้า ไม่ปล่อยน้ำหนักกระแทกกลับ",
+    },
+    top: "ดันออกสุด",
+    rising: "กำลังดันออก",
+    bottom: "ยืดสุด",
+    lowering: "กำลังผ่อนกลับ",
+    notice: [
+      "ร่างกายแต่ละคนไม่เหมือนกัน ความกว้างไหล่และความยาวแขนต่างกัน จึงต้องปรับความสูงเบาะทุกครั้งที่ใช้เครื่อง",
+      "ผ่อนกลับเท่าที่ไหล่ยังสบายและสะบักยังแนบพนัก ตรงนั้นคือระยะที่เหมาะกับคุณตอนนี้",
       "ถ้ารู้สึกเจ็บแปลบหรือปวดผิดปกติที่ไหล่ ศอก หรือข้อมือ ให้หยุดทันที และปรึกษาผู้เชี่ยวชาญ",
     ],
   },

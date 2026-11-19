@@ -64,6 +64,7 @@ export const SLUGS_WITH_3D = new Set([
   "upright-row",
   "hip-thrust",
   "shrug",
+  "machine-chest-press",
 ]);
 
 // Muscle groups by body region, for the home page.

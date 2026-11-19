@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { BACK_SQUAT_DOWN_SHARE, DOWN_SHARE, fromBottomDepthAt, fromBottomTimeAt, repDepthAt, repTimeAt } from "./tempo";
+import { BACK_SQUAT_DOWN_SHARE, BACK_SQUAT_SECONDS, DOWN_SHARE, fromBottomDepthAt, fromBottomTimeAt, repDepthAt, repTimeAt } from "./tempo";
 
 const PERIOD = 3.6;
 const MAX_QUICK_SHARE = 0.4; // the quick way takes under this share of a rep
@@ -17,6 +17,13 @@ describe("tempo", () => {
 
   test("the back squat comes down slowly and goes up quickly", () => {
     expect(1 - BACK_SQUAT_DOWN_SHARE).toBeLessThan(MAX_QUICK_SHARE);
+  });
+
+  // The bar travels about 59 cm, so the way up gets more time than the other lifts' 1.1 s, and the
+  // way down stays as slow as theirs (owner, 2026-11-18).
+  test("the back squat takes 1.6 s up and the other lifts' time down", () => {
+    expect((1 - BACK_SQUAT_DOWN_SHARE) * BACK_SQUAT_SECONDS).toBeCloseTo(1.6, 5);
+    expect(BACK_SQUAT_DOWN_SHARE * BACK_SQUAT_SECONDS).toBeCloseTo(DOWN_SHARE.squat * PERIOD, 5);
   });
 
   test.each(WORK_GOING_DOWN)("%s goes down quickly and comes up slowly", (lift) => {
