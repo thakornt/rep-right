@@ -32,6 +32,7 @@ const PRESS_SLUGS: Record<string, PressExercise> = {
   "push-up": "pushup",
   crunch: "crunch",
   "leg-extension": "legExtension",
+  "machine-chest-press": "chestPress",
   "single-arm-dumbbell-row": "row",
   "romanian-deadlift": "rdl",
   "face-pull": "facePull",

@@ -62,7 +62,7 @@ function landmarks(root: THREE.Object3D, tag: string): Landmarks {
 // back, and the back part is stretched. So the front and middle parts follow the arm nearly to
 // their origins, while the back part, anchored on the shoulder blade, stretches along its length.
 const MUSCLES: { regions: number[]; origin: string; insertion: string; from: number; to: number }[] = [
-  { regions: [REGION_IDS.delt_front], origin: "clavicleDeltOrigin", insertion: "deltoidTuberosity", from: -0.25, to: 0.35 },
+  { regions: [REGION_IDS.delt_front, REGION_IDS.pec_insertion], origin: "clavicleDeltOrigin", insertion: "deltoidTuberosity", from: -0.25, to: 0.35 },
   { regions: [REGION_IDS.delt_side], origin: "acromion", insertion: "deltoidTuberosity", from: -0.6, to: 0.1 },
   { regions: [REGION_IDS.delt_rear], origin: "scapularSpine", insertion: "deltoidTuberosity", from: 0.15, to: 0.85 },
 ];

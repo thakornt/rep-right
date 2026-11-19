@@ -362,6 +362,24 @@ export const PRESS_CONTENT_EN: Record<PressExercise, PressContent> = {
       STOP_SHOULDER_ELBOW_WRIST,
     ],
   },
+  chestPress: {
+    cues: {
+      feet: "Sit all the way back on the seat with your feet flat on the floor, so your body stays still while you press.",
+      back: "Back and head on the pad. Squeeze your shoulder blades together and down, and lock them there for the whole set. Don't let your shoulders roll forward at the end of the push.",
+      elbow: "Keep your elbows behind your hands, in line with the push the whole way: not flaring out, not lifting or dropping.",
+      dumbbell: "Set the seat so your hands are around nipple level at the stretch. Grip the handles with straight wrists and press out in a straight line until your arms are almost straight, without locking your elbows. A slight angle inward is fine for your build, but never outward, up or down.",
+      core: "Brace your stomach lightly and don't arch your back to help. Breathe out as you press, then come back slowly breathing in, without letting the weight slam.",
+    },
+    top: "Pressed all the way out",
+    rising: "Pressing out",
+    bottom: "At the stretch",
+    lowering: "Coming back",
+    notice: [
+      `${NOT_EXACT} shoulder width and arm length differ, so set the seat height every time you use the machine.`,
+      "Come back as far as your shoulders stay comfortable and your shoulder blades stay on the pad. That's the right range for you for now.",
+      STOP_SHOULDER_ELBOW_WRIST,
+    ],
+  },
   incline: {
     cues: {
       feet: "Plant your feet flat on the floor so your body stays still while you lift.",
