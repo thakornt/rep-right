@@ -16,12 +16,14 @@ import {
   type User,
 } from "./api";
 import type { Messages } from "./i18n/messages";
+import { restoreWithRetry } from "./session-restore";
 
 /** Why the last sign-in failed; the page shows it in the visitor's language. */
 export type AuthError = keyof Messages["auth"]["errors"];
 
 export type AuthState =
-  | { kind: "checking" }
+  /** reconnecting: the API is asleep or restarting; we keep trying before deciding. */
+  | { kind: "checking"; reconnecting?: boolean }
   | { kind: "signed-out"; error?: AuthError }
   | { kind: "signed-in"; user: User };
 
@@ -50,10 +52,20 @@ function restore() {
   const settle = (next: AuthState) => {
     if (gen === generation) set(next);
   };
-  refreshSession()
-    .then(async (ok) => (ok ? getMe() : null))
-    .then((user) => settle(user ? { kind: "signed-in", user } : { kind: "signed-out" }))
-    .catch(() => settle({ kind: "signed-out" }));
+  // Only a 401 on refresh means signed out. While the API cannot answer
+  // (asleep, restarting after a deploy, offline) keep "checking" and retry,
+  // so a slow server never looks like a lost session.
+  restoreWithRetry({
+    attempt: refreshSession,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    onWaiting: () => settle({ kind: "checking", reconnecting: true }),
+    stop: () => gen !== generation,
+  })
+    .then(async (outcome) => {
+      if (outcome === "ok") return settle({ kind: "signed-in", user: await getMe() });
+      settle(outcome === "unavailable" ? { kind: "signed-out", error: "unavailable" } : { kind: "signed-out" });
+    })
+    .catch(() => settle({ kind: "signed-out", error: "unavailable" }));
 }
 
 function subscribe(l: () => void) {

@@ -61,6 +61,35 @@ func (q *Queries) LockRefreshTokenByHash(ctx context.Context, tokenHash []byte) 
 	return i, err
 }
 
+const lockRefreshTokenByID = `-- name: LockRefreshTokenByID :one
+SELECT id, user_id, expires_at, revoked_at, replaced_by
+FROM refresh_tokens
+WHERE id = $1
+FOR UPDATE
+`
+
+type LockRefreshTokenByIDRow struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	ExpiresAt  time.Time
+	RevokedAt  pgtype.Timestamptz
+	ReplacedBy uuid.NullUUID
+}
+
+// The token that replaced a rotated one, to tell a lost response from a replay.
+func (q *Queries) LockRefreshTokenByID(ctx context.Context, id uuid.UUID) (LockRefreshTokenByIDRow, error) {
+	row := q.db.QueryRow(ctx, lockRefreshTokenByID, id)
+	var i LockRefreshTokenByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.ReplacedBy,
+	)
+	return i, err
+}
+
 const markRefreshTokenRotated = `-- name: MarkRefreshTokenRotated :exec
 UPDATE refresh_tokens
 SET revoked_at = $1::timestamptz, replaced_by = $2::uuid

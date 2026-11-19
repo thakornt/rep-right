@@ -83,6 +83,9 @@ func (f *fakeAuth) LoginWithLine(_ context.Context, code, redirectURI, nonce str
 }
 
 func (f *fakeAuth) Refresh(_ context.Context, raw string) (auth.Session, error) {
+	if raw == "raced" {
+		return auth.Session{}, auth.ErrRefreshRaced
+	}
 	if raw != "r1" {
 		return auth.Session{}, auth.ErrInvalidRefreshToken
 	}
@@ -225,6 +228,19 @@ func TestRefreshInvalidClearsCookie(t *testing.T) {
 		}
 		if c := refreshCookieOf(t, w); c.MaxAge >= 0 || c.Value != "" {
 			t.Errorf("cookie should be cleared: %+v", c)
+		}
+	}
+}
+
+func TestRefreshRacedKeepsCookie(t *testing.T) {
+	w := send(newAuthRouter(&fakeAuth{}), http.MethodPost, "/v1/auth/refresh", "", http.Header{"Cookie": {refreshCookie + "=raced"}})
+	if w.Code != http.StatusConflict || decodeError(t, w).Code != CodeRefreshRaced {
+		t.Fatalf("got %d %s", w.Code, w.Body)
+	}
+	// The other tab's response set the new cookie; this one must not wipe it.
+	for _, c := range w.Result().Cookies() {
+		if c.Name == refreshCookie {
+			t.Errorf("a raced refresh must not touch the cookie: %+v", c)
 		}
 	}
 }

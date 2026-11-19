@@ -32,6 +32,7 @@ export const en: Messages = {
     loading: "Loading…",
     openingPage: "Opening page…",
     checkingSignIn: "Checking sign-in…",
+    reconnecting: "Connecting to the server, this can take a moment…",
     terms: "Terms of use",
     privacy: "Privacy policy",
     and: "and",
@@ -104,6 +105,7 @@ export const en: Messages = {
       googlePopup: "Couldn't open the Google window. Try again, or refresh the page.",
       lineStart: "Couldn't open the LINE sign-in page. Please try again.",
       lineCancelled: "LINE sign-in was cancelled.",
+      unavailable: "Can't reach the server right now. You're still signed in; try refreshing in a moment.",
     },
   },
 
